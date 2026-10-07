@@ -125,7 +125,7 @@
 - 构建与业务测试：运行 `scripts/build.ps1 -Package`，Web `npm ci`、类型检查和生产构建、锁定 NuGet restore、Release/MSIX 构建通过，0 warning、0 error；MSTest 5/5。
 - 原生宿主烟测：`scripts/test-islands-probe.ps1 -Production` 通过。编辑器原生焦点和输入触发预览更新至 v20；Tab 到预览及工具栏、Shift+Tab 反向路径通过；窗口调整后的编辑区边界检查通过；WM_CLOSE 后进程正常退出。结果见忽略文件 `artifacts/native-host-smoke.json`。
 - Web 安全回归：真实 WebView2 对生产 EXE 执行 `scripts/test-webview-m1.js`，现有 7 类检查通过；随后通过 UI Automation 正常关闭窗口并关闭 MCP 页面。此结果不等于 MSIX 安装验证。
-- 产物与图谱：生产 Release EXE SHA-256 `0A8A3756921F862522F8897B358D8601BE68BD64707E7DDE70620C7DBF2D5267`。Graphify `extract . --code-only --no-cluster` 更新为 561 nodes、797 edges；`global.json` 仍有零节点 warning，未运行语义提取。
+- 产物与图谱：生产 Release EXE SHA-256 `0A8A3756921F862522F8897B358D8601BE68BD64707E7DDE70620C7DBF2D5267`。最终 Graphify `extract . --code-only --no-cluster` 更新为 562 nodes、798 edges；`global.json` 仍有零节点 warning，未运行语义提取。源码迁移提交为 `f71084d`，未推送远端。
 - 签名与安装：`scripts/install-dev.ps1` 在 `CurrentUser` 范围签名成功，签名 MSIX SHA-256 为 `B21078CA298917C22E78AA0069F0920970E36029D333F9A7419F8E70CE62B956`。提升安装命令启动后返回“操作已被用户取消”，安装脚本未执行；本轮没有机器证书链验证、MSIX 安装或包内启动结果。后续核实 Marker 安装数为 0、`LocalMachine\TrustedPeople` 中不存在 `Marker.Dev` 证书、9222 无监听。
 - 尚未完成：生产 EXE 微信输入法人工验收仍待用户反馈。独立原型之前的微信输入通过仍只是原型证据；生产 IME 与 MSIX 安装验收待后续记录。
 
