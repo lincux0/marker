@@ -1,4 +1,4 @@
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, isolateHistory } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
@@ -60,6 +60,19 @@ function sendSnapshot(): void {
   post({ type: "snapshot", sessionId, version, text });
 }
 
+function insertParagraph(editor: EditorView): boolean {
+  if (editor.compositionStarted) return false;
+  const end = editor.state.doc.lineAt(editor.state.selection.main.head).to;
+  editor.dispatch({
+    changes: { from: end, insert: "\n\n" },
+    selection: { anchor: end + 2 },
+    scrollIntoView: true,
+    userEvent: "input",
+    annotations: isolateHistory.of("full"),
+  });
+  return true;
+}
+
 function initialize(nextSessionId: string, text: string): void {
   if (nextSessionId === sessionId) return;
   if (pendingSnapshot !== undefined) window.clearTimeout(pendingSnapshot);
@@ -75,7 +88,8 @@ function initialize(nextSessionId: string, text: string): void {
         markdown(),
         syntaxHighlighting(defaultHighlightStyle),
         history(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([{ key: "Ctrl-Enter", run: insertParagraph }, ...defaultKeymap, ...historyKeymap]),
+        EditorView.contentAttributes.of({ "aria-label": "Markdown 编辑器", "aria-description": "Ctrl+Enter 在当前行后新建段落" }),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           version++;

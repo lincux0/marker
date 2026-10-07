@@ -16,7 +16,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="18" Text="编辑" />
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="18" Text="编辑 · Ctrl+Enter 新段落" />
             <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="18" Text="预览" />
             <Button x:Name="ResyncButton" Grid.Column="3" Click="ResyncButton_Click" Content="重新同步" />
         </Grid>

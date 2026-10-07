@@ -1,6 +1,6 @@
 # 项目结构与架构基线
 
-本文描述仓库当前真实结构。M1 技术原型已经接入编辑、解析和预览；中文输入法实机验收尚未完成，因此 M1 仍未达到退出条件。
+本文描述仓库当前真实结构。M1 技术原型已经接入编辑、解析和预览；用户反馈中文输入法大部分验收通过，但微信输入法/双屏/200% 缩放的候选框异常仍待修复，因此 M1 未达到退出条件。
 
 - 当前状态：WinUI 3 双 WebView2 技术原型、独立 Web 工程、全量快照桥接和 Markdig 预览链路。
 - 当前没有真实文件读写、保存、文件树、多标签或设置持久化。
@@ -44,7 +44,7 @@
 
 - `package.json`、`package-lock.json`：Web 工程脚本、CodeMirror 6、DOMPurify 及锁定版本。
 - `index.html`、`preview.html`：编辑器与预览独立页面入口，分别声明内容安全策略 CSP。
-- `src/main.ts`：创建 CodeMirror 6 Markdown 编辑器，维护编辑历史与会话版本，发送全量文本快照并响应重同步请求。
+- `src/main.ts`：创建 CodeMirror 6 Markdown 编辑器，维护编辑历史与会话版本，发送全量文本快照并响应重同步请求；Ctrl+Enter 在当前行后插入新段落，独立记录撤销历史。
 - `src/preview.ts`：检查会话、版本和 HTML 大小，以 DOMPurify 标签/属性白名单净化后更新预览，并回报已渲染版本。
 - `src/style.css`、`src/preview.css`：编辑器和预览的基础布局及明暗配色。
 - `vite.config.ts`：构建编辑器和预览两个本地页面入口。

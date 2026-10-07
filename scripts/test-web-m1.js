@@ -37,6 +37,14 @@ async (page) => {
     await editor.evaluate(() => window.markerTest.receive({ type: 'requestSnapshot', sessionId: 'test-session' }));
     const after = await editor.evaluate(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1));
     check(after.text === before.text && after.version === before.version, 'resync must preserve text and undo history');
+    stage = 'paragraph';
+    await editor.keyboard.press('Control+End');
+    await editor.keyboard.press('Control+Enter');
+    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('中文 😀\n\n'));
+    await editor.keyboard.press('Control+z');
+    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('中文 😀'));
+    await editor.keyboard.press('Control+y');
+    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('中文 😀\n\n'));
     await preview.goto('http://127.0.0.1:5173/preview.html');
     await preview.evaluate(() => {
       window.markerTest.receive({ type: 'initialize', sessionId: 'test-session', text: '' });
@@ -52,7 +60,7 @@ async (page) => {
     });
     check(await preview.locator('#preview h1').innerText() === '安全预览', 'stale/wrong-session render');
     check(await preview.evaluate(() => window.markerTest.sent.some(message => message.type === 'rendered' && message.version === 5)), 'render ack');
-    return { passed: true, checks: ['snapshot UTF-16 text', 'undo/redo', 'resync', 'sanitization', 'stale version/session', 'render ack'], windowsIme: 'not tested' };
+    return { passed: true, checks: ['snapshot UTF-16 text', 'undo/redo', 'resync', 'paragraph shortcut/undo/redo', 'sanitization', 'stale version/session', 'render ack'], windowsIme: 'not tested' };
   } catch (error) {
     throw new Error(`${stage}: ${error.message}; ${JSON.stringify(await editor.evaluate(() => ({ sent: window.markerTest?.sent, text: document.querySelector('.cm-content')?.textContent, platform: navigator.platform })))}`);
   } finally { await context.close(); }
