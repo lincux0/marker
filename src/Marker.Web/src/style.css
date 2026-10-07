@@ -1,0 +1,48 @@
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  color: #202124;
+  background: #fff;
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+#editor {
+  height: 100%;
+}
+
+#status {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10;
+  max-width: min(520px, calc(100vw - 24px));
+  padding: 8px 12px;
+  border: 1px solid #b36b00;
+  border-radius: 6px;
+  color: #592f00;
+  background: #fff4ce;
+  font: 13px/1.4 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+.cm-editor {
+  height: 100%;
+  font-size: 15px;
+}
+
+.cm-scroller {
+  overflow: auto;
+  font-family: Consolas, "Microsoft YaHei UI", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e6e6e6;
+    background: #202020;
+  }
+}

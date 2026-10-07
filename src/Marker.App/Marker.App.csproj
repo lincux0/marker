@@ -26,6 +26,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.9169" />
+    <PackageReference Include="Markdig" Version="1.4.0" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\*.png" />

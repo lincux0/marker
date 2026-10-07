@@ -2,7 +2,7 @@
 
 Marker 是一款面向 Windows 的 Markdown 编辑与阅读器，目标是提供本地文件工作流、CodeMirror 6 编辑体验和 Markdig 预览。
 
-项目当前处于 M0 工程阶段。现有程序是可构建的 WinUI 3 空窗口；CodeMirror 6 依赖已锁定，但尚未接入窗口，Markdig 也尚未加入。不要把当前构建描述为可用的 Markdown 编辑器。
+项目当前为 M1 技术原型：CodeMirror 6 编辑内容经 C# 会话/版本校验和 Markdig 解析后更新常驻预览。原型仅使用内置样例，尚无文件打开/保存；中文输入法实机验收待完成，M1 尚未退出。
 
 ## 项目决策
 
@@ -35,4 +35,4 @@ MSIX 输出到 `artifacts/msix/`，默认未签名。构建、签名与安装流
 
 ## 当前状态
 
-本机 Windows build 26300 上的 Release 构建、MSIX 生成及开发签名安装烟雾测试已通过；安装后的空窗口标题为 `Marker`、正文为 `Marker M0`，随后已关闭并卸载，临时机器信任已移除。独立本地干净克隆中的锁定依赖恢复、Release 和 MSIX 构建也已通过。测试项目目前没有业务测试，`dotnet test` 显示 0 tests，不代表业务行为已测试。GitHub Actions 尚未在远端执行；没有进行 Git push。
+M1 的 Web 生产构建、x64 Release/MSIX 构建和 5 项业务测试通过；Playwright 检查全文快照、撤销重做、重同步、预览净化及会话/版本过滤。安装测试与尚未验收事项见[项目建设历程](docs/progress.md)。M0 的独立干净克隆验证是历史证据。GitHub Actions 尚未在远端执行；没有进行 Git push。

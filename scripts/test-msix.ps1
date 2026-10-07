@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$PackagePath)
+param([Parameter(Mandatory)][string]$PackagePath, [switch]$M1)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -51,8 +51,55 @@ public class MarkerWindowRect {
     [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
     [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
 }
 '@
+    if ($M1) {
+        # Real packaged WebView handshake, not merely a successful process launch.
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+        $window = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+        # FindFirst's optimized provider query can omit WinUI siblings after a WebView.
+        # RawViewWalker traverses the native tree without that provider shortcut.
+        function Find-MarkerControl($node, [string]$id) {
+            if ($node.Current.AutomationId -eq $id) { return $node }
+            $walker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+            $child = $walker.GetFirstChild($node)
+            while ($child) {
+                $found = Find-MarkerControl $child $id
+                if ($found) { return $found }
+                $child = $walker.GetNextSibling($child)
+            }
+        }
+        for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            $status = Find-MarkerControl $window 'BridgeStatus'
+            if ($status -and $status.Current.Name -match '预览已同步.*v0') { break }
+            Start-Sleep -Milliseconds 500
+        }
+        $result.bridgeStatus = if ($status) { $status.Current.Name } else { '' }
+        $result.previewReady = $result.bridgeStatus -match '预览已同步.*v0'
+        if (-not $result.previewReady) { throw ('Packaged editor/Markdig/preview handshake failed: ' + $result.bridgeStatus) }
+        # Exercise keyboard editing in the real WebView; this is deliberately not an IME test.
+        [void][MarkerWindowRect]::SetForegroundWindow($process.MainWindowHandle)
+        $inputDpi = [MarkerWindowRect]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
+        try {
+            $inputRect = [MarkerWindowRect+Rect]::new()
+            if (-not [MarkerWindowRect]::GetWindowRect($process.MainWindowHandle, [ref]$inputRect)) { throw 'Cannot locate the editor window.' }
+            [void][MarkerWindowRect]::SetCursorPos($inputRect.Left + [int](($inputRect.Right-$inputRect.Left)/4), $inputRect.Top + [int](($inputRect.Bottom-$inputRect.Top)/3))
+            [MarkerWindowRect]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
+            [MarkerWindowRect]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+        } finally { [void][MarkerWindowRect]::SetThreadDpiAwarenessContext($inputDpi) }
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.SendKeys]::SendWait('^{END}{ENTER}M1 smoke')
+        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            $result.bridgeStatus = $status.Current.Name
+            if ($result.bridgeStatus -match '预览已同步.*v([1-9][0-9]*)') { break }
+            Start-Sleep -Milliseconds 500
+        }
+        $result.editPreviewUpdated = $result.bridgeStatus -match '预览已同步.*v([1-9][0-9]*)'
+        if (-not $result.editPreviewUpdated) { throw 'Editing did not update the packaged preview.' }
+    }
     Add-Type -AssemblyName System.Drawing
     $oldDpiContext = [MarkerWindowRect]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
     $rect = [MarkerWindowRect+Rect]::new()
@@ -61,10 +108,17 @@ public class MarkerWindowRect {
     $graphics = [Drawing.Graphics]::FromImage($bitmap)
     try {
         $graphics.CopyFromScreen($rect.Left,$rect.Top,0,0,$bitmap.Size)
-        $bitmap.Save((Join-Path $root 'artifacts\marker-m0.png'),[Drawing.Imaging.ImageFormat]::Png)
+        $screenshot = if ($M1) { 'artifacts\marker-m1.png' } else { 'artifacts\marker-m0.png' }
+        $bitmap.Save((Join-Path $root $screenshot),[Drawing.Imaging.ImageFormat]::Png)
     } finally {
         $graphics.Dispose(); $bitmap.Dispose()
         [void][MarkerWindowRect]::SetThreadDpiAwarenessContext($oldDpiContext)
+    }
+    if ($M1) {
+        $windowPattern = $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+        $windowPattern.Close()
+        $result.closedNormally = $process.WaitForExit(10000)
+        if (-not $result.closedNormally) { throw 'Marker did not exit after closing its window.' }
     }
     $result.passed = $true
 } catch {

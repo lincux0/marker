@@ -3,11 +3,35 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Marker">
-    <Grid>
+    <Grid x:Name="RootGrid" Padding="16" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="18" Text="编辑" />
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="18" Text="预览" />
+            <Button x:Name="ResyncButton" Grid.Column="3" Click="ResyncButton_Click" Content="重新同步" />
+        </Grid>
+        <Grid Grid.Row="1" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <WebView2 x:Name="EditorView" Grid.Column="0" />
+            <WebView2 x:Name="PreviewView" Grid.Column="1" />
+        </Grid>
         <TextBlock
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            FontSize="24"
-            Text="Marker M0" />
+            x:Name="BridgeStatus"
+            Grid.Row="2"
+            AutomationProperties.AutomationId="BridgeStatus"
+            IsHitTestVisible="False" />
     </Grid>
 </Window>

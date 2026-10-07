@@ -52,29 +52,40 @@
 - 限制：本轮为纯文档建设，未重跑 M0 构建、安装或业务测试，未执行远端 CI，也未生成新的 EXE/MSIX。
 - 提交追溯：本记录随文档提交维护，可通过 `git log -- docs/progress.md` 查看对应提交。原有开发方案表格格式修改保留在工作区，不纳入本轮提交。
 
+## 2026-10-07：M1 编辑/预览技术原型
+
+- 实现：WinUI 双 WebView2 共享环境但使用不同本地 HTTPS 来源；CodeMirror 6 编辑与历史、带会话/版本的全文快照、Markdig 后台解析、DOMPurify 常驻预览、过期结果丢弃与同版本重同步。
+- 安全边界：对应页面导航和资源白名单、禁止 frame/新窗口/宿主对象、精确消息来源/字段/会话/尺寸校验、原始 HTML 禁用、预览标签/属性白名单与 CSP；不提供文件 API。
+- 验证：`scripts/build.ps1 -Package` 完成锁定恢复、Web 类型检查/生产构建、x64 Release 和 MSIX，0 warning、0 error。后续增加受控长文检查后，MSTest 5/5 通过，结果在 `artifacts/tests/m1-tests.trx`。
+- 长文基线：114,006 个 UTF-16 单元的受控 Markdown 转为 270,012 个 HTML 单元，预热后本次解析 85.47 ms，末尾标记完整。单次本机解析不代表端到端延迟、内存或输入法性能保证。
+- Playwright：使用现有 MCP 和 `scripts/test-web-m1.js` 检查中文/emoji 快照、Ctrl+Z/Ctrl+Y、重同步、危险 HTML 净化、旧版本/错误会话丢弃及 render ack；全部通过。初次脚本用 Ctrl+Shift+Z 检查 Windows 重做而超时，按 CodeMirror Windows 默认 Ctrl+Y 修正后通过。测试上下文、页面及 Vite 服务器已关闭。
+- 真实 Windows EXE：在 build 26300 直接启动本轮 Release EXE，内置样例预览 v0 就绪，原生按键编辑后预览更新为 v3，正常关闭窗口并退出进程。`artifacts/exe-smoke.json` 的 `passed/previewReady/editPreviewUpdated/closedNormally` 均为 true；截图 `artifacts/marker-m1.png` 已检查。原始 UI Automation 控件树可定位状态栏；优化查询会遗漏 WebView 后的兄弟控件，安装脚本已据此修正。
+- MSIX：已重新生成并开发签名，大小 95,408,605 字节；SHA-256 `2027BB95276F79FFCB1D4DE386B52C93033C76AB0B95A9F564C836E7B58999F1`。包路径仍为 `artifacts/msix/Marker.App_0.1.0.0_x64_Test/Marker.App_0.1.0.0_x64.msix`。本轮 UAC 启动安装测试被系统报告用户取消，因此 M1 包安装验证未执行；旧 `msix-smoke.json` 属于 M0，不作为本轮证据。
+- 清理：本轮 Marker 测试进程已关闭；没有本轮测试包安装，也未新增机器级信任，精确 Marker.Dev 指纹在 LocalMachine/TrustedPeople 中不存在。当前用户开发签名材料仍保留。
+- Graphify：执行 `graphify extract . --code-only --no-cluster`，371 节点、461 边；没有语义提取，CSS、manifest、文档和 global.json 的关系不能由图谱替代核验。
+- 限制：用户暂不方便参与真实 IME，组合输入、候选框定位、跨视图焦点和窗口浮层仍待人工验收。浏览器插入文本与原生按键测试均不冒充 IME 通过。M1 MSIX 安装、最低 build 26100 实机、完整 WebView 导航/资源安全集成、远端 Actions 和生产发布未验收。
+- 提交追溯：本记录随 M1 原型提交维护，使用 `git log -- docs/progress.md` 查询；无 Git push。原有方案阶段总览表格格式修改继续保留在工作区，不纳入本轮提交。
+
 ## 当前阶段
 
-- 当前源码阶段：M0 已完成；M1 尚未开始。
-- WebView2 未接入；CodeMirror 依赖虽已锁定但编辑器未初始化；Markdig 未引用。
-- 当前窗口仍为空壳，不应描述为可用 Markdown 编辑器或预览器。
-- 测试工程无业务测试；支持 build 26100 的专机兼容性未验证。
-- 本次文档整理未重跑历史构建/安装验收，没有改变上述证据状态。
-- 下一项实施应从 M1 原型开始；M0 无需重复建设或重新规划其已完成部分。
+- M0 已完成；M1 原型实现与上述自动/EXE 检查完成，阶段仍为“待人工与安装验收”，尚未退出。
+- 当前程序仅使用内置受控样例，没有打开、保存、文件树或真实文档工作流。
+- M2 保持待实施；先完成 M1 的真实 IME 及剩余集成退出检查。
 
 ## 后续阶段
 
 | 阶段 | 目标 | 状态 |
 |---|---|---|
-| M1 技术风险原型 | 编辑/预览链路、中文输入、WebView 安全边界和长文基线 | 待实施 |
+| M1 技术风险原型 | 编辑/预览链路、中文输入、WebView 安全边界和长文基线 | 原型已实现；待人工 IME、安装及完整安全集成验收 |
 | M2 安全文件闭环 | 打开、保存、冲突检测、恢复与本地资源边界 | 待实施 |
 | M3 可用编辑阅读 | P0 编辑、阅读和 Markdown 能力 | 待实施 |
 | M4 UI 与 Windows 适配 | 原生交互、视觉、动效与系统适配 | 待实施 |
 | M5 发布验收 | P0 回归、签名、MSIX 安装和发布准备 | 待实施；生产签名凭据待维护者提供 |
 | M6 P1 迭代 | 按用户反馈评估并实现 P1 能力 | 待 M5 后排期 |
 
-## 下一步：M1 前置与退出条件
+## 下一步：M1 剩余退出条件
 
-- 前置：M0 工程基线已具备；进入 M1 前按[开发方案 M1](开发方案.md)明确原型范围与安全验收样例。
+- 按[开发方案 M1](开发方案.md)完成剩余人工、安装和安全集成验收；已通过的本次检查不重复冒充新结果。
 - 验证 CodeMirror 编辑文本经过 C# 会话版本校验、Markdig 解析并更新常驻预览页的全量快照链路。
 - 使用两个职责分离的 WebView2，并验证共享环境、资源映射、消息来源检查、导航和文档 HTML 隔离。
 - 在真实 Windows 桌面验证中文 IME、焦点、撤销、编辑长文和预览更新；记录设备 build 与观察结果。

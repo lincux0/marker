@@ -1,0 +1,56 @@
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  color: #202124;
+  background: #fff;
+  font: 16px/1.65 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+#preview {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 28px 36px 64px;
+  overflow-wrap: anywhere;
+}
+
+pre,
+code {
+  font-family: Consolas, "Microsoft YaHei UI", monospace;
+}
+
+pre {
+  overflow: auto;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f2f3f5;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 6px 10px;
+  border: 1px solid #d4d7dc;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e6e6e6;
+    background: #202020;
+  }
+
+  pre {
+    background: #2b2b2b;
+  }
+
+  th,
+  td {
+    border-color: #555;
+  }
+}
