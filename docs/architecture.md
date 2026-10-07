@@ -1,6 +1,6 @@
 # 项目结构与架构基线
 
-本文描述仓库当前真实结构。M1 技术原型已经接入编辑、解析和预览；用户反馈中文输入法大部分验收通过，但微信输入法/双屏/200% 缩放的候选框异常仍待修复，因此 M1 未达到退出条件。
+本文描述仓库当前真实结构。生产应用仍为 WinUI 3 双 XAML WebView2；独立 XAML Islands 原型已验证 Win32 主窗口下的编辑与微信输入法，但尚未迁入生产应用，M1 仍未达到退出条件。
 
 - 当前状态：WinUI 3 双 WebView2 技术原型、独立 Web 工程、全量快照桥接和 Markdig 预览链路。
 - 当前没有真实文件读写、保存、文件树、多标签或设置持久化。
@@ -15,7 +15,8 @@
 | `global.json` | 固定 .NET SDK `10.0.401`，禁止自动 roll-forward。 |
 | `src/` | 应用源代码，包含桌面端与独立 Web 工程。 |
 | `tests/` | 自动化测试工程，覆盖消息会话校验与 Markdown 渲染。 |
-| `scripts/` | 本地 SDK 准备、构建、开发签名及 MSIX 烟雾测试脚本。 |
+| `scripts/` | 本地 SDK 准备、构建、开发签名、MSIX 烟雾测试及 Islands 原型烟测脚本。 |
+| `experiments/Marker.IslandsProbe/` | 独立 Win32 + WinUI 3 XAML Islands + windowed WebView2 宿主实验，不属于解决方案或 MSIX。 |
 | `.github/workflows/` | Windows CI 构建工作流定义；远端是否执行需看 Actions 记录。 |
 | `docs/` | 产品方案、工程指南、架构、决策和历程文档。 |
 | `AGENTS.md` | 仓库开发与文档持续维护要求。 |
@@ -59,6 +60,12 @@
 - `BridgeSessionTests.cs`：覆盖可信来源、会话、字段、版本与尺寸校验。
 - `MarkdownRendererTests.cs`：覆盖常见 Markdown、选定扩展、自动链接、原始 HTML 禁用和受控长文完整性。
 - 测试工程直接链接桌面端两个纯逻辑源文件；目前无需额外抽取 `CoreLib`。
+
+## 独立 Islands 宿主实验
+
+`experiments/Marker.IslandsProbe/` 是独立 Release 原型：Win32 HWND 作为根窗口，`DesktopWindowXamlSource` 只承载工具栏，编辑器和预览分别放在原生子 HWND 的 windowed WebView2 controller 中。它复用生产 Web 内容、桥接会话和 Markdown 渲染源文件，但使用独立 WebView2 用户数据目录。该实验不修改 `src/Marker.App/`，不加入 `Marker.sln`，也不进入生产 EXE/MSIX。
+
+用户实机确认微信输入法可编辑且候选框正常，并在移动/缩放窗口后仍正常。自动烟测证据见 `artifacts/islands-probe-smoke.json`；其中系统 DPI 实测为 120，不能据此宣称该烟测覆盖了用户报告的 200% 缩放。原生焦点、预览更新、窗口调整与关闭自动烟测通过；Tab 全环、读屏器和最低 build 尚未完整实测。真实 WebView 安全脚本在重新启动的可见原型窗口中通过。是否将宿主迁入生产应用仍待项目维护者决定。
 
 ## 数据流与边界
 

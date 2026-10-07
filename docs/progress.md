@@ -109,17 +109,28 @@
 - 恢复后更新 Graphify：code-only、no-cluster，365 节点、425 边；`global.json` 仍报告零节点，未运行语义提取。实验代码未进入当前图谱。
 - 待决的下一步是 Win32 主窗口承载 WinUI 3 XAML Islands 与原生编辑器子窗口的小原型，需要重新验证真实输入、DPI、焦点、无障碍及关闭生命周期；尚未实施，也不承诺其必然修复。官方入口：[DesktopWindowXamlSource](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.hosting.desktopwindowxamlsource)。
 
+## 2026-10-07：Win32 + XAML Islands 宿主原型
+
+- 范围：新增独立 `experiments/Marker.IslandsProbe/`，以 Win32 HWND 为根窗口，WinUI 3 XAML Islands 承载工具栏，两个原生子 HWND 分别承载 windowed WebView2 编辑器和预览。生产应用和 MSIX 未迁移、未改变。
+- 构建：独立 x64 Release 原型构建通过，0 warning、0 error。EXE 位于 `experiments/Marker.IslandsProbe/bin/x64/Release/net10.0-windows10.0.26100.0/win-x64/Marker.IslandsProbe.exe`。
+- 实机：用户确认微信输入法可以编辑、候选框正常，且窗口移动/缩放后仍正常。该结果验证此原型的用户路径，不代表生产应用已修复。
+- 自动烟测：`scripts/test-islands-probe.ps1` 通过，编辑焦点落在原生 WebView 子树，按键后预览更新到 v14，调整窗口尺寸后编辑区仍在客户区内，窗口正常退出；结果保存在 `artifacts/islands-probe-smoke.json`。本次报告 DPI 120，不能声称自动检查覆盖了 200% 缩放。
+- 安全回归：真实 WebView 安全脚本在重新启动的可见原型窗口中复验通过，覆盖解析/净化、CSP 外联、file、新窗口、导航、错误会话和预览页权限。首次检查因 heading 不可见而失败，重新启动可见窗口后复验通过；首次失败原因未进一步确认。
+- 清理与产物：测试进程通过 UIA 正常关闭，确认 9222 无监听，MCP 页面已关闭。原型 Release EXE SHA-256 为 `9AC65237A3B7845335438CFDE1D4682298D278D89B0092D26D614AB67DFC9F3C`。Graphify code-only/no-cluster 更新为 525 nodes、681 edges；`global.json` 仍为零节点 warning，未运行语义提取。
+- 尚未验证：Tab 焦点全环、读屏器和最低 build 26100 实机。是否正式迁移宿主待维护者决策；生产宿主问题仍在，M1 未退出。
+
+
 ## 当前阶段
 
-- M0 已完成；M1 原型实现与上述自动/EXE 检查完成，安装与上述真实 WebView 安全样例验收通过；用户人工反馈大部分通过，但微信输入法候选框异常待定位/修复，阶段尚未退出。
+- M0 已完成；生产 M1 原型、安装及安全样例检查完成。Win32 + XAML Islands 独立宿主原型已通过用户微信输入法体验，但尚未迁入生产应用；生产宿主候选框问题仍存在，阶段尚未退出。原生焦点/预览/resize/close 自动检查和本轮真实 WebView 安全回归通过；Tab 全环、读屏器与最低 build 尚未完整实测。
 - 当前程序仅使用内置受控样例，没有打开、保存、文件树或真实文档工作流。
-- M2 保持待实施；先完成 M1 的真实 IME 退出检查。
+- M2 保持待实施；先完成宿主决策及所选生产路径的 M1 剩余验收。
 
 ## 后续阶段
 
 | 阶段 | 目标 | 状态 |
 |---|---|---|
-| M1 技术风险原型 | 编辑/预览链路、中文输入、WebView 安全边界和长文基线 | 原型、安装与安全样例通过；候选框缺陷待修复 |
+| M1 技术风险原型 | 编辑/预览链路、中文输入、WebView 安全边界和长文基线 | 生产宿主的候选框问题未解决；独立 Islands 原型实机输入和安全/基础焦点烟测通过，迁移待决；Tab 全环、读屏器、最低 build 待验 |
 | M2 安全文件闭环 | 打开、保存、冲突检测、恢复与本地资源边界 | 待实施 |
 | M3 可用编辑阅读 | P0 编辑、阅读和 Markdown 能力 | 待实施 |
 | M4 UI 与 Windows 适配 | 原生交互、视觉、动效与系统适配 | 待实施 |
@@ -128,12 +139,10 @@
 
 ## 下一步：M1 剩余退出条件
 
-- 按[开发方案 M1](开发方案.md)完成剩余人工 IME 验收；已通过的本次检查不重复冒充新结果。
-- 验证 CodeMirror 编辑文本经过 C# 会话版本校验、Markdig 解析并更新常驻预览页的全量快照链路。
-- 使用两个职责分离的 WebView2，并验证共享环境、资源映射、消息来源检查、导航和文档 HTML 隔离。
-- 在真实 Windows 桌面验证中文 IME、焦点、撤销、编辑长文和预览更新；记录设备 build 与观察结果。
-- 未通过安全门槛前，不将预览暴露给真实用户文档内容。
-- 完成后记录改动文件/行为、可复现命令、测试结果、真实设备限制和 Git 提交，再将阶段状态改为完成。
+- 用户需决定是否将 Win32 + XAML Islands 宿主迁入 Marker 生产应用；迁移前仍由生产双 XAML WebView2 承载编辑与预览。
+- Islands 原型已通过微信输入法、候选框位置和窗口移动/缩放实机检查；自动烟测报告 DPI 120，不代表在 200% DPI 下完成自动测量。若迁移，须在生产 EXE 重复 IME 验收。
+- 原型的真实 WebView 安全样例及原生焦点、预览更新、窗口调整、关闭烟测已通过。Tab 全环、读屏器和最低 build 26100 实机仍待验证；迁移决策后按正式宿主复验相关项目。
+- M1 仍未退出；完成宿主决策及所选生产路径的验收后再评估阶段退出。
 
 ## 持续维护
 

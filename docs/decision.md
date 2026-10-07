@@ -42,13 +42,13 @@
 
 ## D005 编辑器与网页宿主
 
-- 状态：M1 原型已落地，IME 实机验收待完成。
+- 状态：生产仍采用 WinUI 双 XAML WebView2；独立 XAML Islands 宿主原型已通过用户 IME 编辑验收，正式迁移待维护者决策。
 - CodeMirror 6 通过 Vite 本地资源构建，由 WinUI 两个 WebView2 分别承载编辑和预览；两个视图共享 `CoreWebView2Environment`，并使用不同的 HTTPS 虚拟主机来源。
 - CodeMirror 文档为编辑期唯一文本权威，桌面端通过全量快照、会话标识和版本号与编辑器/预览协调；先不引入增量 patch。
 - 理由：保留成熟编辑器历史能力，先以最短链路验证 WebView2、编辑与预览组合。
 - 代价：快照随文档大小增长，当前限制 1 Mi UTF-16 单元；全量解析和 WebView2 消息负担需在更大文档场景评估。CodeMirror 历史不会因预览更新而被 C# 回写覆盖。
 - M1 尚无文件读写、保存、多个标签或真实文件会话。
-- 2026-10-07 宿主实验：在 WinUI `Window` 内增加原生子 HWND、使用 windowed WebView2 controller 的原型未通过真实鼠标/键盘编辑检查，未采纳。当前继续保留双 XAML WebView2；微信输入法兼容问题尚未解决。Win32 主窗口配合 WinUI 3 XAML Islands 是待决的进一步实验方向，不能由独立 WinForms 对照通过推断应用内嵌入必然可行。
+- 2026-10-07 宿主实验：WinUI `Window` 内的原生子 HWND/windowed WebView2 路径无法通过物理输入检查，未采纳。后续独立原型改为 Win32 主窗口、工具栏使用 WinUI 3 XAML Islands、编辑器与预览放入原生子 HWND 的 windowed WebView2。用户确认微信输入法编辑、候选框及移动/缩放后表现正常；原型自动烟测实测 DPI 为 120，不能证明用户报告的 200% 缩放环境已被自动测量。该原型未迁入生产应用；迁移会改变主窗口宿主、焦点/DPI/无障碍和生命周期路径，须由维护者确认后再实施。
 
 ## D006 Markdown 解析
 
@@ -104,7 +104,7 @@
 
 ## D012 M1 WebView2 与预览信任边界
 
-- 状态：M1 原型与真实 WebView 最低安全样例检查通过；人工反馈暴露微信输入法候选框兼容问题，待修复与复测，完整发布回归仍待进行。
+- 状态：生产双 XAML WebView2 仍保留。原生产宿主的微信输入法候选框异常未修复；独立 XAML Islands 原型已由用户确认候选框正常。原型的安全回归及原生焦点/预览/resize/close 自动烟测通过；Tab 全环、读屏器和最低 build 尚未完整实测，完整发布回归仍待进行。
 - 两个视图只从包内 Web 资源加载，使用 `editor.marker.example` 与 `preview.marker.example` 两个来源；宿主限定页面导航、页面资源路径、消息来源、字段、会话、消息深度与尺寸，并拒绝 frame 导航和新窗口。
 - 不暴露 WebView2 Host Object 或文件 API。Markdig 禁用原始 HTML；预览通过 DOMPurify 白名单后再写入 DOM，并由页面 CSP 再限网络、对象、表单、图片和 frame。
 - 理由：M1 输入仍是内置样例，先把网页和原生宿主的能力边界设为最小。
