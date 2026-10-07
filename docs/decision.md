@@ -103,7 +103,7 @@
 
 ## D012 M1 WebView2 与预览信任边界
 
-- 状态：M1 原型与本轮真实 WebView 最低安全样例检查通过；人工 IME 与发布回归仍待进行。
+- 状态：M1 原型与真实 WebView 最低安全样例检查通过；人工反馈暴露微信输入法候选框兼容问题，待修复与复测，完整发布回归仍待进行。
 - 两个视图只从包内 Web 资源加载，使用 `editor.marker.example` 与 `preview.marker.example` 两个来源；宿主限定页面导航、页面资源路径、消息来源、字段、会话、消息深度与尺寸，并拒绝 frame 导航和新窗口。
 - 不暴露 WebView2 Host Object 或文件 API。Markdig 禁用原始 HTML；预览通过 DOMPurify 白名单后再写入 DOM，并由页面 CSP 再限网络、对象、表单、图片和 frame。
 - 理由：M1 输入仍是内置样例，先把网页和原生宿主的能力边界设为最小。

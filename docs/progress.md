@@ -87,6 +87,16 @@
 - 候选框：尚未修复。源码未发现自定义屏幕坐标补偿；CodeMirror Windows 路径没有启用 EditContext，manifest 已为 PerMonitorV2。公开 WebView2 同类报告只作为线索，不能证明本机根因。当前进行普通 textarea 与编辑器的临时对照，未把诊断控件或调试端口写入应用或发布配置。
 - 提交：换段改动单独验证并提交；保留用户既有方案表格格式修改。M1 保持候选框缺陷待修复状态，不进入 M2。
 
+## 2026-10-07：微信输入法候选框宿主对照
+
+- 用户实测对照：Marker 的 CodeMirror 与临时普通 textarea 都异常；独立 Edge 普通 textarea 正常，用户确认移到其描述的 200% 问题屏后仍正常；Marker 切换微软拼音正常；临时 WinForms 原生窗口 WebView2 普通 textarea 使用微信输入法正常。
+- 本机微信输入法文件版本为 `2.1.4.6`。Edge、Marker 和原生窗口对照实际运行的 WebView2/Edge 均为 `154.0.4258.62`，CDP revision 一致。因此没有把对照差异归因于浏览器版本，也没有把问题归因于 CodeMirror 换段命令。
+- 限制：最终读取的 Edge 原生窗口 DPI 为 120，网页 devicePixelRatio 为 1.25；Marker 与原生窗口对照网页也读取为 1.25。这些采样不能证实用户描述的 200% 屏幕状态，也不能单独解释候选框故障。后续宿主实验需记录复现当时的显示器、原生 DPI 与候选框位置。
+- 官方 WinUI WebView2 源码已包含初始化 HWND 切换、XamlRoot 比例与 Bounds 更新、窗口移动通知。其控制器未公开给应用；未找到可靠的应用层最小修复，不使用反射或猜测性坐标乘除。源码与官方 API 核查只支持宿主模式是下一步调查方向，尚不能确定 WinUI、WebView2 或微信输入法哪一方的具体缺陷。参考：[WinUI 实现](https://github.com/microsoft/microsoft-ui-xaml/blob/main/controls/dev/WebView2/WebView2.cpp)、[控制器窗口移动通知](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2controller.notifyparentwindowpositionchanged)。
+- 临时原生窗口对照程序位于被忽略的 `.tools/ime-windowed/`，使用现有 WebView2 NuGet 版本，独立用户数据目录，不进入解决方案或发布包。诊断构建成功，0 error、1 个 WindowsBase/WPF 引用冲突 warning；首次启动的 STA 线程错误已在诊断程序修正，随后页面初始化与用户输入对照成功。此结果不代替 Marker 的构建或发布验收。
+- 对照用 Marker、独立 Edge 和原生窗口测试进程均已正常关闭，诊断端口已清理。生产代码与安装包未因本次诊断改变；本次只维护文档，无需重建应用或 Graphify。
+- 待用户决策：保留 WinUI 3 外壳，先在应用内验证编辑区原生子窗口 WebView2 宿主；该方式会增加 HWND 布局、DPI、焦点和无障碍集成工作，并限制 XAML 动画、裁剪及覆盖编辑区的浮层。独立窗口通过不能证明嵌入 WinUI 后必然修复，必须先验证再确认架构。M1 保持未退出。
+
 ## 当前阶段
 
 - M0 已完成；M1 原型实现与上述自动/EXE 检查完成，安装与上述真实 WebView 安全样例验收通过；用户人工反馈大部分通过，但微信输入法候选框异常待定位/修复，阶段尚未退出。
