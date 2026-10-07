@@ -97,6 +97,18 @@
 - 对照用 Marker、独立 Edge 和原生窗口测试进程均已正常关闭，诊断端口已清理。生产代码与安装包未因本次诊断改变；本次只维护文档，无需重建应用或 Graphify。
 - 待用户决策：保留 WinUI 3 外壳，先在应用内验证编辑区原生子窗口 WebView2 宿主；该方式会增加 HWND 布局、DPI、焦点和无障碍集成工作，并限制 XAML 动画、裁剪及覆盖编辑区的浮层。独立窗口通过不能证明嵌入 WinUI 后必然修复，必须先验证再确认架构。M1 保持未退出。
 
+## 2026-10-07：应用内原生子窗口宿主实验未通过
+
+- 用户同意验证原生子窗口宿主。实现编辑区子 HWND 与 windowed WebView2 controller，预览继续使用 XAML WebView2；复用共享环境、来源隔离、桥接校验和安全策略，并处理布局/DPI、关闭竞态和 Tab 出口。
+- 原型构建、Web 类型检查与生产构建、MSIX 构建均通过，0 warning、0 error，MSTest 5/5。真实 WebView 安全脚本通过解析/净化、CSP 外联、本地文件、新窗口、导航、错误会话和预览消息权限检查。
+- 实机关键门槛失败：用户反馈“无法编辑”。CDP 点击与输入能修改网页，但物理鼠标/键盘没有修改编辑器文本；`GetGUIThreadInfo` 读取到焦点仍在 WinUI 的 `InputSiteWindowClass`，而非原生编辑子窗口。故自动网页输入成功不算真实桌面编辑通过，也无法据此验收微信输入法候选框。
+- 调查中更正了首版 STATIC 窗口类（其默认命中行为不适合作为交互宿主），改用自定义窗口类并保留 DefWindowProc；避免重复显示调用，尝试在编辑区点击激活后交接焦点。仍未通过实机输入检查，因此未将这些实验性修改纳入当前实现。
+- 参考：[WinUI 焦点设计](https://github.com/microsoft/microsoft-ui-xaml/blob/main/docs/design-notes/focus.md)、[同类窗口式 WebView2 输入报告 #10826](https://github.com/microsoft/microsoft-ui-xaml/issues/10826)。这些资料支持继续调查窗口/输入集成，但不证明本机具体根因。未找到可确认适用本场景的公开输入路由修复；未加入反射、DOM 模拟输入或猜测性候选框坐标补偿。
+- 实验源码、补丁与原生烟测检查保存在被忽略的 `.tools/native-host-experiment/`，用于本机复查，不进入发布包。已恢复上一稳定实现并重新构建 EXE/MSIX；保留 Ctrl+Enter 换段功能，用户既有方案表格修改未被覆盖。微信输入法候选框问题仍未解决，M1 未退出。
+- 恢复后的验证：Web 类型/生产构建、Release 与 MSIX 构建通过，0 warning、0 error；MSTest 5/5；开发签名包安装、v3 预览更新、正常关闭、卸载与临时机器信任清理通过。当前恢复版签名 MSIX SHA-256 为 `4B3B5A2FB1C3D406CF3C57B97A15CE4AE5DCAB8F72AAFB1398DEB6419D68E095`，产物路径不变。测试窗口和调试端口已关闭，无 Git push。
+- 恢复后更新 Graphify：code-only、no-cluster，365 节点、425 边；`global.json` 仍报告零节点，未运行语义提取。实验代码未进入当前图谱。
+- 待决的下一步是 Win32 主窗口承载 WinUI 3 XAML Islands 与原生编辑器子窗口的小原型，需要重新验证真实输入、DPI、焦点、无障碍及关闭生命周期；尚未实施，也不承诺其必然修复。官方入口：[DesktopWindowXamlSource](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.hosting.desktopwindowxamlsource)。
+
 ## 当前阶段
 
 - M0 已完成；M1 原型实现与上述自动/EXE 检查完成，安装与上述真实 WebView 安全样例验收通过；用户人工反馈大部分通过，但微信输入法候选框异常待定位/修复，阶段尚未退出。

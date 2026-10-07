@@ -48,6 +48,7 @@
 - 理由：保留成熟编辑器历史能力，先以最短链路验证 WebView2、编辑与预览组合。
 - 代价：快照随文档大小增长，当前限制 1 Mi UTF-16 单元；全量解析和 WebView2 消息负担需在更大文档场景评估。CodeMirror 历史不会因预览更新而被 C# 回写覆盖。
 - M1 尚无文件读写、保存、多个标签或真实文件会话。
+- 2026-10-07 宿主实验：在 WinUI `Window` 内增加原生子 HWND、使用 windowed WebView2 controller 的原型未通过真实鼠标/键盘编辑检查，未采纳。当前继续保留双 XAML WebView2；微信输入法兼容问题尚未解决。Win32 主窗口配合 WinUI 3 XAML Islands 是待决的进一步实验方向，不能由独立 WinForms 对照通过推断应用内嵌入必然可行。
 
 ## D006 Markdown 解析
 
