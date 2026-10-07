@@ -1,8 +1,8 @@
 # 项目结构与架构基线
 
-本文描述仓库当前真实结构。生产应用仍为 WinUI 3 双 XAML WebView2；独立 XAML Islands 原型已验证 Win32 主窗口下的编辑与微信输入法，但尚未迁入生产应用，M1 仍未达到退出条件。
+本文描述仓库当前真实结构。生产应用现由 Win32 主窗口承载 WinUI 3 XAML Islands 工具栏与两个原生子窗口式 WebView2；独立 Islands 原型保留为宿主验收参考。生产宿主迁移已落入源码，M1 的实机 IME、打包和无障碍验收仍需按历程记录核对。
 
-- 当前状态：WinUI 3 双 WebView2 技术原型、独立 Web 工程、全量快照桥接和 Markdig 预览链路。
+- 当前状态：Win32 + WinUI 3 XAML Islands 工具栏 + 双原生 windowed WebView2、独立 Web 工程、全量快照桥接和 Markdig 预览链路。
 - 当前没有真实文件读写、保存、文件树、多标签或设置持久化。
 - 阶段计划见[开发方案](开发方案.md)；版本与构建操作见[工程开发指南](工程开发指南.md)。
 - 稳定技术取舍见[技术决策](decision.md)，阶段记录见[项目历程](progress.md)。
@@ -15,7 +15,7 @@
 | `global.json` | 固定 .NET SDK `10.0.401`，禁止自动 roll-forward。 |
 | `src/` | 应用源代码，包含桌面端与独立 Web 工程。 |
 | `tests/` | 自动化测试工程，覆盖消息会话校验与 Markdown 渲染。 |
-| `scripts/` | 本地 SDK 准备、构建、开发签名、MSIX 烟雾测试及 Islands 原型烟测脚本。 |
+| `scripts/` | 本地 SDK 准备、构建、开发签名、MSIX 烟雾测试及 Islands 原型/生产宿主烟测脚本。 |
 | `experiments/Marker.IslandsProbe/` | 独立 Win32 + WinUI 3 XAML Islands + windowed WebView2 宿主实验，不属于解决方案或 MSIX。 |
 | `.github/workflows/` | Windows CI 构建工作流定义；远端是否执行需看 Actions 记录。 |
 | `docs/` | 产品方案、工程指南、架构、决策和历程文档。 |
@@ -30,9 +30,9 @@
 
 ### `src/Marker.App/`
 
-- `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，启动并激活唯一 `MainWindow`。
-- `MainWindow.xaml`：编辑与预览两个 WebView2、连接状态和全量重同步按钮。
-- `MainWindow.xaml.cs`：创建共享的 `CoreWebView2Environment`，分别加载编辑器与预览页面；限制导航和资源路径；分发消息、异步解析 Markdown、丢弃过期结果并在窗口关闭时清理 WebView2。输入内容目前来自内置受控样例。
+- `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`。
+- `MainWindow.xaml`：定义由 `DesktopWindowXamlSource` 承载的 WinUI 工具栏、状态文本、进入编辑器及重新同步按钮。
+- `MainWindow.xaml.cs`：`MainWindow` 是工具栏 `UserControl`，同时注册并创建 Win32 根 HWND 和编辑器/预览子 HWND；将工具栏连接到根 HWND 的 `DesktopWindowXamlSource`，创建共享 WebView2 环境和两个 windowed controller；负责客户区布局、焦点交接、DPI/窗口消息、导航与资源限制、桥接消息、异步 Markdown 解析及关闭清理。输入内容目前来自内置受控样例。
 - `BridgeSession.cs`：校验页面来源、消息类型与字段白名单、会话标识、版本、JSON 深度和消息/文本大小；允许相同版本且相同文本的完整重同步。
 - `MarkdownRenderer.cs`：使用 Markdig 管线，启用表格、任务列表、自动链接和强调扩展，并禁用原始 HTML。
 - `Package.appxmanifest`：MSIX 身份为 Marker、发布者 `CN=Marker.Dev`、x64，最低 build 26100。
@@ -52,7 +52,9 @@
 - `tsconfig.json`：TypeScript 编译器设置。
 - `dist/`：Vite 构建目录，由构建生成，不提交；Web 依赖随产物本地打包，不从 CDN 加载。
 
-桌面端分别将 `editor.marker.example` 与 `preview.marker.example` 映射到包内 `Web/` 目录，使用两个 HTTPS 来源隔离页面。两个 WebView2 共享同一个环境。宿主只允许对应页面和 `/assets/` 路径，关闭开发者工具、默认菜单和宿主对象，拦截其他导航、子框架及新窗口。
+桌面端分别将 `editor.marker.example` 与 `preview.marker.example` 映射到包内 `Web/` 目录，使用两个 HTTPS 来源隔离页面。两个 WebView2 共享同一个环境，分别由原生子 HWND 承载。Win32 负责窗口和 WebView2 客户区布局；`DesktopWindowXamlSource` 仅承载顶部工具栏，不覆盖编辑区或预览区。宿主只允许对应页面和 `/assets/` 路径，关闭开发者工具、默认菜单和宿主对象，拦截其他导航、子框架及新窗口。
+
+此宿主把 WinUI/XAML 与 windowed WebView2 放在不同 HWND，具备原生窗口的输入和 DPI 路径，但引入 HWND 空间约束：XAML Island 与 WebView2 子窗口之间需手动协调尺寸、Z 顺序、焦点、DPI 和关闭生命周期；原生子窗口也限制跨区域 XAML 裁剪、Composition 动画及覆盖式浮层。Mica、主题跟随和系统视觉仍未实现。
 
 ### `tests/Marker.Tests/`
 
@@ -69,12 +71,12 @@
 
 ## 数据流与边界
 
-1. 桌面端启动时确认包内 `Web/index.html` 与 `Web/preview.html` 存在，创建一个 WebView2 环境并传给两个控件。
+1. 桌面端启动时创建 Win32 根窗口、两个原生内容子窗口和工具栏 XAML Island；确认包内 `Web/index.html` 与 `Web/preview.html` 存在，再创建共享 WebView2 环境并为两个子窗口创建 controller。
 2. 编辑器和预览分别向桌面端发送 `ready`，随后桌面端为本窗口创建随机会话标识并向编辑器发送内置样例。
 3. CodeMirror 文档是编辑过程中的唯一文本权威。编辑后按全量快照发送 UTF-16 文本和递增版本；桌面端检查来源、字段、会话、版本和大小。重同步按钮请求编辑器重发当前快照。
 4. 桌面端在后台使用 Markdig 解析，只有窗口存活、预览已就绪且版本仍为最新时才发送 HTML。预览稍晚就绪时会重新解析并补发最新快照。
 5. 预览检查会话、版本与 HTML 长度，通过 DOMPurify 白名单净化，再用 `innerHTML` 更新页面并回报已渲染版本。
-6. 关闭窗口时停止并关闭两个 WebView2。
+6. 窗口尺寸/位置变化时按客户区和当前 DPI 更新 Island 与两个子窗口，并通知 WebView2 宿主窗口位置变化；关闭时关闭两个 controller、释放 XAML Island 并销毁根窗口。
 
 当前限制：文本最多 1,048,576 个 UTF-16 单元，桥接 JSON 最多 2 MiB（UTF-8，实际同步文本需同时满足两个上限），预览 HTML 最多 4,194,304 个 UTF-16 单元。净化规则不允许链接、图片、SVG、表单和内联样式；CSP 禁止图片、网络连接、对象、表单和 frame。Markdig 自动链接的 HTML 会在预览净化时去掉链接元素。当前没有真实文件路径或文件 API，不用本原型处理用户文件。
 
@@ -94,10 +96,10 @@
 
 ## 未完成验收与后续边界
 
-- 用户人工验收反馈大部分通过，但微信输入法在编辑器与同一 WebView 的普通 textarea 中均出现候选框异常；微软拼音在 Marker 正常。该兼容问题仍阻断 M1 退出，浏览器合成输入事件不能替代实机复测。
+- 独立 Islands 原型中的微信输入法验收已通过；生产宿主迁移后的微信输入法候选框仍须由用户在生产 EXE 中实测，不能用原型结果替代。
 - MSTest 覆盖消息会话和 Markdown 渲染；独立真实 WebView 测试覆盖本轮导航、CSP、本地文件、新窗口及消息负向样例。样例通过不替代真实 IME 或完整发布回归。
 - 原型仅使用内置样例，没有打开、保存、文件树、多标签、配置 JSON、SQLite、主题/动效系统、文件激活与恢复。
-- M1 验收未完成前，不将本原型扩展为处理真实用户文件的工作流；阶段退出条件见[开发方案 M1](开发方案.md)。
+- 当前生产版仍只处理内置样例；不包含真实文件读写、文件树、多标签、配置 JSON、SQLite、Mica/主题动效、文件激活与恢复。阶段退出条件见[开发方案 M1](开发方案.md)。
 - 运行、测试与打包证据及其限制见[项目历程](progress.md)。
 
 ## 文档维护

@@ -119,18 +119,28 @@
 - 清理与产物：测试进程通过 UIA 正常关闭，确认 9222 无监听，MCP 页面已关闭。原型 Release EXE SHA-256 为 `9AC65237A3B7845335438CFDE1D4682298D278D89B0092D26D614AB67DFC9F3C`。Graphify code-only/no-cluster 更新为 525 nodes、681 edges；`global.json` 仍为零节点 warning，未运行语义提取。
 - 尚未验证：Tab 焦点全环、读屏器和最低 build 26100 实机。是否正式迁移宿主待维护者决策；生产宿主问题仍在，M1 未退出。
 
+## 2026-10-07：Win32 + XAML Islands 迁入生产，剩余验收待完成
+
+- 决策与实现：维护者批准正式迁移。生产 `MainWindow` 现在创建 Win32 根窗口和两个原生 WebView2 子 HWND；`DesktopWindowXamlSource` 仅承载 WinUI 工具栏。独立 `experiments/Marker.IslandsProbe/` 保留为验收原型，不进入解决方案或 MSIX。
+- 构建与业务测试：运行 `scripts/build.ps1 -Package`，Web `npm ci`、类型检查和生产构建、锁定 NuGet restore、Release/MSIX 构建通过，0 warning、0 error；MSTest 5/5。
+- 原生宿主烟测：`scripts/test-islands-probe.ps1 -Production` 通过。编辑器原生焦点和输入触发预览更新至 v20；Tab 到预览及工具栏、Shift+Tab 反向路径通过；窗口调整后的编辑区边界检查通过；WM_CLOSE 后进程正常退出。结果见忽略文件 `artifacts/native-host-smoke.json`。
+- Web 安全回归：真实 WebView2 对生产 EXE 执行 `scripts/test-webview-m1.js`，现有 7 类检查通过；随后通过 UI Automation 正常关闭窗口并关闭 MCP 页面。此结果不等于 MSIX 安装验证。
+- 产物与图谱：生产 Release EXE SHA-256 `0A8A3756921F862522F8897B358D8601BE68BD64707E7DDE70620C7DBF2D5267`。Graphify `extract . --code-only --no-cluster` 更新为 561 nodes、797 edges；`global.json` 仍有零节点 warning，未运行语义提取。
+- 签名与安装：`scripts/install-dev.ps1` 在 `CurrentUser` 范围签名成功，签名 MSIX SHA-256 为 `B21078CA298917C22E78AA0069F0920970E36029D333F9A7419F8E70CE62B956`。提升安装命令启动后返回“操作已被用户取消”，安装脚本未执行；本轮没有机器证书链验证、MSIX 安装或包内启动结果。后续核实 Marker 安装数为 0、`LocalMachine\TrustedPeople` 中不存在 `Marker.Dev` 证书、9222 无监听。
+- 尚未完成：生产 EXE 微信输入法人工验收仍待用户反馈。独立原型之前的微信输入通过仍只是原型证据；生产 IME 与 MSIX 安装验收待后续记录。
+
 
 ## 当前阶段
 
-- M0 已完成；生产 M1 原型、安装及安全样例检查完成。Win32 + XAML Islands 独立宿主原型已通过用户微信输入法体验，但尚未迁入生产应用；生产宿主候选框问题仍存在，阶段尚未退出。原生焦点/预览/resize/close 自动检查和本轮真实 WebView 安全回归通过；Tab 全环、读屏器与最低 build 尚未完整实测。
+- M0 已完成；Win32 + XAML Islands 宿主已迁入生产源码。生产构建、MSTest、原生焦点导航/resize/close 烟测及真实 WebView 安全回归通过。提升安装操作被取消，未执行 MSIX 安装；Marker 安装数为 0、机器 TrustedPeople 中无 Marker.Dev、9222 无监听。生产 IME 尚待人工反馈，读屏器和最低 build 实机仍待验证，M1 尚未退出。
 - 当前程序仅使用内置受控样例，没有打开、保存、文件树或真实文档工作流。
-- M2 保持待实施；先完成宿主决策及所选生产路径的 M1 剩余验收。
+- M2 保持待实施；先完成生产宿主的 M1 剩余验收。
 
 ## 后续阶段
 
 | 阶段 | 目标 | 状态 |
 |---|---|---|
-| M1 技术风险原型 | 编辑/预览链路、中文输入、WebView 安全边界和长文基线 | 生产宿主的候选框问题未解决；独立 Islands 原型实机输入和安全/基础焦点烟测通过，迁移待决；Tab 全环、读屏器、最低 build 待验 |
+| M1 技术风险原型 | 编辑/预览链路、中文输入、WebView 安全边界和长文基线 | Win32 + XAML Islands 宿主已迁入生产源码；构建、MSTest、焦点/窗口烟测和安全回归通过；MSIX 安装未执行、生产 IME/读屏器/最低 build 待验 |
 | M2 安全文件闭环 | 打开、保存、冲突检测、恢复与本地资源边界 | 待实施 |
 | M3 可用编辑阅读 | P0 编辑、阅读和 Markdown 能力 | 待实施 |
 | M4 UI 与 Windows 适配 | 原生交互、视觉、动效与系统适配 | 待实施 |
@@ -139,10 +149,10 @@
 
 ## 下一步：M1 剩余退出条件
 
-- 用户需决定是否将 Win32 + XAML Islands 宿主迁入 Marker 生产应用；迁移前仍由生产双 XAML WebView2 承载编辑与预览。
-- Islands 原型已通过微信输入法、候选框位置和窗口移动/缩放实机检查；自动烟测报告 DPI 120，不代表在 200% DPI 下完成自动测量。若迁移，须在生产 EXE 重复 IME 验收。
-- 原型的真实 WebView 安全样例及原生焦点、预览更新、窗口调整、关闭烟测已通过。Tab 全环、读屏器和最低 build 26100 实机仍待验证；迁移决策后按正式宿主复验相关项目。
-- M1 仍未退出；完成宿主决策及所选生产路径的验收后再评估阶段退出。
+- Win32 + XAML Islands 已按维护者决定迁入生产源码；Release/MSIX 构建、安全回归和自动原生窗口烟测通过。提升安装操作被取消，安装脚本未执行，不能从构建/签名结果推断机器证书链或包内安装验收。
+- 独立 Islands 原型曾通过微信输入法、候选框位置和窗口移动/缩放实机检查；自动烟测报告 DPI 120，不代表自动测量了用户报告的 200% 屏。生产 EXE 仍须重复 IME 验收。
+- 生产原生焦点 Tab/Shift+Tab 路径已由 SendKeys 烟测验证；该检查不替代真实 IME 和读屏器验收。生产微信输入法和最低 build 26100 实机仍待确认；不能由独立原型或模拟按键烟测推定通过。
+- M1 仍未退出；生产宿主剩余验收完成后再评估阶段退出。
 
 ## 持续维护
 

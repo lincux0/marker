@@ -1,15 +1,25 @@
+[CmdletBinding()]
+param([switch]$Production)
+
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$exe = Join-Path $root 'experiments\Marker.IslandsProbe\bin\x64\Release\net10.0-windows10.0.26100.0\win-x64\Marker.IslandsProbe.exe'
-$resultPath = Join-Path $root 'artifacts\islands-probe-smoke.json'
+$exe = if ($Production) {
+    Join-Path $root 'src\Marker.App\bin\x64\Release\net10.0-windows10.0.26100.0\win-x64\Marker.App.exe'
+} else {
+    Join-Path $root 'experiments\Marker.IslandsProbe\bin\x64\Release\net10.0-windows10.0.26100.0\win-x64\Marker.IslandsProbe.exe'
+}
+$windowTitle = if ($Production) { 'Marker' } else { 'Marker XAML Islands 输入验收原型' }
+$editorTitle = if ($Production) { 'Marker editor' } else { 'Marker Islands editor' }
+$previewTitle = if ($Production) { 'Marker preview' } else { 'Marker Islands preview' }
+$resultPath = Join-Path $root $(if ($Production) { 'artifacts\native-host-smoke.json' } else { 'artifacts\islands-probe-smoke.json' })
 New-Item -ItemType Directory -Path (Split-Path $resultPath -Parent) -Force | Out-Null
 $process = $null
 $mainWindow = [IntPtr]::Zero
 $oldDpiContext = [IntPtr]::Zero
-$result = [ordered]@{ passed = $false; started = $false; windowFound = $false; editorFound = $false; focusVerified = $false; foregroundVerified = $false; previewVersion = 0; resized = $false; closed = $false; processExited = $false }
+$result = [ordered]@{ production = [bool]$Production; passed = $false; started = $false; windowFound = $false; editorFound = $false; previewFound = $false; focusVerified = $false; tabToPreviewVerified = $false; tabToToolbarVerified = $false; shiftTabToPreviewVerified = $false; shiftTabToEditorVerified = $false; foregroundVerified = $false; previewVersion = 0; resized = $false; closed = $false; processExited = $false }
 
 try {
-    if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Probe executable not found: $exe" }
+    if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Executable not found: $exe" }
 
     Add-Type @'
 using System;
@@ -61,14 +71,14 @@ public static class MarkerIslandsWin32 {
         if ($process.HasExited) { throw "Probe exited during startup with code $($process.ExitCode)." }
         if ($process.MainWindowHandle -ne [IntPtr]::Zero) {
             $candidate = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
-            if ($candidate.Current.Name -eq 'Marker XAML Islands 输入验收原型') {
+            if ($candidate.Current.Name -eq $windowTitle) {
                 $mainWindow = $process.MainWindowHandle
                 break
             }
         }
         Start-Sleep -Milliseconds 500
     }
-    if ($mainWindow -eq [IntPtr]::Zero) { throw 'Probe main window title was not found.' }
+    if ($mainWindow -eq [IntPtr]::Zero) { throw "Main window '$windowTitle' was not found." }
     $result.windowFound = $true
 
     function Find-RawElement($node, [scriptblock]$predicate) {
@@ -85,6 +95,27 @@ public static class MarkerIslandsWin32 {
         $native = [MarkerIslandsWin32]::FindChildByTitle($parent, $title)
         if ($native -eq [IntPtr]::Zero) { throw "Native child window '$title' was not found by EnumChildWindows." }
         $native
+    }
+    function Get-KeyboardFocus([IntPtr]$window) {
+        $info = [MarkerIslandsWin32+GuiThreadInfo]::new()
+        $info.Size = [Runtime.InteropServices.Marshal]::SizeOf([type][MarkerIslandsWin32+GuiThreadInfo])
+        $thread = [MarkerIslandsWin32]::GetWindowThreadProcessId($window, [IntPtr]::Zero)
+        if (-not [MarkerIslandsWin32]::GetGUIThreadInfo($thread, [ref]$info)) { throw 'GetGUIThreadInfo failed for the app UI thread.' }
+        $info.Focus
+    }
+    function Test-FocusInNativeChild([IntPtr]$window, [IntPtr]$child) {
+        $focus = Get-KeyboardFocus $window
+        $focus -ne [IntPtr]::Zero -and ($focus -eq $child -or [MarkerIslandsWin32]::IsChild($child, $focus))
+    }
+    function Wait-FocusInNativeChild([IntPtr]$window, [IntPtr]$child) {
+        for ($attempt = 0; $attempt -lt 20; $attempt++) {
+            if (Test-FocusInNativeChild $window $child) { return }
+            Start-Sleep -Milliseconds 100
+        }
+        throw ('Keyboard focus did not move into native child 0x{0:X}.' -f $child.ToInt64())
+    }
+    function Assert-AppForeground([IntPtr]$window, [string]$stage) {
+        if ([MarkerIslandsWin32]::GetForegroundWindow() -ne $window) { throw "Foreground safety check failed before $stage." }
     }
     function Get-WindowTitle([IntPtr]$handle) {
         $text = [Text.StringBuilder]::new(512)
@@ -105,15 +136,23 @@ public static class MarkerIslandsWin32 {
         [ordered]@{ insideClient = $inside; positiveSize = $size; editor = [ordered]@{ left=$editorRect.Left; top=$editorRect.Top; right=$editorRect.Right; bottom=$editorRect.Bottom }; client = [ordered]@{ left=$clientLeft; top=$clientTop; right=$clientRight; bottom=$clientBottom } }
     }
 
-    $editorWindow = Find-NativeChild $mainWindow 'Marker Islands editor'
-    $result.editorFound = (Get-WindowTitle $editorWindow) -eq 'Marker Islands editor'
+    $editorWindow = Find-NativeChild $mainWindow $editorTitle
+    $result.editorFound = (Get-WindowTitle $editorWindow) -eq $editorTitle
     if (-not $result.editorFound) { throw 'Located native editor title did not match.' }
+    $previewWindow = Find-NativeChild $mainWindow $previewTitle
+    $result.previewFound = (Get-WindowTitle $previewWindow) -eq $previewTitle
+    if (-not $result.previewFound) { throw 'Located native preview title did not match.' }
     $uiRoot = [System.Windows.Automation.AutomationElement]::FromHandle($mainWindow)
-    $status = Find-RawElement $uiRoot { param($item) $item.Current.Name -match '^预览已同步.*v[0-9]+' }
+    $statusPredicate = if ($Production) {
+        { param($item) $item.Current.AutomationId -eq 'BridgeStatus' -and $item.Current.Name -match '^预览已同步 · v[0-9]+' }
+    } else {
+        { param($item) $item.Current.Name -match '^预览已同步 · v[0-9]+' }
+    }
+    $status = Find-RawElement $uiRoot $statusPredicate
     if (-not $status) {
         for ($attempt = 0; $attempt -lt 60 -and -not $status; $attempt++) {
             Start-Sleep -Milliseconds 500
-            $status = Find-RawElement $uiRoot { param($item) $item.Current.Name -match '^预览已同步.*v[0-9]+' }
+            $status = Find-RawElement $uiRoot $statusPredicate
         }
     }
     if (-not $status -or $status.Current.Name -notmatch 'v([0-9]+)') { throw 'Toolbar preview did not report a synchronized version.' }
@@ -132,29 +171,65 @@ public static class MarkerIslandsWin32 {
     [MarkerIslandsWin32]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
     [MarkerIslandsWin32]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
     Start-Sleep -Milliseconds 250
-    $gui = [MarkerIslandsWin32+GuiThreadInfo]::new()
-    $gui.Size = [Runtime.InteropServices.Marshal]::SizeOf([type][MarkerIslandsWin32+GuiThreadInfo])
-    $threadId = [MarkerIslandsWin32]::GetWindowThreadProcessId($mainWindow, [IntPtr]::Zero)
-    if (-not [MarkerIslandsWin32]::GetGUIThreadInfo($threadId, [ref]$gui)) { throw 'GetGUIThreadInfo failed for the probe UI thread.' }
-    $result.focusHandle = ('0x{0:X}' -f $gui.Focus.ToInt64())
-    $result.focusVerified = $gui.Focus -ne [IntPtr]::Zero -and ($gui.Focus -eq $editorWindow -or [MarkerIslandsWin32]::IsChild($editorWindow, $gui.Focus))
+    $focus = Get-KeyboardFocus $mainWindow
+    $result.focusHandle = ('0x{0:X}' -f $focus.ToInt64())
+    $result.focusVerified = $focus -ne [IntPtr]::Zero -and ($focus -eq $editorWindow -or [MarkerIslandsWin32]::IsChild($editorWindow, $focus))
     if (-not $result.focusVerified) { throw 'Keyboard focus is not in the native editor child subtree.' }
 
-    if ([MarkerIslandsWin32]::GetForegroundWindow() -ne $mainWindow) { throw 'Foreground safety check failed before sending editor keys.' }
+    Assert-AppForeground $mainWindow 'sending editor keys'
     $result.foregroundVerified = $true
-    [System.Windows.Forms.SendKeys]::SendWait('^{END}{ENTER}ISLANDS_SMOKE{ENTER}')
+    $smokeText = if ($Production) { 'MARKER_NATIVE_SMOKE' } else { 'ISLANDS_SMOKE' }
+    [System.Windows.Forms.SendKeys]::SendWait("^{END}{ENTER}${smokeText}{ENTER}")
     $previewVersion = 0
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         Start-Sleep -Milliseconds 250
-        $status = Find-RawElement $uiRoot { param($item) $item.Current.Name -match '^预览已同步.*v([0-9]+)' }
+        $status = Find-RawElement $uiRoot $statusPredicate
         if ($status -and $status.Current.Name -match 'v([0-9]+)') {
             $previewVersion = [int]$Matches[1]
             if ($previewVersion -gt $baselineVersion -and $previewVersion -ge 1) { break }
         }
     }
-    if (-not $status -or $previewVersion -le $baselineVersion -or $previewVersion -lt 1) { throw 'Editor input did not advance the synchronized preview to version >= 1.' }
+    if (-not $status -or $previewVersion -le $baselineVersion -or $previewVersion -lt 1) { throw 'Editor input did not advance the synchronized preview version.' }
     $result.previewVersion = $previewVersion
     $result.previewStatus = $status.Current.Name
+
+    Assert-AppForeground $mainWindow 'sending Tab to the preview'
+    [System.Windows.Forms.SendKeys]::SendWait('{TAB}')
+    Wait-FocusInNativeChild $mainWindow $previewWindow
+    $result.tabToPreviewVerified = $true
+
+    Assert-AppForeground $mainWindow 'sending Tab to the toolbar'
+    [System.Windows.Forms.SendKeys]::SendWait('{TAB}')
+    $toolbarFocusVerified = $false
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        $focus = Get-KeyboardFocus $mainWindow
+        if ($focus -ne [IntPtr]::Zero -and [MarkerIslandsWin32]::IsChild($mainWindow, $focus) -and
+            -not [MarkerIslandsWin32]::IsChild($editorWindow, $focus) -and -not [MarkerIslandsWin32]::IsChild($previewWindow, $focus)) {
+            try {
+                $focusedElement = [System.Windows.Automation.AutomationElement]::FocusedElement
+                if ($focusedElement -and $focusedElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and
+                    $focusedElement.Current.IsKeyboardFocusable -and $focusedElement.Current.Name -eq '进入编辑器') {
+                    $result.toolbarFocusName = $focusedElement.Current.Name
+                    $result.toolbarAutomationId = $focusedElement.Current.AutomationId
+                    $toolbarFocusVerified = $true
+                    break
+                }
+            } catch { }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    if (-not $toolbarFocusVerified) { throw 'Tab did not reach a UI Automation button in the XAML Islands toolbar.' }
+    $result.tabToToolbarVerified = $true
+
+    Assert-AppForeground $mainWindow 'sending Shift+Tab to the preview'
+    [System.Windows.Forms.SendKeys]::SendWait('+{TAB}')
+    Wait-FocusInNativeChild $mainWindow $previewWindow
+    $result.shiftTabToPreviewVerified = $true
+
+    Assert-AppForeground $mainWindow 'sending Shift+Tab to the editor'
+    [System.Windows.Forms.SendKeys]::SendWait('+{TAB}')
+    Wait-FocusInNativeChild $mainWindow $editorWindow
+    $result.shiftTabToEditorVerified = $true
 
     $originalRect = [MarkerIslandsWin32+Rect]::new()
     if (-not [MarkerIslandsWin32]::GetWindowRect($mainWindow, [ref]$originalRect)) { throw 'Cannot read the original probe window position.' }

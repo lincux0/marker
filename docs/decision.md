@@ -42,13 +42,13 @@
 
 ## D005 编辑器与网页宿主
 
-- 状态：生产仍采用 WinUI 双 XAML WebView2；独立 XAML Islands 宿主原型已通过用户 IME 编辑验收，正式迁移待维护者决策。
-- CodeMirror 6 通过 Vite 本地资源构建，由 WinUI 两个 WebView2 分别承载编辑和预览；两个视图共享 `CoreWebView2Environment`，并使用不同的 HTTPS 虚拟主机来源。
+- 状态：已采纳并迁入生产源码。生产使用 Win32 根窗口、承载工具栏的 WinUI 3 `DesktopWindowXamlSource`，以及分别承载 CodeMirror 编辑器和预览的两个原生子 HWND/windowed WebView2 controller。
+- CodeMirror 6 通过 Vite 本地资源构建；两个 WebView2 共享 `CoreWebView2Environment`，并使用不同的 HTTPS 虚拟主机来源。WinUI 应用仍提供消息泵，Win32 根窗体由 `MainWindow` 注册和管理。
 - CodeMirror 文档为编辑期唯一文本权威，桌面端通过全量快照、会话标识和版本号与编辑器/预览协调；先不引入增量 patch。
-- 理由：保留成熟编辑器历史能力，先以最短链路验证 WebView2、编辑与预览组合。
-- 代价：快照随文档大小增长，当前限制 1 Mi UTF-16 单元；全量解析和 WebView2 消息负担需在更大文档场景评估。CodeMirror 历史不会因预览更新而被 C# 回写覆盖。
+- 理由：保留成熟编辑器历史能力，并采用独立原型中已由用户确认可正常进行微信输入及候选框定位的宿主组合；生产迁移后的兼容效果仍以生产实机复验为准。
+- 代价：快照随文档大小增长，当前限制 1 Mi UTF-16 单元；全量解析和 WebView2 消息负担需在更大文档场景评估。Win32 HWND 布局需手动管理尺寸、DPI、焦点交接、Z 顺序和关闭生命周期；XAML 与原生 WebView2 子窗口存在 airspace 限制，可能影响跨区域动画、裁剪和浮层。生产 IME 仍需在迁移后的 EXE 实机验收，原型结果不能替代。生产原生焦点/预览/Tab/resize/close 烟测和 Web 安全回归已通过；本轮提升安装操作被取消，未执行安装或机器证书链验证。
 - M1 尚无文件读写、保存、多个标签或真实文件会话。
-- 2026-10-07 宿主实验：WinUI `Window` 内的原生子 HWND/windowed WebView2 路径无法通过物理输入检查，未采纳。后续独立原型改为 Win32 主窗口、工具栏使用 WinUI 3 XAML Islands、编辑器与预览放入原生子 HWND 的 windowed WebView2。用户确认微信输入法编辑、候选框及移动/缩放后表现正常；原型自动烟测实测 DPI 为 120，不能证明用户报告的 200% 缩放环境已被自动测量。该原型未迁入生产应用；迁移会改变主窗口宿主、焦点/DPI/无障碍和生命周期路径，须由维护者确认后再实施。
+- 2026-10-07 宿主实验与迁移：WinUI `Window` 内的原生子 HWND/windowed WebView2 路径无法通过物理输入检查，未采纳。后续独立原型改为 Win32 主窗口、工具栏使用 WinUI 3 XAML Islands、编辑器与预览放入原生子 HWND 的 windowed WebView2。用户确认原型中的微信输入、候选框及移动/缩放后表现正常；原型自动烟测实测 DPI 为 120，不能证明用户报告的 200% 缩放已被自动测量。维护者随后确认迁入生产，当前生产源码采用同一宿主组合。迁移后的生产 IME、无障碍、MSIX 与最低 build 验收以本次历程记录为准。
 
 ## D006 Markdown 解析
 
@@ -104,7 +104,7 @@
 
 ## D012 M1 WebView2 与预览信任边界
 
-- 状态：生产双 XAML WebView2 仍保留。原生产宿主的微信输入法候选框异常未修复；独立 XAML Islands 原型已由用户确认候选框正常。原型的安全回归及原生焦点/预览/resize/close 自动烟测通过；Tab 全环、读屏器和最低 build 尚未完整实测，完整发布回归仍待进行。
+- 状态：生产 Win32/XAML Islands 双 windowed WebView2 保留与原生产宿主相同的页面安全策略。生产 EXE 的真实 WebView 安全回归与原生焦点/预览/Tab/resize/close 烟测通过；SendKeys 检查不替代真实 IME 和读屏器验收。原型的微信输入法验收通过，生产迁移后的 IME 尚待用户实机反馈；本轮 MSIX 已在 CurrentUser 范围签名，但提升安装操作被取消，机器证书链验证和安装未执行；最低 build 状态见项目历程，完整发布回归仍待进行。
 - 两个视图只从包内 Web 资源加载，使用 `editor.marker.example` 与 `preview.marker.example` 两个来源；宿主限定页面导航、页面资源路径、消息来源、字段、会话、消息深度与尺寸，并拒绝 frame 导航和新窗口。
 - 不暴露 WebView2 Host Object 或文件 API。Markdig 禁用原始 HTML；预览通过 DOMPurify 白名单后再写入 DOM，并由页面 CSP 再限网络、对象、表单、图片和 frame。
 - 理由：M1 输入仍是内置样例，先把网页和原生宿主的能力边界设为最小。

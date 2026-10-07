@@ -1,15 +1,34 @@
-using Microsoft.UI.Xaml;
-using Microsoft.Web.WebView2.Core;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using Microsoft.UI;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
+using Microsoft.Web.WebView2.Core;
+using Windows.Foundation;
+using Windows.Graphics;
 
 namespace Marker.App;
 
-public sealed partial class MainWindow : Window
+public sealed partial class MainWindow : UserControl
 {
     private const string EditorUrl = "https://editor.marker.example/index.html";
     private const string PreviewUrl = "https://preview.marker.example/preview.html";
     private const string EditorHost = "editor.marker.example";
     private const string PreviewHost = "preview.marker.example";
+    private const uint WsOverlappedWindow = 0x00CF0000;
+    private const uint WsVisible = 0x10000000;
+    private const uint WsClipChildren = 0x02000000;
+    private const uint WsChildVisible = 0x56000000;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint WmSize = 0x0005;
+    private const uint WmMove = 0x0003;
+    private const uint WmSetFocus = 0x0007;
+    private const uint WmClose = 0x0010;
+    private const uint WmGetMinMaxInfo = 0x0024;
+    private const uint WmDpiChanged = 0x02E0;
     private const string SampleMarkdown = """
     # Marker M1 原型
 
@@ -27,24 +46,70 @@ public sealed partial class MainWindow : Window
     ~~删除线~~ 与 `行内代码`
     """;
 
+    private readonly Native.Procedure _procedure;
+    private readonly DesktopWindowXamlSource _toolbar;
     private readonly BridgeSession _session = new(Guid.NewGuid().ToString("N"));
-    private long _latestPreviewSentVersion = -1;
+    private readonly nint _window;
+    private readonly nint _editorWindow;
+    private readonly nint _previewWindow;
+    private readonly string _className;
+    private CoreWebView2Controller? _editor;
+    private CoreWebView2Controller? _preview;
     private MarkdownSnapshot? _latestSnapshot;
+    private long _latestPreviewSentVersion = -1;
     private bool _editorReady;
     private bool _previewReady;
     private bool _closed;
+    private nint _lastFocus;
 
     public MainWindow()
     {
         InitializeComponent();
-        Title = "Marker";
-        RootGrid.Loaded += MainWindow_Loaded;
-        Closed += (_, _) => DisposeWebViews();
+        _procedure = WindowProcedure;
+        var module = Native.GetModuleHandleW(null);
+        _className = "Marker.MainWindow." + Guid.NewGuid().ToString("N");
+        var definition = new Native.WindowClass
+        {
+            Procedure = Marshal.GetFunctionPointerForDelegate(_procedure),
+            Instance = module,
+            Name = _className,
+            Background = 6
+        };
+        if (Native.RegisterClassW(ref definition) == 0)
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+
+        _window = Native.CreateWindowExW(0, _className, "Marker", WsOverlappedWindow | WsVisible | WsClipChildren,
+            200, 150, 1200, 850, 0, 0, module, 0);
+        if (_window == 0)
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+
+        _editorWindow = CreateChild("Marker editor");
+        _previewWindow = CreateChild("Marker preview");
+        _toolbar = new DesktopWindowXamlSource();
+        _toolbar.Initialize(Win32Interop.GetWindowIdFromWindow(_window));
+        _toolbar.Content = this;
+        _toolbar.TakeFocusRequested += Toolbar_TakeFocusRequested;
+        _toolbar.GotFocus += (_, _) => _lastFocus = 0;
     }
 
-    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    internal void Show()
     {
-        RootGrid.Loaded -= MainWindow_Loaded;
+        Native.ShowWindow(_window, 5);
+        Layout();
+        InitializeWebViewsAsync();
+    }
+
+    private nint CreateChild(string title)
+    {
+        var child = Native.CreateWindowExW(0, _className, title, WsChildVisible, 0, 0, 1, 1,
+            _window, 0, Native.GetModuleHandleW(null), 0);
+        if (child == 0)
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        return child;
+    }
+
+    private async void InitializeWebViewsAsync()
+    {
         try
         {
             var webRoot = Path.Combine(AppContext.BaseDirectory, "Web");
@@ -53,30 +118,69 @@ public sealed partial class MainWindow : Window
 
             var userData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Marker", "WebView2");
             var environment = await CoreWebView2Environment.CreateWithOptionsAsync(null, userData, new CoreWebView2EnvironmentOptions());
-            if (_closed)
-                return;
+            if (_closed) return;
 
-            await EditorView.EnsureCoreWebView2Async(environment);
-            if (_closed)
-                return;
-            await PreviewView.EnsureCoreWebView2Async(environment);
-            if (_closed)
-                return;
-            ConfigureWebView(EditorView, EditorUrl, EditorHost);
-            ConfigureWebView(PreviewView, PreviewUrl, PreviewHost);
-            EditorView.CoreWebView2.Navigate(EditorUrl);
-            PreviewView.CoreWebView2.Navigate(PreviewUrl);
+            var editor = await environment.CreateCoreWebView2ControllerAsync(
+                CoreWebView2ControllerWindowReference.CreateFromWindowHandle((ulong)_editorWindow));
+            if (_closed) { editor.Close(); return; }
+            _editor = editor;
+
+            var preview = await environment.CreateCoreWebView2ControllerAsync(
+                CoreWebView2ControllerWindowReference.CreateFromWindowHandle((ulong)_previewWindow));
+            if (_closed) { preview.Close(); return; }
+            _preview = preview;
+
+            ConfigureController(editor, true);
+            ConfigureController(preview, false);
+            ConfigureWebView(editor.CoreWebView2, EditorUrl, EditorHost, true);
+            ConfigureWebView(preview.CoreWebView2, PreviewUrl, PreviewHost, false);
+            Layout();
+            editor.CoreWebView2.Navigate(EditorUrl);
+            preview.CoreWebView2.Navigate(PreviewUrl);
         }
         catch (Exception exception)
         {
+            CloseControllers();
             if (!_closed)
                 SetStatus($"WebView2 初始化失败：{exception.Message}");
         }
     }
 
-    private void ConfigureWebView(Microsoft.UI.Xaml.Controls.WebView2 view, string pageUrl, string host)
+    private void ConfigureController(CoreWebView2Controller controller, bool editor)
     {
-        var core = view.CoreWebView2;
+        controller.BoundsMode = CoreWebView2BoundsMode.UseRawPixels;
+        controller.GotFocus += (_, _) => _lastFocus = editor ? _editorWindow : _previewWindow;
+        controller.MoveFocusRequested += (_, args) =>
+        {
+            if (editor && args.Reason == CoreWebView2MoveFocusReason.Next)
+            {
+                _preview?.MoveFocus(CoreWebView2MoveFocusReason.Next);
+                args.Handled = _preview is not null;
+                return;
+            }
+            if (!editor && args.Reason == CoreWebView2MoveFocusReason.Previous)
+            {
+                _editor?.MoveFocus(CoreWebView2MoveFocusReason.Previous);
+                args.Handled = _editor is not null;
+                return;
+            }
+            _toolbar.NavigateFocus(new XamlSourceFocusNavigationRequest(args.Reason == CoreWebView2MoveFocusReason.Previous
+                ? XamlSourceFocusNavigationReason.Last
+                : XamlSourceFocusNavigationReason.First));
+            args.Handled = _toolbar.HasFocus;
+        };
+    }
+
+    private void Toolbar_TakeFocusRequested(object? sender, DesktopWindowXamlSourceTakeFocusRequestedEventArgs args)
+    {
+        if (args.Request.Reason == XamlSourceFocusNavigationReason.Last)
+            _preview?.MoveFocus(CoreWebView2MoveFocusReason.Previous);
+        else
+            _editor?.MoveFocus(CoreWebView2MoveFocusReason.Next);
+    }
+
+    private void ConfigureWebView(CoreWebView2 core, string pageUrl, string host, bool editor)
+    {
         core.SetVirtualHostNameToFolderMapping(host, Path.Combine(AppContext.BaseDirectory, "Web"), CoreWebView2HostResourceAccessKind.DenyCors);
         core.Settings.AreDevToolsEnabled = false;
         core.Settings.AreDefaultContextMenusEnabled = false;
@@ -89,15 +193,17 @@ public sealed partial class MainWindow : Window
         {
             var uri = Uri.TryCreate(args.Request.Uri, UriKind.Absolute, out var parsed) ? parsed : null;
             var path = uri is null ? string.Empty : Uri.UnescapeDataString(uri.AbsolutePath);
-            var pathAllowed = path == (host == EditorHost ? "/index.html" : "/preview.html")
+            var pathAllowed = path == (editor ? "/index.html" : "/preview.html")
                 || path.StartsWith("/assets/", StringComparison.Ordinal);
             var hasTraversal = path.Split('/').Any(segment => segment is "." or "..") || path.Contains('\\');
-            if (uri is null || uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || uri.UserInfo.Length != 0 || uri.Host != host || uri.Query.Length != 0 || !pathAllowed || hasTraversal)
+            if (uri is null || uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || uri.UserInfo.Length != 0
+                || uri.Host != host || uri.Query.Length != 0 || !pathAllowed || hasTraversal)
                 args.Response = core.Environment.CreateWebResourceResponse(null, 403, "Blocked", "Content-Type: text/plain");
         };
-        core.WebMessageReceived += (sender, args) =>
+        core.WebMessageReceived += (_, args) =>
         {
-            if (ReferenceEquals(view, EditorView))
+            if (_closed) return;
+            if (editor)
                 HandleEditorMessage(args.Source, args.WebMessageAsJson);
             else
                 HandlePreviewMessage(args.Source, args.WebMessageAsJson);
@@ -109,7 +215,7 @@ public sealed partial class MainWindow : Window
         if (!_editorReady && _session.TryReadReady(source, EditorUrl, json))
         {
             _editorReady = true;
-            EditorView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "initialize",
                 sessionId = _session.SessionId,
@@ -133,7 +239,7 @@ public sealed partial class MainWindow : Window
         if (!_previewReady && _session.TryReadReady(source, PreviewUrl, json))
         {
             _previewReady = true;
-            PreviewView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            _preview?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "initialize",
                 sessionId = _session.SessionId
@@ -158,11 +264,11 @@ public sealed partial class MainWindow : Window
         try
         {
             var html = await Task.Run(() => MarkdownRenderer.Render(snapshot.Text));
-            if (_closed || snapshot.Version != _session.Version || !_previewReady)
+            if (_closed || snapshot.Version != _session.Version || !_previewReady || _preview is null)
                 return;
 
             _latestPreviewSentVersion = snapshot.Version;
-            PreviewView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+            _preview.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "render",
                 sessionId = _session.SessionId,
@@ -177,14 +283,17 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void EditorFocusButton_Click(object sender, RoutedEventArgs e)
+        => _editor?.MoveFocus(CoreWebView2MoveFocusReason.Next);
+
     private void ResyncButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!_editorReady || _closed)
+        if (!_editorReady || _closed || _editor is null)
         {
             SetStatus("编辑器尚未就绪，无法重新同步。");
             return;
         }
-        EditorView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        _editor.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {
             type = "requestSnapshot",
             sessionId = _session.SessionId
@@ -194,16 +303,160 @@ public sealed partial class MainWindow : Window
 
     private void SetStatus(string message) => BridgeStatus.Text = message;
 
-    private void DisposeWebViews()
+    private void Layout()
     {
-        if (_closed)
-            return;
-        _closed = true;
-        if (EditorView.CoreWebView2 is not null)
-            EditorView.CoreWebView2.Stop();
-        if (PreviewView.CoreWebView2 is not null)
-            PreviewView.CoreWebView2.Stop();
-        EditorView.Close();
-        PreviewView.Close();
+        if (_closed) return;
+        Native.GetClientRect(_window, out var rect);
+        var scale = Native.GetDpiForWindow(_window) / 96d;
+        var header = (int)Math.Round(88 * scale);
+        var gap = (int)Math.Round(12 * scale);
+        var width = Math.Max(1, (rect.Right - gap * 3) / 2);
+        var height = Math.Max(1, rect.Bottom - header - gap);
+        _toolbar.SiteBridge.MoveAndResize(new RectInt32(0, 0, Math.Max(1, rect.Right), header));
+        ResizeView(_editorWindow, _editor, gap, header, width, height);
+        ResizeView(_previewWindow, _preview, width + gap * 2, header, width, height);
+    }
+
+    private static void ResizeView(nint window, CoreWebView2Controller? controller, int x, int y, int width, int height)
+    {
+        if (!Native.SetWindowPos(window, 0, x, y, width, height, SwpNoZOrder | SwpNoActivate))
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        if (controller is not null)
+        {
+            controller.Bounds = new Rect(0, 0, width, height);
+            controller.NotifyParentWindowPositionChanged();
+            controller.IsVisible = true;
+        }
+    }
+
+    private nint WindowProcedure(nint window, uint message, nuint wParam, nint lParam)
+    {
+        if (window == _window)
+        {
+            if (message == WmSize)
+            {
+                Layout();
+                return 0;
+            }
+            if (message == WmMove)
+            {
+                _editor?.NotifyParentWindowPositionChanged();
+                _preview?.NotifyParentWindowPositionChanged();
+            }
+            if (message == WmSetFocus)
+            {
+                if (_lastFocus == _editorWindow) _editor?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
+                if (_lastFocus == _previewWindow) _preview?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
+            }
+            if (message == WmGetMinMaxInfo)
+            {
+                var info = Marshal.PtrToStructure<Native.MinMaxInfo>(lParam);
+                var dpi = Native.GetDpiForWindow(_window);
+                var scale = (dpi == 0 ? 96 : dpi) / 96d;
+                info.MinTrackSize = new Native.Point { X = (int)Math.Round(800 * scale), Y = (int)Math.Round(560 * scale) };
+                Marshal.StructureToPtr(info, lParam, false);
+                return 0;
+            }
+            if (message == WmDpiChanged)
+            {
+                var suggested = Marshal.PtrToStructure<Native.Rect>(lParam);
+                Native.SetWindowPos(_window, 0, suggested.Left, suggested.Top, suggested.Right - suggested.Left,
+                    suggested.Bottom - suggested.Top, SwpNoZOrder | SwpNoActivate);
+                Layout();
+                return 0;
+            }
+            if (message == WmClose)
+            {
+                _closed = true;
+                CloseControllers();
+                _toolbar.Dispose();
+                Native.DestroyWindow(_window);
+                Application.Current.Exit();
+                return 0;
+            }
+        }
+        return Native.DefWindowProcW(window, message, wParam, lParam);
+    }
+
+    private void CloseControllers()
+    {
+        _editor?.Close();
+        _preview?.Close();
+        _editor = null;
+        _preview = null;
+    }
+
+    private static class Native
+    {
+        internal delegate nint Procedure(nint window, uint message, nuint wParam, nint lParam);
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        internal struct WindowClass
+        {
+            public uint Style;
+            public nint Procedure;
+            public int ClassExtra;
+            public int WindowExtra;
+            public nint Instance;
+            public nint Icon;
+            public nint Cursor;
+            public nint Background;
+            public string? Menu;
+            public string Name;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Point
+        {
+            public int X;
+            public int Y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct MinMaxInfo
+        {
+            public Point Reserved;
+            public Point MaxSize;
+            public Point MaxPosition;
+            public Point MinTrackSize;
+            public Point MaxTrackSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Rect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        internal static extern ushort RegisterClassW(ref WindowClass value);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        internal static extern nint CreateWindowExW(uint extendedStyle, string className, string name, uint style,
+            int x, int y, int width, int height, nint parent, nint menu, nint instance, nint parameter);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        internal static extern nint DefWindowProcW(nint window, uint message, nuint wParam, nint lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        internal static extern nint GetModuleHandleW(string? moduleName);
+
+        [DllImport("user32.dll")]
+        internal static extern bool GetClientRect(nint window, out Rect rect);
+
+        [DllImport("user32.dll")]
+        internal static extern uint GetDpiForWindow(nint window);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool SetWindowPos(nint window, nint insertAfter, int x, int y, int width, int height, uint flags);
+
+        [DllImport("user32.dll")]
+        internal static extern bool ShowWindow(nint window, int command);
+
+        [DllImport("user32.dll")]
+        internal static extern bool DestroyWindow(nint window);
     }
 }
