@@ -147,9 +147,10 @@
 - 恢复与关闭：以已知测试夹具做强制退出/重启后，恢复提示可将草稿载入未命名且未保存副本；原文件 SHA-256 未变化。关闭取消后文本保留且仍可编辑；放弃关闭后进程正常退出。该结果不证明断电或所有崩溃时序安全。
 - 宿主焦点：另实现统一 `TryMoveFocus` 防护，检查窗口/子窗口启用、操作忙碌和 controller 可见状态，拦截文件选择器返回后的焦点迁移异常。维护者观察到异常发生于模态 Save As 后的 `WM_SETFOCUS` 路径；把它归因于异步 picker 的焦点恢复时序是推断，官方 API 未说明该精确条件。
 - 恢复文件替换：真实私有 Recovery 目录的 `File.Replace` 探针失败并报告“无法删除要被替换的文件”；同目录 `File.Move(..., overwrite: true)` 探针成功，故改用同目录覆盖式移动。文件系统/加密属性原因未知，不记录为 EFS 因果。JSON 新增可选 `applicationVersion`；兼容性用例覆盖旧 schemaVersion 1 缺少该字段仍能恢复。同 DocId 覆盖写入亦有测试。
-- 产物与图谱：Graphify `extract . --code-only --no-cluster` 为 747 nodes、1263 edges。最新 Release EXE 与 MSIX 已重新构建并完成开发签名；MSIX SHA-256 为 `A9BAF19E604FDCEF54526F2B9638DBB6CD4516E9F8B6B40256F6BCA396EFF5CE`，EXE SHA-256 为 `2FDA3306BBAD8A390053F6698A61399DE7E1485173099358D0781541ED1E33AF`。机器信任尚未建立时 `signtool verify /pa` 报不受信任的证书链，不能写作签名信任验证通过。临时安装检查已启动，正在等待真实 UAC，尚无本轮安装结果；旧 `msix-smoke.json` 不代表本轮验证。
+- 产物与图谱：Graphify `extract . --code-only --no-cluster` 为 747 nodes、1263 edges。最新 Release EXE 与 MSIX 已重新构建并完成开发签名；MSIX SHA-256 为 `A9BAF19E604FDCEF54526F2B9638DBB6CD4516E9F8B6B40256F6BCA396EFF5CE`，EXE SHA-256 为 `2FDA3306BBAD8A390053F6698A61399DE7E1485173099358D0781541ED1E33AF`。机器信任尚未建立时 `signtool verify /pa` 报不受信任的证书链，不能写作签名信任验证通过。临时安装检查的 UAC 启动返回“操作已被用户取消”，脚本未运行，未新增机器信任，本轮安装保留待验；旧 `msix-smoke.json` 不代表本轮验证。
 - 未验证范围：目标最低 build 26100、读屏器、真实安装、磁盘耗尽、断电，以及所有崩溃窗口尚未验收。编辑器约 100 ms 快照防抖和约 1 秒草稿节流之间仍存在突发终止导致最近内容未落盘的风险。原生宿主旧版整套烟测本轮未能重新跑通自动输入/前台/picker 控件路径；本次文件闭环脚本单独验证了原生 picker 与用户文件场景。
 - 阶段状态：M2 核心功能与本机核心闭环验证完成，发布/兼容验收待验；M3 未开始。生产 MSIX 安装未完成，不能由 EXE 构建或签名结果推定通过。
+- Git：核心实现、测试脚本与维护文档已提交为 `1a37dec`；维护者原有 `docs/开发方案.md` 格式修改保留在工作区，未纳入该提交。测试开启的 Marker 与 Playwright 页面已关闭，已核对并清理本轮测试草稿；没有执行 Git push。
 
 
 ## 当前阶段
