@@ -10,7 +10,7 @@ Marker 是一款面向 Windows 的 Markdown 编辑与阅读器，目标是提供
 - 许可证：MIT；许可证决策由项目维护者负责，见根目录 `LICENSE`。
 - 支持范围：Windows 11 24H2，最低 build 26100；首发 x64。
 - 仓库：[https://github.com/lincux0/marker](https://github.com/lincux0/marker)，当前为私有仓库。
-- 分发：站外 MSIX 为当前候选，Microsoft Store 保留为候选渠道；尚无生产签名凭据。
+- 分发：已选定站外 MSIX，Microsoft Store 保留为候选渠道；正式站外签名凭据由维护者在 M5 前提供。
 
 ## 构建
 
@@ -32,4 +32,4 @@ MSIX 输出到 `artifacts/msix/`，默认未签名。构建、签名与安装流
 
 ## 当前状态
 
-本机 Windows build 26300 上的 Release 构建、未签名 MSIX 生成及开发签名安装烟雾测试已通过；安装后的空窗口标题为 `Marker`、正文为 `Marker M0`，随后已关闭并卸载，临时机器信任已移除。测试项目目前没有业务测试，`dotnet test` 显示 0 tests，不代表业务行为已测试。GitHub Actions 尚未在远端执行，干净克隆构建也尚未验证。
+本机 Windows build 26300 上的 Release 构建、MSIX 生成及开发签名安装烟雾测试已通过；安装后的空窗口标题为 `Marker`、正文为 `Marker M0`，随后已关闭并卸载，临时机器信任已移除。独立本地干净克隆中的锁定依赖恢复、Release 和 MSIX 构建也已通过。测试项目目前没有业务测试，`dotnet test` 显示 0 tests，不代表业务行为已测试。GitHub Actions 尚未在远端执行；没有进行 Git push。
