@@ -1,0 +1,13 @@
+.tools/
+artifacts/
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+.vs/
+*.user
+*.pfx
+*.cer
+*.p12
+*.binlog
+graphify-out/

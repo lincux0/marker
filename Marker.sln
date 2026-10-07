@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Marker.App", "src\Marker.App\Marker.App.csproj", "{754B7489-1663-4EEF-9C99-55B9804DF0D2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Marker.Tests", "tests\Marker.Tests\Marker.Tests.csproj", "{B5DAD51E-0361-46F1-83E8-66E5302496F5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{754B7489-1663-4EEF-9C99-55B9804DF0D2}.Debug|x64.ActiveCfg = Debug|x64
+		{754B7489-1663-4EEF-9C99-55B9804DF0D2}.Debug|x64.Build.0 = Debug|x64
+		{754B7489-1663-4EEF-9C99-55B9804DF0D2}.Release|x64.ActiveCfg = Release|x64
+		{754B7489-1663-4EEF-9C99-55B9804DF0D2}.Release|x64.Build.0 = Release|x64
+		{B5DAD51E-0361-46F1-83E8-66E5302496F5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B5DAD51E-0361-46F1-83E8-66E5302496F5}.Debug|x64.Build.0 = Debug|Any CPU
+		{B5DAD51E-0361-46F1-83E8-66E5302496F5}.Release|x64.ActiveCfg = Release|Any CPU
+		{B5DAD51E-0361-46F1-83E8-66E5302496F5}.Release|x64.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
