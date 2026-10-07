@@ -26,6 +26,9 @@ MSIX 输出到 `artifacts/msix/`，默认未签名。构建、签名与安装流
 
 ## 文档
 
+- [项目结构](docs/architecture.md)：当前架构、模块职责与后续设计边界。
+- [技术决策](docs/decision.md)：已确认的选型、理由和待决事项。
+- [项目建设历程](docs/progress.md)：阶段状态、建设记录与验证依据。
 - [工程开发指南](docs/工程开发指南.md)：环境、日常构建、测试、MSIX 与 CI。
 - [第三方依赖声明](THIRD_PARTY_NOTICES.md)：当前直接依赖的版本和许可证来源。
 - [开发方案](docs/开发方案.md)：产品架构与阶段计划。
