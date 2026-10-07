@@ -11,12 +11,13 @@ $exe = if ($Production) {
 $windowTitle = if ($Production) { 'Marker' } else { 'Marker XAML Islands 输入验收原型' }
 $editorTitle = if ($Production) { 'Marker editor' } else { 'Marker Islands editor' }
 $previewTitle = if ($Production) { 'Marker preview' } else { 'Marker Islands preview' }
+$toolbarFirstButton = if ($Production) { '新建' } else { '进入编辑器' }
 $resultPath = Join-Path $root $(if ($Production) { 'artifacts\native-host-smoke.json' } else { 'artifacts\islands-probe-smoke.json' })
 New-Item -ItemType Directory -Path (Split-Path $resultPath -Parent) -Force | Out-Null
 $process = $null
 $mainWindow = [IntPtr]::Zero
 $oldDpiContext = [IntPtr]::Zero
-$result = [ordered]@{ production = [bool]$Production; passed = $false; started = $false; windowFound = $false; editorFound = $false; previewFound = $false; focusVerified = $false; tabToPreviewVerified = $false; tabToToolbarVerified = $false; shiftTabToPreviewVerified = $false; shiftTabToEditorVerified = $false; foregroundVerified = $false; previewVersion = 0; resized = $false; closed = $false; processExited = $false }
+$result = [ordered]@{ production = [bool]$Production; passed = $false; started = $false; windowFound = $false; editorFound = $false; previewFound = $false; focusVerified = $false; tabToPreviewVerified = $false; tabToToolbarVerified = $false; shiftTabToPreviewVerified = $false; shiftTabToEditorVerified = $false; foregroundVerified = $false; previewVersion = 0; resized = $false; recoveryPromptPreserved = $false; unsavedPromptDiscarded = $false; closed = $false; processExited = $false }
 
 try {
     if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Executable not found: $exe" }
@@ -27,6 +28,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 public static class MarkerIslandsWin32 {
     public delegate bool EnumChildProc(IntPtr hwnd, IntPtr lParam);
+    public delegate bool EnumWindowProc(IntPtr hwnd, IntPtr lParam);
     [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
     [StructLayout(LayoutKind.Sequential)] public struct GuiThreadInfo {
         public int Size; public uint Flags; public IntPtr Active, Focus, Capture, MenuOwner, MoveSize, Caret;
@@ -34,6 +36,58 @@ public static class MarkerIslandsWin32 {
     }
     [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)] public static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int count);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool EnumChildWindows(IntPtr parent, EnumChildProc callback, IntPtr lParam);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool EnumWindows(EnumWindowProc callback, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hwnd, uint command);
+    [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr dialog, int controlId);
+    [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool ShowWindow(IntPtr hwnd, int command);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr hwnd, StringBuilder name, int count);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+    public static IntPtr FindOwnedDialog(IntPtr owner, uint processId, string title) {
+        IntPtr found = IntPtr.Zero;
+        EnumWindows(delegate(IntPtr hwnd, IntPtr unused) {
+            uint pid;
+            GetWindowThreadProcessId(hwnd, out pid);
+            if (pid != processId || GetWindow(hwnd, 4) != owner) return true;
+            StringBuilder text = new StringBuilder(512), className = new StringBuilder(128);
+            GetWindowText(hwnd, text, text.Capacity);
+            GetClassName(hwnd, className, className.Capacity);
+            if (text.ToString() == title && className.ToString() == "#32770") { found = hwnd; return false; }
+            return true;
+        }, IntPtr.Zero);
+        return found;
+    }
+    public static bool ActivateOwnedWindow(IntPtr hwnd, uint processId, string title) {
+        uint pid;
+        GetWindowThreadProcessId(hwnd, out pid);
+        StringBuilder text = new StringBuilder(512);
+        GetWindowText(hwnd, text, text.Capacity);
+        if (hwnd == IntPtr.Zero || pid != processId || text.ToString() != title) return false;
+        ShowWindow(hwnd, 9);
+        SetForegroundWindow(hwnd);
+        return GetForegroundWindow() == hwnd;
+    }
+    public static bool ClickOwnedDialogButton(IntPtr dialog, IntPtr owner, uint processId, string title, int controlId, string buttonText) {
+        uint pid;
+        GetWindowThreadProcessId(dialog, out pid);
+        StringBuilder dialogTitle = new StringBuilder(512), className = new StringBuilder(128);
+        GetWindowText(dialog, dialogTitle, dialogTitle.Capacity);
+        GetClassName(dialog, className, className.Capacity);
+        IntPtr button = GetDlgItem(dialog, controlId);
+        StringBuilder label = new StringBuilder(128);
+        StringBuilder buttonClass = new StringBuilder(128);
+        if (button != IntPtr.Zero) { GetWindowText(button, label, label.Capacity); GetClassName(button, buttonClass, buttonClass.Capacity); }
+        string caption = label.ToString().Replace("&", "").Trim();
+        int shortcut = caption.IndexOf('(');
+        if (shortcut >= 0 && caption.EndsWith(")")) caption = caption.Substring(0, shortcut).Trim();
+        bool captionMatches = (controlId == 7 && buttonText == "否" && (caption == "否" || caption == "No")) ||
+            (controlId == 2 && buttonText == "取消" && (caption == "取消" || caption == "Cancel"));
+        if (pid != processId || GetWindow(dialog, 4) != owner || dialogTitle.ToString() != title || className.ToString() != "#32770" ||
+            button == IntPtr.Zero || GetParent(button) != dialog || buttonClass.ToString() != "Button" || !captionMatches) return false;
+        SendMessage(button, 0x00F5, IntPtr.Zero, IntPtr.Zero);
+        return true;
+    }
     public static IntPtr FindChildByTitle(IntPtr parent, string title) {
         IntPtr found = IntPtr.Zero;
         EnumChildWindows(parent, delegate(IntPtr hwnd, IntPtr unused) {
@@ -80,6 +134,21 @@ public static class MarkerIslandsWin32 {
     }
     if ($mainWindow -eq [IntPtr]::Zero) { throw "Main window '$windowTitle' was not found." }
     $result.windowFound = $true
+    function Clear-RecoveryPrompt {
+        if (-not $Production) { return }
+        $recoveryDialog = [MarkerIslandsWin32]::FindOwnedDialog($mainWindow, [uint32]$process.Id, 'Marker · 恢复草稿')
+        if ($recoveryDialog -eq [IntPtr]::Zero) { return }
+        if (-not [MarkerIslandsWin32]::ActivateOwnedWindow($recoveryDialog, [uint32]$process.Id, 'Marker · 恢复草稿')) {
+            throw 'Found the exact Marker recovery prompt but could not activate it safely; the recovery draft was left untouched.'
+        }
+        if (-not [MarkerIslandsWin32]::ClickOwnedDialogButton($recoveryDialog, $mainWindow, [uint32]$process.Id, 'Marker · 恢复草稿', 2, '取消')) {
+            throw 'Found Marker recovery prompt but could not safely select its Cancel button; recovery draft was left untouched.'
+        }
+        $result.recoveryPromptPreserved = $true
+        if (-not [MarkerIslandsWin32]::ActivateOwnedWindow($mainWindow, [uint32]$process.Id, $windowTitle)) {
+            throw 'The recovery prompt was cancelled without changing its draft, but Marker could not be restored to the foreground for input.'
+        }
+    }
 
     function Find-RawElement($node, [scriptblock]$predicate) {
         if (& $predicate $node) { return $node }
@@ -149,8 +218,10 @@ public static class MarkerIslandsWin32 {
         { param($item) $item.Current.Name -match '^预览已同步 · v[0-9]+' }
     }
     $status = Find-RawElement $uiRoot $statusPredicate
+    Clear-RecoveryPrompt
     if (-not $status) {
         for ($attempt = 0; $attempt -lt 60 -and -not $status; $attempt++) {
+            Clear-RecoveryPrompt
             Start-Sleep -Milliseconds 500
             $status = Find-RawElement $uiRoot $statusPredicate
         }
@@ -159,7 +230,8 @@ public static class MarkerIslandsWin32 {
     $baselineVersion = [int]$Matches[1]
     $result.previewVersion = $baselineVersion
 
-    if (-not [MarkerIslandsWin32]::SetForegroundWindow($mainWindow)) { throw 'Windows refused to focus the probe window.' }
+    Clear-RecoveryPrompt
+    if (-not [MarkerIslandsWin32]::ActivateOwnedWindow($mainWindow, [uint32]$process.Id, $windowTitle)) { throw 'Windows refused to focus the probe window.' }
     Start-Sleep -Milliseconds 150
     if ([MarkerIslandsWin32]::GetForegroundWindow() -ne $mainWindow) { throw 'Foreground safety check failed before clicking the editor.' }
     $editorRect = [MarkerIslandsWin32+Rect]::new()
@@ -177,6 +249,7 @@ public static class MarkerIslandsWin32 {
     if (-not $result.focusVerified) { throw 'Keyboard focus is not in the native editor child subtree.' }
 
     Assert-AppForeground $mainWindow 'sending editor keys'
+    Clear-RecoveryPrompt
     $result.foregroundVerified = $true
     $smokeText = if ($Production) { 'MARKER_NATIVE_SMOKE' } else { 'ISLANDS_SMOKE' }
     [System.Windows.Forms.SendKeys]::SendWait("^{END}{ENTER}${smokeText}{ENTER}")
@@ -208,7 +281,7 @@ public static class MarkerIslandsWin32 {
             try {
                 $focusedElement = [System.Windows.Automation.AutomationElement]::FocusedElement
                 if ($focusedElement -and $focusedElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and
-                    $focusedElement.Current.IsKeyboardFocusable -and $focusedElement.Current.Name -eq '进入编辑器') {
+                    $focusedElement.Current.IsKeyboardFocusable -and $focusedElement.Current.Name -eq $toolbarFirstButton) {
                     $result.toolbarFocusName = $focusedElement.Current.Name
                     $result.toolbarAutomationId = $focusedElement.Current.AutomationId
                     $toolbarFocusVerified = $true
@@ -244,6 +317,23 @@ public static class MarkerIslandsWin32 {
 
     if ([MarkerIslandsWin32]::GetForegroundWindow() -ne $mainWindow) { throw 'Foreground safety check failed before closing the probe window.' }
     if (-not [MarkerIslandsWin32]::PostMessage($mainWindow, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)) { throw 'Could not post WM_CLOSE to the probe window.' }
+    if ($Production) {
+        $dialogHandled = $false
+        for ($attempt = 0; $attempt -lt 100; $attempt++) {
+            $dirtyDialog = [MarkerIslandsWin32]::FindOwnedDialog($mainWindow, [uint32]$process.Id, 'Marker · 未保存的修改')
+            if ($dirtyDialog -ne [IntPtr]::Zero) {
+                if (-not [MarkerIslandsWin32]::ClickOwnedDialogButton($dirtyDialog, $mainWindow, [uint32]$process.Id, 'Marker · 未保存的修改', 7, '否')) {
+                    throw 'Found Marker unsaved-changes prompt but could not safely select its No button.'
+                }
+                $dialogHandled = $true
+                break
+            }
+            if ($process.HasExited) { break }
+            Start-Sleep -Milliseconds 100
+        }
+        if (-not $dialogHandled) { throw 'Timed out waiting for Marker owned dirty-close prompt; the smoke test remains failed.' }
+        $result.unsavedPromptDiscarded = $true
+    }
     $result.closed = $true
     $result.processExited = $process.WaitForExit(10000)
     if (-not $result.processExited) { throw 'Probe process did not exit after closing its window.' }

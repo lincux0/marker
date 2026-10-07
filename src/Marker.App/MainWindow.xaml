@@ -6,8 +6,17 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Grid ColumnSpacing="12">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="新建" AutomationProperties.AutomationId="NewDocument" Click="NewDocument_Click" />
+            <Button Content="打开" AutomationProperties.AutomationId="OpenDocument" Click="OpenDocument_Click" />
+            <Button Content="保存" AutomationProperties.AutomationId="SaveDocument" Click="SaveDocument_Click" />
+            <Button Content="另存为" AutomationProperties.AutomationId="SaveAsDocument" Click="SaveAsDocument_Click" />
+            <Button Content="恢复草稿" AutomationProperties.AutomationId="RecoverDocument" Click="RecoverDocument_Click" />
+            <TextBlock x:Name="DocumentStatus" VerticalAlignment="Center" AutomationProperties.AutomationId="DocumentStatus" />
+        </StackPanel>
+        <Grid Grid.Row="1" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -21,7 +30,7 @@
         </Grid>
         <TextBlock
             x:Name="BridgeStatus"
-            Grid.Row="1"
+            Grid.Row="2"
             AutomationProperties.AutomationId="BridgeStatus"
             IsHitTestVisible="False"
             Text="正在初始化 WebView2…" />

@@ -38,4 +38,16 @@ public sealed class MarkdownRendererTests
         Assert.IsFalse(html.Contains("<script>", StringComparison.OrdinalIgnoreCase));
         StringAssert.Contains(html, "&lt;script&gt;");
     }
+
+    [TestMethod]
+    public void RewritesOnlyImagesThroughTheResolverAndRemovesRejectedImages()
+    {
+        var html = MarkdownRenderer.Render("[link](https://example.com) ![allowed](photo.png) ![rejected](https://evil.example/x.png)",
+            url => url == "photo.png" ? "https://document.marker.example/0123456789abcdef0123456789abcdef/image/0123456789abcdef0123456789abcdef0123456789abcdef" : null);
+
+        StringAssert.Contains(html, "href=\"https://example.com\"");
+        StringAssert.Contains(html, "src=\"https://document.marker.example/0123456789abcdef0123456789abcdef/image/0123456789abcdef0123456789abcdef0123456789abcdef\"");
+        Assert.IsFalse(html.Contains("evil.example", StringComparison.Ordinal));
+        Assert.AreEqual(1, html.Split("<img", StringSplitOptions.None).Length - 1);
+    }
 }

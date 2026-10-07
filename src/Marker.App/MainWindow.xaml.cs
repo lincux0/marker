@@ -29,26 +29,9 @@ public sealed partial class MainWindow : UserControl
     private const uint WmClose = 0x0010;
     private const uint WmGetMinMaxInfo = 0x0024;
     private const uint WmDpiChanged = 0x02E0;
-    private const string SampleMarkdown = """
-    # Marker M1 原型
-
-    中文输入与实时预览
-    ==================
-
-    | 项目 | 状态 |
-    | --- | --- |
-    | CodeMirror 6 | 已连接 |
-    | Markdig | 已连接 |
-
-    - [x] 全量文本快照
-    - [ ] 中文输入法实机验收
-
-    ~~删除线~~ 与 `行内代码`
-    """;
-
     private readonly Native.Procedure _procedure;
     private readonly DesktopWindowXamlSource _toolbar;
-    private readonly BridgeSession _session = new(Guid.NewGuid().ToString("N"));
+    private BridgeSession _session = new(Guid.NewGuid().ToString("N"));
     private readonly nint _window;
     private readonly nint _editorWindow;
     private readonly nint _previewWindow;
@@ -57,6 +40,7 @@ public sealed partial class MainWindow : UserControl
     private CoreWebView2Controller? _preview;
     private MarkdownSnapshot? _latestSnapshot;
     private long _latestPreviewSentVersion = -1;
+    private long _renderRequest;
     private bool _editorReady;
     private bool _previewReady;
     private bool _closed;
@@ -90,6 +74,7 @@ public sealed partial class MainWindow : UserControl
         _toolbar.Content = this;
         _toolbar.TakeFocusRequested += Toolbar_TakeFocusRequested;
         _toolbar.GotFocus += (_, _) => _lastFocus = 0;
+        InitializeDocuments();
     }
 
     internal void Show()
@@ -154,14 +139,12 @@ public sealed partial class MainWindow : UserControl
         {
             if (editor && args.Reason == CoreWebView2MoveFocusReason.Next)
             {
-                _preview?.MoveFocus(CoreWebView2MoveFocusReason.Next);
-                args.Handled = _preview is not null;
+                args.Handled = TryMoveFocus(_preview, _previewWindow, CoreWebView2MoveFocusReason.Next);
                 return;
             }
             if (!editor && args.Reason == CoreWebView2MoveFocusReason.Previous)
             {
-                _editor?.MoveFocus(CoreWebView2MoveFocusReason.Previous);
-                args.Handled = _editor is not null;
+                args.Handled = TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Previous);
                 return;
             }
             _toolbar.NavigateFocus(new XamlSourceFocusNavigationRequest(args.Reason == CoreWebView2MoveFocusReason.Previous
@@ -174,9 +157,9 @@ public sealed partial class MainWindow : UserControl
     private void Toolbar_TakeFocusRequested(object? sender, DesktopWindowXamlSourceTakeFocusRequestedEventArgs args)
     {
         if (args.Request.Reason == XamlSourceFocusNavigationReason.Last)
-            _preview?.MoveFocus(CoreWebView2MoveFocusReason.Previous);
+            TryMoveFocus(_preview, _previewWindow, CoreWebView2MoveFocusReason.Previous);
         else
-            _editor?.MoveFocus(CoreWebView2MoveFocusReason.Next);
+            TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Next);
     }
 
     private void ConfigureWebView(CoreWebView2 core, string pageUrl, string host, bool editor)
@@ -191,6 +174,16 @@ public sealed partial class MainWindow : UserControl
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, args) =>
         {
+            if (!editor && Uri.TryCreate(args.Request.Uri, UriKind.Absolute, out var resourceUri)
+                && resourceUri.Host == "document.marker.example")
+            {
+                if (_images.TryRead(args.Request.Uri, out var bytes, out var mime))
+                    args.Response = core.Environment.CreateWebResourceResponse(new MemoryStream(bytes).AsRandomAccessStream(), 200, "OK",
+                        $"Content-Type: {mime}\r\nX-Content-Type-Options: nosniff\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'");
+                else
+                    args.Response = core.Environment.CreateWebResourceResponse(null, 403, "Blocked", "Content-Type: text/plain");
+                return;
+            }
             var uri = Uri.TryCreate(args.Request.Uri, UriKind.Absolute, out var parsed) ? parsed : null;
             var path = uri is null ? string.Empty : Uri.UnescapeDataString(uri.AbsolutePath);
             var pathAllowed = path == (editor ? "/index.html" : "/preview.html")
@@ -219,9 +212,22 @@ public sealed partial class MainWindow : UserControl
             {
                 type = "initialize",
                 sessionId = _session.SessionId,
-                text = SampleMarkdown
+                text = _document.Text
             }));
             SetStatus("编辑器已连接，等待首个快照。");
+            _ = OfferRecoveryOnStartupAsync();
+            return;
+        }
+
+        if (_session.TryReadCommand(source, EditorUrl, json, out var command, out _))
+        {
+            _ = ExecuteDocumentCommandAsync(command);
+            return;
+        }
+        if (_session.TryReadSnapshotError(source, EditorUrl, json, out var requestId, out var reason, out _))
+        {
+            if (requestId == _snapshotRequestId)
+                _snapshotCompletion?.TrySetException(new IOException("请先完成输入法选词，再保存或切换文档。"));
             return;
         }
 
@@ -231,6 +237,7 @@ public sealed partial class MainWindow : UserControl
             return;
         }
         _latestSnapshot = snapshot;
+        AcceptDocumentSnapshot(snapshot);
         _ = RenderSnapshotAsync(snapshot);
     }
 
@@ -263,8 +270,11 @@ public sealed partial class MainWindow : UserControl
     {
         try
         {
-            var html = await Task.Run(() => MarkdownRenderer.Render(snapshot.Text));
-            if (_closed || snapshot.Version != _session.Version || !_previewReady || _preview is null)
+            var session = _session;
+            var renderRequest = ++_renderRequest;
+            var resolver = _images.CreateResolver(session.SessionId);
+            var html = await Task.Run(() => MarkdownRenderer.Render(snapshot.Text, resolver));
+            if (_closed || renderRequest != _renderRequest || !ReferenceEquals(session, _session) || snapshot.Version != session.Version || !_previewReady || _preview is null)
                 return;
 
             _latestPreviewSentVersion = snapshot.Version;
@@ -284,7 +294,25 @@ public sealed partial class MainWindow : UserControl
     }
 
     private void EditorFocusButton_Click(object sender, RoutedEventArgs e)
-        => _editor?.MoveFocus(CoreWebView2MoveFocusReason.Next);
+        => TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Next);
+
+    private bool TryMoveFocus(CoreWebView2Controller? controller, nint childWindow, CoreWebView2MoveFocusReason reason)
+    {
+        // Modal file dialogs can restore WM_SETFOCUS before their async operation completes.
+        if (_closed || _operationBusy || controller is null || !Native.IsWindowEnabled(_window)
+            || !Native.IsWindowEnabled(childWindow)) return false;
+        try
+        {
+            if (!controller.IsVisible) return false;
+            controller.MoveFocus(reason);
+            return true;
+        }
+        catch (Exception error) when (error is ArgumentException or COMException)
+        {
+            SetStatus("窗口焦点暂不可用，请点击编辑区重试。");
+            return false;
+        }
+    }
 
     private void ResyncButton_Click(object sender, RoutedEventArgs e)
     {
@@ -308,7 +336,7 @@ public sealed partial class MainWindow : UserControl
         if (_closed) return;
         Native.GetClientRect(_window, out var rect);
         var scale = Native.GetDpiForWindow(_window) / 96d;
-        var header = (int)Math.Round(88 * scale);
+        var header = (int)Math.Round(152 * scale);
         var gap = (int)Math.Round(12 * scale);
         var width = Math.Max(1, (rect.Right - gap * 3) / 2);
         var height = Math.Max(1, rect.Bottom - header - gap);
@@ -345,8 +373,8 @@ public sealed partial class MainWindow : UserControl
             }
             if (message == WmSetFocus)
             {
-                if (_lastFocus == _editorWindow) _editor?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
-                if (_lastFocus == _previewWindow) _preview?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
+                if (_lastFocus == _editorWindow) TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Programmatic);
+                if (_lastFocus == _previewWindow) TryMoveFocus(_preview, _previewWindow, CoreWebView2MoveFocusReason.Programmatic);
             }
             if (message == WmGetMinMaxInfo)
             {
@@ -367,7 +395,13 @@ public sealed partial class MainWindow : UserControl
             }
             if (message == WmClose)
             {
+                if (!_allowClose)
+                {
+                    _ = ExecuteDocumentCommandAsync("close");
+                    return 0;
+                }
                 _closed = true;
+                DisposeDocuments();
                 CloseControllers();
                 _toolbar.Dispose();
                 Native.DestroyWindow(_window);
@@ -388,6 +422,7 @@ public sealed partial class MainWindow : UserControl
 
     private static class Native
     {
+        [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool IsWindowEnabled(nint window);
         internal delegate nint Procedure(nint window, uint message, nuint wParam, nint lParam);
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

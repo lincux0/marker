@@ -42,19 +42,19 @@
 
 ## D005 编辑器与网页宿主
 
-- 状态：已采纳并迁入生产源码。生产使用 Win32 根窗口、承载工具栏的 WinUI 3 `DesktopWindowXamlSource`，以及分别承载 CodeMirror 编辑器和预览的两个原生子 HWND/windowed WebView2 controller。
+- 状态：已采纳并迁入生产源码。生产使用 Win32 根窗口、承载工具栏的 WinUI 3 `DesktopWindowXamlSource`，以及分别承载 CodeMirror 编辑器和预览的两个原生子 HWND/windowed WebView2 controller。用户已确认迁移后的生产 EXE 微信输入法正常，M1 输入法与安全核心门槛通过并获准进入 M2；本轮 MSIX 安装尚未执行，独立待验。
 - CodeMirror 6 通过 Vite 本地资源构建；两个 WebView2 共享 `CoreWebView2Environment`，并使用不同的 HTTPS 虚拟主机来源。WinUI 应用仍提供消息泵，Win32 根窗体由 `MainWindow` 注册和管理。
 - CodeMirror 文档为编辑期唯一文本权威，桌面端通过全量快照、会话标识和版本号与编辑器/预览协调；先不引入增量 patch。
-- 理由：保留成熟编辑器历史能力，并采用独立原型中已由用户确认可正常进行微信输入及候选框定位的宿主组合；生产迁移后的兼容效果仍以生产实机复验为准。
-- 代价：快照随文档大小增长，当前限制 1 Mi UTF-16 单元；全量解析和 WebView2 消息负担需在更大文档场景评估。Win32 HWND 布局需手动管理尺寸、DPI、焦点交接、Z 顺序和关闭生命周期；XAML 与原生 WebView2 子窗口存在 airspace 限制，可能影响跨区域动画、裁剪和浮层。生产 IME 仍需在迁移后的 EXE 实机验收，原型结果不能替代。生产原生焦点/预览/Tab/resize/close 烟测和 Web 安全回归已通过；本轮提升安装操作被取消，未执行安装或机器证书链验证。
-- M1 尚无文件读写、保存、多个标签或真实文件会话。
-- 2026-10-07 宿主实验与迁移：WinUI `Window` 内的原生子 HWND/windowed WebView2 路径无法通过物理输入检查，未采纳。后续独立原型改为 Win32 主窗口、工具栏使用 WinUI 3 XAML Islands、编辑器与预览放入原生子 HWND 的 windowed WebView2。用户确认原型中的微信输入、候选框及移动/缩放后表现正常；原型自动烟测实测 DPI 为 120，不能证明用户报告的 200% 缩放已被自动测量。维护者随后确认迁入生产，当前生产源码采用同一宿主组合。迁移后的生产 IME、无障碍、MSIX 与最低 build 验收以本次历程记录为准。
+- 理由：保留成熟编辑器历史能力，并采用经独立原型与迁移后生产 EXE 双重用户验收可正常进行微信输入及候选框定位的宿主组合。
+- 代价：快照随文档大小增长，当前限制 1 Mi UTF-16 单元；全量解析和 WebView2 消息负担需在更大文档场景评估。Win32 HWND 布局需手动管理尺寸、DPI、焦点交接、Z 顺序和关闭生命周期；XAML 与原生 WebView2 子窗口存在 airspace 限制，可能影响跨区域动画、裁剪和浮层。M1 核心门槛已通过，但读屏器、最低 build 26100 和本轮 MSIX 安装仍待独立验收。模态文件选择器异步完成后的焦点恢复由统一 `TryMoveFocus` 检查忙碌/窗口启用/controller 可见状态；实机曾观察到焦点恢复路径异常，WinUI/WebView2 API 未说明该精确时序条件，时序解释属于实现推断。
+- M2 正在为单文档工作流增加本地文件与受控图片路径，范围和安全不变量见 D013。
+- 2026-10-07 宿主实验与迁移：WinUI `Window` 内的原生子 HWND/windowed WebView2 路径无法通过物理输入检查，未采纳。后续独立原型改为 Win32 主窗口、工具栏使用 WinUI 3 XAML Islands、编辑器与预览放入原生子 HWND 的 windowed WebView2。用户确认原型中的微信输入、候选框及移动/缩放后表现正常；原型自动烟测实测 DPI 为 120，不能证明用户报告的 200% 缩放已被自动测量。维护者随后确认迁入生产，当前生产源码采用同一宿主组合；用户已确认生产 EXE 微信输入法正常。无障碍、最低 build 和生产 MSIX 安装仍分别待验。
 
 ## D006 Markdown 解析
 
-- 状态：Markdig 1.4.0 已加入项目引用并用于 M1 原型；本地 NuGet nuspec 声明许可证 SPDX 为 `BSD-2-Clause`。
+- 状态：Markdig 1.4.0 已加入项目引用并用于生产预览；本地 NuGet nuspec 声明许可证 SPDX 为 `BSD-2-Clause`。
 - C# 侧在后台统一解析全量快照，再向常驻预览视图提供版本化 HTML。
-- 当前启用 PipeTables、TaskLists、AutoLinks、EmphasisExtras，禁用原始 HTML；预览净化还会移除链接元素及其 URL 属性。
+- 当前启用 PipeTables、TaskLists、AutoLinks、EmphasisExtras，禁用原始 HTML；预览净化移除链接元素及其 URL 属性，图片仅由 M2 受控本地图片解析器提供。
 - 理由：解析集中于宿主可统一管理扩展、资源边界和版本更新。
 - 代价：前后端需定义文本快照、版本号和 HTML 安全传递方式。
 - 语法扩展、安全规则和真实兼容范围以[开发方案](开发方案.md)及实际管线为准；M1 只覆盖已验证的有限扩展。
@@ -64,7 +64,8 @@
 - 状态：JSON 配置待实现；SQLite 延期。
 - 计划用 JSON 保存轻量设置；Markdown 文档首发保存在普通本地文件中。
 - SQLite 仅在需要查询型元数据、规模化历史或跨文档关系后重新评估。
-- 理由：M0/M1 没有数据库功能需求，避免引入迁移与数据维护成本。
+- 恢复草稿使用独立 schemaVersion 1 JSON；设置 JSON 尚未实现。
+- 理由：M0/M1 没有数据库功能需求，M2 草稿也无需查询型存储，避免引入迁移与数据维护成本。
 - 代价：复杂查询或多实体事务需求出现时，JSON 不适合作为数据库替代品。
 
 ## D008 视觉与动效
@@ -96,19 +97,30 @@
 
 ## D011 测试与抽象边界
 
-- 状态：M1 已有业务测试。
-- MSTest 覆盖 BridgeSession 来源/会话/字段/版本/大小校验，以及 Markdig 常用语法和原始 HTML 禁用。
-- 两个纯逻辑实现通过测试工程的 Compile Link 直接复用，没有另建 CoreLib。
+- 状态：M2 核心逻辑有 MSTest 覆盖。
+- MSTest 覆盖 BridgeSession 命令/快照/requestId/错误、Markdig、DocumentFile 编码/换行/冲突、RecoveryStore 写入覆盖/旧 schema 兼容/损坏/未知版本，以及 LocalImageResources 路径/图像边界。最新本机运行 21 通过、1 跳过；符号链接用例因权限限制跳过。
+- 纯逻辑实现通过测试工程 Compile Link 直接复用，没有另建 CoreLib。
 - 自动测试不能证明 WebView2 导航/CSP/本地资源策略或真实输入法行为；这些仍需集成和实机验收。
 - 维护规则：新增可测业务行为时一并增加针对行为的检查，不将测试运行器启动等同为业务验收。
 
-## D012 M1 WebView2 与预览信任边界
+## D012 WebView2 桥接与预览信任边界
 
-- 状态：生产 Win32/XAML Islands 双 windowed WebView2 保留与原生产宿主相同的页面安全策略。生产 EXE 的真实 WebView 安全回归与原生焦点/预览/Tab/resize/close 烟测通过；SendKeys 检查不替代真实 IME 和读屏器验收。原型的微信输入法验收通过，生产迁移后的 IME 尚待用户实机反馈；本轮 MSIX 已在 CurrentUser 范围签名，但提升安装操作被取消，机器证书链验证和安装未执行；最低 build 状态见项目历程，完整发布回归仍待进行。
+- 状态：生产 Win32/XAML Islands 双 windowed WebView2 使用来源/会话/字段/版本/大小白名单桥接；用户已确认生产 IME 正常，M1 的输入和安全核心门槛通过。Web 安全回归 9 类检查通过；MSIX 安装未执行，读屏器与最低 build 仍待验。
 - 两个视图只从包内 Web 资源加载，使用 `editor.marker.example` 与 `preview.marker.example` 两个来源；宿主限定页面导航、页面资源路径、消息来源、字段、会话、消息深度与尺寸，并拒绝 frame 导航和新窗口。
-- 不暴露 WebView2 Host Object 或文件 API。Markdig 禁用原始 HTML；预览通过 DOMPurify 白名单后再写入 DOM，并由页面 CSP 再限网络、对象、表单、图片和 frame。
-- 理由：M1 输入仍是内置样例，先把网页和原生宿主的能力边界设为最小。
-- 代价：预览当前不支持图片、超链接、SVG、表单等内容；安全策略的本轮负向样例已在真实 WebView2 检查，IME 仍需人工 Windows 会话观察，样例通过不能代替完整发布验收。
+- 不暴露 WebView2 Host Object 或通用文件 API。文件命令和快照经会话桥接；本地图片只通过受控 `document.marker.example` 资源端点响应。Markdig 禁用原始 HTML；预览通过 DOMPurify 白名单后写入 DOM，并由 CSP 限制网络、对象、表单和 frame。
+- 理由：将原生文件操作和受限图片读取留在宿主，网页只接收当前文档文本、HTML 和不透明资源引用。
+- 代价：预览不支持超链接、SVG、表单等内容；9 类 Web 安全样例通过不替代完整发布验收。
+
+## D013 本地文档与图片资源安全
+
+- 状态：M2 核心功能与本机核心闭环验证完成；发布和兼容验收待完成。
+- Markdown 保持普通本地文件；读写支持严格 UTF-8（有/无 BOM）和 BOM UTF-16LE/BE，无法解码时经原生提示允许用户明确选择 GB18030。编辑器快照统一 LF，保存时恢复原 BOM/编码与 LF、CRLF 或 CR；混合换行保存前须选择统一策略。
+- 文档读写最多 8 MiB，恢复 JSON 草稿最多 8 MiB；普通编辑桥接仍受 2 MiB JSON 和 1 Mi UTF-16 文本双限制。保存校验 SHA-256 指纹，先写同目录临时文件并 flush 到磁盘，再原子替换；保存期间限制普通写入，复核替换前后内容。并发替换时保留 `.external` 副本并报告冲突。
+- 恢复草稿按文档 ID 保存 schemaVersion 1 JSON，增加可选 `applicationVersion` 元数据；旧 schema 1 文件缺少该属性仍可读取。写入采用同目录临时文件加覆盖式移动。维护者在真实私有 Recovery 目录验证时观察到 `File.Replace` 抛出“无法删除要被替换的文件”，而覆盖式 `File.Move` 探针成功；原因未知，不推断为 EFS 或某一种文件系统特性。
+- 恢复只创建未命名副本，原路径仅作来源/差异提示，绝不自动写回或覆盖原文件；关闭/切换时由用户确认保存、放弃或取消。编辑器快照约 100 ms 防抖、草稿约 1 秒节流；突然断电或崩溃仍可能丢失尚未写入的最新尾部内容。
+- 本地图片只接受文档目录内 PNG/JPEG/GIF/WebP/BMP，单张不超过 16 MiB；通过路径规范化、解码遍数限制、重解析点检查和最终打开句柄真实路径复核，并以当前会话随机令牌映射不透明资源 URL。
+- 理由：保留 Markdown 普通文件互操作性，同时把并发保存、崩溃恢复和本地图片读取作为独立的原生信任边界；私有 Recovery 目录上的探针结果支持草稿使用覆盖式移动替换。
+- 代价：M2 当前单文档，无工作区、多标签、图片复制/粘贴或图片资产搬迁；编码种类与文件大小受限。文件监控不是保存安全的唯一依据，保存时仍必须执行指纹复核。
 
 ## 决策维护
 

@@ -17,7 +17,7 @@ async (page) => {
   let stage = 'initialize';
   try {
     await editor.goto('http://127.0.0.1:5173/index.html');
-    await editor.evaluate(() => window.markerTest.receive({ type: 'initialize', sessionId: 'test-session', text: '# 初始\n' }));
+    await editor.evaluate(() => window.markerTest.receive({ type: 'initialize', sessionId: '11111111111111111111111111111111', text: '# 初始\n' }));
     await editor.locator('#editor .cm-content').waitFor();
     await editor.locator('#editor .cm-content').click();
     await editor.keyboard.press('Control+End');
@@ -25,42 +25,54 @@ async (page) => {
     stage = 'snapshot';
     await editor.waitForFunction(() => window.markerTest.sent.some(message => message.type === 'snapshot' && message.text.includes('中文 😀')));
     const snapshot = await editor.evaluate(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1));
-    check(snapshot.sessionId === 'test-session' && snapshot.version > 0, 'snapshot session/version');
+    check(snapshot.sessionId === '11111111111111111111111111111111' && snapshot.version > 0, 'snapshot session/version');
     await editor.keyboard.press('Control+z');
     stage = 'undo';
     await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text === '# 初始\n');
     await editor.keyboard.press('Control+y');
     stage = 'redo';
     await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.includes('中文 😀'));
+    stage = 'request snapshot';
+    await editor.keyboard.insertText('待同步');
+    await editor.evaluate(() => window.markerTest.receive({ type: 'requestSnapshot', sessionId: '11111111111111111111111111111111', requestId: 'save-1' }));
+    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.requestId === 'save-1');
     const before = await editor.evaluate(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1));
-    await editor.evaluate(() => window.markerTest.receive({ type: 'initialize', sessionId: 'test-session', text: '不得覆盖编辑内容' }));
-    await editor.evaluate(() => window.markerTest.receive({ type: 'requestSnapshot', sessionId: 'test-session' }));
+    check(before.text.endsWith('中文 😀待同步'), 'request snapshot flushes the latest editor text');
+    await editor.evaluate(() => window.markerTest.receive({ type: 'initialize', sessionId: '11111111111111111111111111111111', text: '不得覆盖编辑内容' }));
+    await editor.evaluate(() => window.markerTest.receive({ type: 'requestSnapshot', sessionId: '11111111111111111111111111111111' }));
     const after = await editor.evaluate(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1));
-    check(after.text === before.text && after.version === before.version, 'resync must preserve text and undo history');
+    check(after.text === before.text && after.version === before.version && !Object.hasOwn(after, 'requestId'), 'resync must preserve text/history without request correlation');
+    stage = 'native commands';
+    await editor.keyboard.press('Control+n');
+    await editor.keyboard.press('Control+o');
+    await editor.keyboard.press('Control+s');
+    await editor.keyboard.press('Control+Shift+s');
+    const commands = await editor.evaluate(() => window.markerTest.sent.filter(message => message.type === 'command').map(message => message.command));
+    check(commands.slice(-4).join(',') === 'new,open,save,saveAs', 'native command shortcuts');
     stage = 'paragraph';
     await editor.keyboard.press('Control+End');
     await editor.keyboard.press('Control+Enter');
-    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('中文 😀\n\n'));
+    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('待同步\n\n'));
     await editor.keyboard.press('Control+z');
-    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('中文 😀'));
+    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('待同步'));
     await editor.keyboard.press('Control+y');
-    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('中文 😀\n\n'));
+    await editor.waitForFunction(() => window.markerTest.sent.filter(message => message.type === 'snapshot').at(-1)?.text.endsWith('待同步\n\n'));
     await preview.goto('http://127.0.0.1:5173/preview.html');
     await preview.evaluate(() => {
-      window.markerTest.receive({ type: 'initialize', sessionId: 'test-session', text: '' });
-      window.markerTest.receive({ type: 'render', sessionId: 'test-session', version: 5,
+      window.markerTest.receive({ type: 'initialize', sessionId: '11111111111111111111111111111111', text: '' });
+      window.markerTest.receive({ type: 'render', sessionId: '11111111111111111111111111111111', version: 5,
         html: '<h1>安全预览</h1><script>window.pwned=1</script><img src="https://example.com/x" onerror="window.pwned=2"><a href="javascript:window.pwned=3">链接</a><iframe src="https://example.com"></iframe><input autofocus>' });
     });
     check(await preview.locator('#preview h1').innerText() === '安全预览', 'render content');
     check(await preview.locator('#preview script, #preview img, #preview iframe, #preview input, #preview [href], #preview [onerror]').count() === 0, 'unsafe preview markup');
     check(await preview.evaluate(() => !window.pwned), 'script executed');
     await preview.evaluate(() => {
-      window.markerTest.receive({ type: 'render', sessionId: 'test-session', version: 4, html: '<h1>旧版本</h1>' });
+      window.markerTest.receive({ type: 'render', sessionId: '11111111111111111111111111111111', version: 4, html: '<h1>旧版本</h1>' });
       window.markerTest.receive({ type: 'render', sessionId: 'wrong-session', version: 6, html: '<h1>错误会话</h1>' });
     });
     check(await preview.locator('#preview h1').innerText() === '安全预览', 'stale/wrong-session render');
     check(await preview.evaluate(() => window.markerTest.sent.some(message => message.type === 'rendered' && message.version === 5)), 'render ack');
-    return { passed: true, checks: ['snapshot UTF-16 text', 'undo/redo', 'resync', 'paragraph shortcut/undo/redo', 'sanitization', 'stale version/session', 'render ack'], windowsIme: 'not tested' };
+    return { passed: true, checks: ['snapshot UTF-16 text', 'undo/redo', 'request snapshot flush/correlation', 'resync', 'native command shortcuts', 'paragraph shortcut/undo/redo', 'sanitization', 'stale version/session', 'render ack'], windowsIme: 'not tested' };
   } catch (error) {
     throw new Error(`${stage}: ${error.message}; ${JSON.stringify(await editor.evaluate(() => ({ sent: window.markerTest?.sent, text: document.querySelector('.cm-content')?.textContent, platform: navigator.platform })))}`);
   } finally { await context.close(); }

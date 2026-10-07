@@ -18,9 +18,10 @@ declare global {
 
 type HostMessage =
   | { type: "initialize"; sessionId: string; text: string }
-  | { type: "requestSnapshot"; sessionId: string };
+  | { type: "requestSnapshot"; sessionId: string; requestId?: string };
 
 const maxMessageChars = 1_048_576;
+const maxMessageBytes = 2_097_152;
 const app = document.querySelector<HTMLElement>("#app");
 const editorParent = document.querySelector<HTMLElement>("#editor");
 
@@ -43,22 +44,46 @@ function setStatus(message: string): void {
   status.hidden = message.length === 0;
 }
 
-function post(message: object): void {
-  bridge?.postMessage(message);
+function post(message: object): boolean {
+  if (!bridge) return false;
+  const json = JSON.stringify(message);
+  if (new TextEncoder().encode(json).length > maxMessageBytes) {
+    setStatus("桥接消息超过 2 MiB 限制，编辑内容仍保留在此编辑器中，但暂时无法同步。");
+    return false;
+  }
+  bridge.postMessage(message);
+  return true;
 }
 
-function sendSnapshot(): void {
+function sendSnapshot(requestId?: string): void {
   if (!view || !sessionId) return;
   if (pendingSnapshot !== undefined) window.clearTimeout(pendingSnapshot);
   pendingSnapshot = undefined;
+  if (requestId && view.compositionStarted) {
+    post({ type: "snapshotError", sessionId, requestId, reason: "compositionInProgress" });
+    setStatus("请先完成输入法候选输入，尚未提交保存内容。");
+    return;
+  }
   const text = view.state.doc.toString();
   if (text.length > maxMessageChars) {
     setStatus("文档超过 1,048,576 个 UTF-16 单元，编辑内容仍保留在此编辑器中，但暂时无法同步预览。");
     return;
   }
-  setStatus("");
-  post({ type: "snapshot", sessionId, version, text });
+  if (post({ type: "snapshot", sessionId, version, text, ...(requestId ? { requestId } : {}) })) setStatus("");
 }
+
+function sendCommand(command: "new" | "open" | "save" | "saveAs"): boolean {
+  if (!sessionId) return false;
+  return post({ type: "command", sessionId, command });
+}
+
+editorParent.addEventListener("keydown", (event: KeyboardEvent) => {
+  if (event.ctrlKey && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    sendCommand(event.shiftKey ? "saveAs" : "save");
+  }
+}, true);
 
 function insertParagraph(editor: EditorView): boolean {
   if (editor.compositionStarted) return false;
@@ -88,7 +113,13 @@ function initialize(nextSessionId: string, text: string): void {
         markdown(),
         syntaxHighlighting(defaultHighlightStyle),
         history(),
-        keymap.of([{ key: "Ctrl-Enter", run: insertParagraph }, ...defaultKeymap, ...historyKeymap]),
+        keymap.of([
+          { key: "Ctrl-Enter", run: insertParagraph },
+          { key: "Ctrl-n", run: () => sendCommand("new") },
+          { key: "Ctrl-o", run: () => sendCommand("open") },
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
         EditorView.contentAttributes.of({ "aria-label": "Markdown 编辑器", "aria-description": "Ctrl+Enter 在当前行后新建段落" }),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
@@ -110,6 +141,11 @@ function initialize(nextSessionId: string, text: string): void {
 }
 
 bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
+  const encoded = JSON.stringify(event.data);
+  if (encoded === undefined || new TextEncoder().encode(encoded).length > maxMessageBytes) {
+    setStatus("桌面端消息超过 2 MiB 限制，已忽略该消息。");
+    return;
+  }
   const message = event.data as Partial<HostMessage> | null;
   if (!message || typeof message !== "object") return;
   if (message.type === "initialize") {
@@ -123,7 +159,13 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
     }
     return;
   }
-  if (message.type === "requestSnapshot" && message.sessionId === sessionId) sendSnapshot();
+  if (message.type === "requestSnapshot" && message.sessionId === sessionId) {
+    if (message.requestId !== undefined && (typeof message.requestId !== "string" || message.requestId.length === 0 || message.requestId.length > 128)) {
+      setStatus("桌面端快照请求编号无效，已忽略该请求。");
+      return;
+    }
+    sendSnapshot(message.requestId);
+  }
 });
 
 if (bridge) {

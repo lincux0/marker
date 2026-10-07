@@ -23,7 +23,7 @@ internal sealed class BridgeSession(string sessionId)
     public bool TryAcceptSnapshot(string source, string expectedSource, string json, out MarkdownSnapshot snapshot, out string error)
     {
         snapshot = default;
-        if (!TryRead(source, expectedSource, json, "snapshot", ["type", "sessionId", "version", "text"], out var root, out error))
+        if (!TryRead(source, expectedSource, json, "snapshot", ["type", "sessionId", "version", "text", "requestId"], out var root, out error))
             return false;
 
         if (!root.TryGetProperty("sessionId", out var session) || session.ValueKind != JsonValueKind.String || session.GetString() != SessionId)
@@ -38,13 +38,49 @@ internal sealed class BridgeSession(string sessionId)
             return Fail("编辑器文本超过 1 Mi UTF-16 单元限制。", out error);
         if (Version < 0 ? version != 0 : version < Version || version == Version && text != _text)
             return Fail("编辑器快照版本已过期或未递增。", out error);
+        if (!TryReadOptionalRequestId(root, out var requestId, out error))
+            return false;
 
         if (version > Version)
         {
             Version = version;
             _text = text;
         }
-        snapshot = new MarkdownSnapshot(version, text);
+        snapshot = new MarkdownSnapshot(version, text, requestId);
+        error = string.Empty;
+        return true;
+    }
+
+    public bool TryReadCommand(string source, string expectedSource, string json, out string command, out string error)
+    {
+        command = string.Empty;
+        if (!TryRead(source, expectedSource, json, "command", ["type", "sessionId", "command"], out var root, out error))
+            return false;
+        if (!HasMatchingSession(root, out error))
+            return false;
+        if (!root.TryGetProperty("command", out var commandElement) || commandElement.ValueKind != JsonValueKind.String ||
+            commandElement.GetString() is not ("new" or "open" or "save" or "saveAs"))
+            return Fail("原生命令不受支持。", out error);
+
+        command = commandElement.GetString()!;
+        error = string.Empty;
+        return true;
+    }
+
+    public bool TryReadSnapshotError(string source, string expectedSource, string json, out string requestId, out string reason, out string error)
+    {
+        requestId = string.Empty;
+        reason = string.Empty;
+        if (!TryRead(source, expectedSource, json, "snapshotError", ["type", "sessionId", "requestId", "reason"], out var root, out error))
+            return false;
+        if (!HasMatchingSession(root, out error))
+            return false;
+        if (!TryReadRequiredRequestId(root, out requestId, out error))
+            return false;
+        if (!root.TryGetProperty("reason", out var reasonElement) || reasonElement.ValueKind != JsonValueKind.String || reasonElement.GetString() != "compositionInProgress")
+            return Fail("快照错误原因不受支持。", out error);
+
+        reason = reasonElement.GetString()!;
         error = string.Empty;
         return true;
     }
@@ -97,6 +133,41 @@ internal sealed class BridgeSession(string sessionId)
         return true;
     }
 
+    private bool HasMatchingSession(JsonElement root, out string error)
+    {
+        if (!root.TryGetProperty("sessionId", out var session) || session.ValueKind != JsonValueKind.String || session.GetString() != SessionId)
+            return Fail("编辑器会话不匹配。", out error);
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryReadOptionalRequestId(JsonElement root, out string? requestId, out string error)
+    {
+        requestId = null;
+        if (!root.TryGetProperty("requestId", out var element))
+        {
+            error = string.Empty;
+            return true;
+        }
+        if (element.ValueKind != JsonValueKind.String || !IsRequestId(element.GetString()))
+            return Fail("快照请求编号无效。", out error);
+        requestId = element.GetString();
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool TryReadRequiredRequestId(JsonElement root, out string requestId, out string error)
+    {
+        requestId = string.Empty;
+        if (!root.TryGetProperty("requestId", out var element) || element.ValueKind != JsonValueKind.String || !IsRequestId(element.GetString()))
+            return Fail("快照请求编号无效。", out error);
+        requestId = element.GetString()!;
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool IsRequestId(string? value) => !string.IsNullOrEmpty(value) && value.Length <= 128;
+
     private static bool Fail(string message, out string error)
     {
         error = message;
@@ -104,4 +175,4 @@ internal sealed class BridgeSession(string sessionId)
     }
 }
 
-internal readonly record struct MarkdownSnapshot(long Version, string Text);
+internal readonly record struct MarkdownSnapshot(long Version, string Text, string? RequestId = null);

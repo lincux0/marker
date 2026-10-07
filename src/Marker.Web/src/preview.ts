@@ -26,7 +26,7 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
   if (
     message.type === "initialize" &&
     typeof message.sessionId === "string" &&
-    message.sessionId.length > 0 && message.sessionId.length <= 128
+    /^[0-9a-f]{32}$/.test(message.sessionId)
   ) {
     if (message.sessionId !== sessionId) {
       sessionId = message.sessionId;
@@ -46,15 +46,22 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
   const clean = DOMPurify.sanitize(message.html, {
     ALLOWED_TAGS: [
       "p", "br", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
-      "ul", "ol", "li", "pre", "code", "em", "strong", "del", "table",
+      "ul", "ol", "li", "pre", "code", "em", "strong", "del", "table", "img",
       "thead", "tbody", "tr", "th", "td",
     ],
-    ALLOWED_ATTR: ["title", "start", "align"],
-    FORBID_TAGS: ["a", "img", "svg", "math", "style", "iframe", "form", "input"],
-    FORBID_ATTR: ["style", "src", "href", "srcset"],
+    ALLOWED_ATTR: ["title", "start", "align", "src", "alt"],
+    FORBID_TAGS: ["a", "svg", "math", "style", "iframe", "form", "input"],
+    FORBID_ATTR: ["style", "href", "srcset", "onerror", "onload"],
     ALLOW_DATA_ATTR: false,
   });
-  preview.innerHTML = clean;
+  const template = document.createElement("template");
+  template.innerHTML = clean;
+  for (const image of template.content.querySelectorAll("img")) {
+    const src = image.getAttribute("src") ?? "";
+    const match = /^https:\/\/document\.marker\.example\/([0-9a-f]{32})\/image\/[0-9a-f]{48}$/.exec(src);
+    if (!match || match[1] !== sessionId) image.remove();
+  }
+  preview.replaceChildren(template.content);
   bridge?.postMessage({ type: "rendered", sessionId, version });
 });
 
