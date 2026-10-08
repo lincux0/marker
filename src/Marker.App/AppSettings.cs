@@ -11,7 +11,12 @@ public sealed record AppSettings(
     bool LineWrapping,
     string ViewMode,
     bool ReducedMotion = false,
-    WindowPlacement? WindowPlacement = null)
+    WindowPlacement? WindowPlacement = null,
+    double ParagraphSpacing = 0.5,
+    string BodyFont = "system",
+    string H1Font = "song",
+    string H2Font = "song",
+    string ColorPalette = "lavender")
 {
     public const int CurrentSchemaVersion = 1;
 
@@ -49,8 +54,13 @@ public sealed record AppSettings(
                 ? ReadBool(root, "reducedMotion", defaults.ReducedMotion, warnings)
                 : defaults.ReducedMotion;
             var windowPlacement = ReadWindowPlacement(root, warnings);
+            var paragraphSpacing = ReadOptionalDouble(root, "paragraphSpacing", 0, 2, defaults.ParagraphSpacing, warnings);
+            var bodyFont = ReadOptionalEnum(root, "bodyFont", ["system", "song", "yahei", "dengxian", "serif"], defaults.BodyFont, warnings);
+            var h1Font = ReadOptionalEnum(root, "h1Font", ["system", "song", "yahei", "dengxian", "serif"], defaults.H1Font, warnings);
+            var h2Font = ReadOptionalEnum(root, "h2Font", ["system", "song", "yahei", "dengxian", "serif"], defaults.H2Font, warnings);
+            var colorPalette = ReadOptionalEnum(root, "colorPalette", ["lavender", "forest", "ocean", "paper", "graphite"], defaults.ColorPalette, warnings);
             return new(new AppSettings(CurrentSchemaVersion, appVersion, theme, fontSize, lineHeight, wrapping, viewMode,
-                    reducedMotion, windowPlacement),
+                    reducedMotion, windowPlacement, paragraphSpacing, bodyFont, h1Font, h2Font, colorPalette),
                 warnings.Count == 0 ? null : "部分设置无效，已使用默认值。", true);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -65,6 +75,11 @@ public sealed record AppSettings(
         if (SchemaVersion != CurrentSchemaVersion || Theme is not ("system" or "light" or "dark")
             || FontSize is < 12 or > 24 || !double.IsFinite(LineHeight) || LineHeight is < 1.2 or > 2
             || ViewMode is not ("source" or "split" or "read")
+            || !double.IsFinite(ParagraphSpacing) || ParagraphSpacing is < 0 or > 2
+            || BodyFont is not ("system" or "song" or "yahei" or "dengxian" or "serif")
+            || H1Font is not ("system" or "song" or "yahei" or "dengxian" or "serif")
+            || H2Font is not ("system" or "song" or "yahei" or "dengxian" or "serif")
+            || ColorPalette is not ("lavender" or "forest" or "ocean" or "paper" or "graphite")
             || WindowPlacement is { IsValid: false })
             throw new ArgumentException("设置值无效，未保存。", nameof(directory));
 
@@ -110,6 +125,12 @@ public sealed record AppSettings(
         return fallback;
     }
 
+    private static string ReadOptionalEnum(JsonElement root, string name, string[] allowed, string fallback, List<string> warnings)
+    {
+        if (!root.TryGetProperty(name, out _)) return fallback;
+        return ReadEnum(root, name, allowed, fallback, warnings);
+    }
+
     private static int ReadInt(JsonElement root, string name, int minimum, int maximum, int fallback, List<string> warnings)
     {
         if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
@@ -126,6 +147,12 @@ public sealed record AppSettings(
             return number;
         warnings.Add(name);
         return fallback;
+    }
+
+    private static double ReadOptionalDouble(JsonElement root, string name, double minimum, double maximum, double fallback, List<string> warnings)
+    {
+        if (!root.TryGetProperty(name, out _)) return fallback;
+        return ReadDouble(root, name, minimum, maximum, fallback, warnings);
     }
 
     private static bool ReadBool(JsonElement root, string name, bool fallback, List<string> warnings)

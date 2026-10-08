@@ -516,6 +516,7 @@ public sealed partial class MainWindow : UserControl
                 }
                 SaveWindowPlacement();
                 _closed = true;
+                _settingsWindow?.Close();
                 DisposeWindowsExperience();
                 DisposeDocuments();
                 CloseControllers();

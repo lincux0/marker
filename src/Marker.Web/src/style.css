@@ -48,7 +48,7 @@ body {
   overflow: hidden;
   color: var(--editor-foreground);
   background: var(--editor-background);
-  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  font-family: var(--editor-body-font, "Segoe UI Variable Text"), "Segoe UI", "Microsoft YaHei UI", sans-serif;
   scrollbar-color: color-mix(in srgb, var(--editor-muted) 34%, transparent) transparent;
 }
 
@@ -76,7 +76,7 @@ body {
 #editor .cm-scroller {
   overflow: auto;
   padding-inline: clamp(12px, 4vw, 48px);
-  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  font-family: var(--editor-body-font, "Segoe UI Variable Text"), "Segoe UI", "Microsoft YaHei UI", sans-serif;
   line-height: inherit;
   scrollbar-color: color-mix(in srgb, var(--editor-muted) 30%, transparent) transparent;
   scrollbar-width: thin;
@@ -120,12 +120,13 @@ body {
   letter-spacing: -.025em;
 }
 
-#editor .cm-md-h1 { font-family: "SimSun", "Noto Serif CJK SC", Georgia, serif; font-size: 2.25em; padding-top: .15em; padding-bottom: .65em; font-weight: 700; }
-#editor .cm-md-h2 { font-family: "Microsoft YaHei UI", "Segoe UI Variable Display", "Segoe UI", sans-serif; font-size: 1.8em; font-weight: 700; }
+#editor .cm-md-h1 { font-family: var(--editor-h1-font, "SimSun"), "Noto Serif CJK SC", Georgia, serif; font-size: 2.25em; padding-top: .15em; padding-bottom: .65em; font-weight: 700; }
+#editor .cm-md-h2 { font-family: var(--editor-h2-font, "SimSun"), "Noto Serif CJK SC", Georgia, serif; font-size: 1.8em; font-weight: 700; }
 #editor .cm-md-h3 { font-size: 1.5em; }
 #editor .cm-md-h4 { font-size: 1.28em; }
 #editor .cm-md-h5 { font-size: 1.12em; }
 #editor .cm-md-h6 { font-size: 1em; color: var(--editor-muted); }
+#editor .cm-md-paragraph { padding-bottom: var(--editor-paragraph-spacing, .5em); }
 #editor .cm-md-heading span:not(.cm-md-link),
 #editor .cm-md-table-header span:not(.cm-md-link),
 #editor .cm-md-image-caption,
@@ -221,6 +222,22 @@ body {
 #editor .cm-md-table-cell { display: inline-block; box-sizing: border-box; width: calc(100% / var(--table-columns, 1)); min-height: 2.5em; padding: .55em .75em; overflow-wrap: anywhere; vertical-align: top; }
 #editor .cm-md-reference { color: var(--editor-muted); font-size: .85em; }
 #editor .cm-editor[data-source-mode="true"] .cm-scroller { font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace; }
+
+/* Deliberate, finite palettes: preferences select a token; they never supply CSS values. */
+html[data-color-palette="forest"] { --editor-foreground:#24352d; --editor-background:#edf3ee; --editor-paper:#fbfdfb; --editor-muted:#68786d; --editor-border:#d6e2d8; --editor-accent:#3d7656; --editor-accent-soft:#e0eee4; --editor-focus:#4a8a65; }
+html[data-color-palette="ocean"] { --editor-foreground:#233442; --editor-background:#edf3f7; --editor-paper:#fbfdff; --editor-muted:#687985; --editor-border:#d6e2e9; --editor-accent:#347493; --editor-accent-soft:#deedf4; --editor-focus:#438eaf; }
+html[data-color-palette="paper"] { --editor-foreground:#403a31; --editor-background:#f4f0e7; --editor-paper:#fffdf7; --editor-muted:#817869; --editor-border:#e6dece; --editor-accent:#986d38; --editor-accent-soft:#f2e8d7; --editor-focus:#ad7d3f; }
+html[data-color-palette="graphite"] { --editor-foreground:#303438; --editor-background:#eef0f1; --editor-paper:#fff; --editor-muted:#737a80; --editor-border:#dce0e3; --editor-accent:#596b79; --editor-accent-soft:#e4e9ec; --editor-focus:#718594; }
+html[data-theme="dark"][data-color-palette="forest"] { --editor-foreground:#e0eee4; --editor-background:#17211b; --editor-paper:#1d2921; --editor-muted:#a0b5a6; --editor-border:#35483a; --editor-accent:#9ac9a8; --editor-accent-soft:#2c4434; --editor-focus:#addbb9; }
+html[data-theme="dark"][data-color-palette="ocean"] { --editor-foreground:#e0edf4; --editor-background:#172027; --editor-paper:#1d2a33; --editor-muted:#a0b4c0; --editor-border:#354852; --editor-accent:#8ec9df; --editor-accent-soft:#2a424e; --editor-focus:#a2d9ed; }
+html[data-theme="dark"][data-color-palette="paper"] { --editor-foreground:#f0e7d6; --editor-background:#28231b; --editor-paper:#302a20; --editor-muted:#c0b39c; --editor-border:#504638; --editor-accent:#e3bd80; --editor-accent-soft:#493b27; --editor-focus:#edca91; }
+html[data-theme="dark"][data-color-palette="graphite"] { --editor-foreground:#e4e8eb; --editor-background:#1b1f22; --editor-paper:#22272b; --editor-muted:#a8b0b5; --editor-border:#3b4247; --editor-accent:#b1c3ce; --editor-accent-soft:#313a40; --editor-focus:#c2d3dd; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"])[data-color-palette="forest"] { --editor-foreground:#e0eee4; --editor-background:#17211b; --editor-paper:#1d2921; --editor-muted:#a0b5a6; --editor-border:#35483a; --editor-accent:#9ac9a8; --editor-accent-soft:#2c4434; --editor-focus:#addbb9; }
+  html:not([data-theme="light"])[data-color-palette="ocean"] { --editor-foreground:#e0edf4; --editor-background:#172027; --editor-paper:#1d2a33; --editor-muted:#a0b4c0; --editor-border:#354852; --editor-accent:#8ec9df; --editor-accent-soft:#2a424e; --editor-focus:#a2d9ed; }
+  html:not([data-theme="light"])[data-color-palette="paper"] { --editor-foreground:#f0e7d6; --editor-background:#28231b; --editor-paper:#302a20; --editor-muted:#c0b39c; --editor-border:#504638; --editor-accent:#e3bd80; --editor-accent-soft:#493b27; --editor-focus:#edca91; }
+  html:not([data-theme="light"])[data-color-palette="graphite"] { --editor-foreground:#e4e8eb; --editor-background:#1b1f22; --editor-paper:#22272b; --editor-muted:#a8b0b5; --editor-border:#3b4247; --editor-accent:#b1c3ce; --editor-accent-soft:#313a40; --editor-focus:#c2d3dd; }
+}
 
 @keyframes document-arrive {
   from { opacity: .35; }
@@ -424,7 +441,8 @@ html[data-reduced-motion="true"] *::after {
   html[data-file-drag="true"]::after { border-color: Highlight; color: CanvasText; background: Canvas; }
 }
 
-html[data-high-contrast="true"] {
+html[data-high-contrast="true"],
+html[data-high-contrast="true"][data-color-palette] {
   --editor-foreground: CanvasText;
   --editor-background: Canvas;
   --editor-paper: Canvas;

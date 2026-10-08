@@ -23,11 +23,18 @@ declare global {
 }
 
 type Theme = "light" | "dark" | "system";
+type FontChoice = "system" | "song" | "yahei" | "dengxian" | "serif";
+type ColorPalette = "lavender" | "forest" | "ocean" | "paper" | "graphite";
 type Settings = {
   theme: Theme;
   fontSize: number;
   lineHeight: number;
   lineWrapping: boolean;
+  paragraphSpacing?: number;
+  bodyFont?: FontChoice;
+  h1Font?: FontChoice;
+  h2Font?: FontChoice;
+  colorPalette?: ColorPalette;
   reducedMotion?: boolean;
   highContrast?: boolean;
 };
@@ -51,6 +58,11 @@ let settings: Settings = {
   fontSize: 15,
   lineHeight: 1.5,
   lineWrapping: true,
+  paragraphSpacing: 0.5,
+  bodyFont: "system",
+  h1Font: "song",
+  h2Font: "song",
+  colorPalette: "lavender",
 };
 enableFileDrop(bridge, () => sessionId);
 const status = document.createElement("div");
@@ -208,6 +220,44 @@ const darkHighlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map
   color: style.tag === tags.meta || style.tag === tags.comment ? "var(--editor-muted)" : "var(--editor-accent)",
 } : style));
 
+const fontStacks: Record<FontChoice, string> = {
+  system: '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif',
+  song: '"SimSun", "Noto Serif CJK SC", Georgia, serif',
+  yahei: '"Microsoft YaHei UI", "Segoe UI Variable Text", "Segoe UI", sans-serif',
+  dengxian: '"DengXian", "Microsoft YaHei UI", sans-serif',
+  serif: 'Georgia, "SimSun", serif',
+};
+
+function normalizedSettings(value: Record<string, unknown>): Settings | null {
+  const base = { theme: value.theme, fontSize: value.fontSize, lineHeight: value.lineHeight, lineWrapping: value.lineWrapping };
+  if (!isSettings(base)) return null;
+  const optional = ["paragraphSpacing", "bodyFont", "h1Font", "h2Font", "colorPalette", "reducedMotion", "highContrast"];
+  if (Object.keys(value).some(key => !["theme", "fontSize", "lineHeight", "lineWrapping", ...optional].includes(key))) return null;
+  if ("paragraphSpacing" in value && (typeof value.paragraphSpacing !== "number" || !Number.isFinite(value.paragraphSpacing) || value.paragraphSpacing < 0 || value.paragraphSpacing > 2)) return null;
+  if (["bodyFont", "h1Font", "h2Font"].some(key => key in value && !isFontChoice(value[key]))) return null;
+  if ("colorPalette" in value && !isColorPalette(value.colorPalette)) return null;
+  if ("reducedMotion" in value && typeof value.reducedMotion !== "boolean") return null;
+  if ("highContrast" in value && typeof value.highContrast !== "boolean") return null;
+  return {
+    ...base as Pick<Settings, "theme" | "fontSize" | "lineHeight" | "lineWrapping">,
+    paragraphSpacing: (value.paragraphSpacing as number | undefined) ?? 0.5,
+    bodyFont: (value.bodyFont as FontChoice | undefined) ?? "system",
+    h1Font: (value.h1Font as FontChoice | undefined) ?? "song",
+    h2Font: (value.h2Font as FontChoice | undefined) ?? "song",
+    colorPalette: (value.colorPalette as ColorPalette | undefined) ?? "lavender",
+    ...(typeof value.reducedMotion === "boolean" ? { reducedMotion: value.reducedMotion } : {}),
+    ...(typeof value.highContrast === "boolean" ? { highContrast: value.highContrast } : {}),
+  };
+}
+
+function isFontChoice(value: unknown): value is FontChoice {
+  return value === "system" || value === "song" || value === "yahei" || value === "dengxian" || value === "serif";
+}
+
+function isColorPalette(value: unknown): value is ColorPalette {
+  return value === "lavender" || value === "forest" || value === "ocean" || value === "paper" || value === "graphite";
+}
+
 function styleSettings(next: Settings): void {
   settings = next;
   if (!view) return;
@@ -217,14 +267,20 @@ function styleSettings(next: Settings): void {
   if (next.highContrast === undefined) delete document.documentElement.dataset.highContrast;
   else document.documentElement.dataset.highContrast = String(next.highContrast);
   editorParent!.dataset.theme = next.theme;
+  document.documentElement.dataset.colorPalette = next.colorPalette ?? "lavender";
   editorParent!.style.setProperty("--editor-font-size", `${next.fontSize}px`);
   editorParent!.style.setProperty("--editor-line-height", String(next.lineHeight));
+  editorParent!.style.setProperty("--editor-paragraph-spacing", `${next.paragraphSpacing ?? 0.5}em`);
+  editorParent!.style.setProperty("--editor-body-font", fontStacks[next.bodyFont ?? "system"]);
+  editorParent!.style.setProperty("--editor-h1-font", fontStacks[next.h1Font ?? "song"]);
+  editorParent!.style.setProperty("--editor-h2-font", fontStacks[next.h2Font ?? "song"]);
   const dark = next.theme === "dark" || next.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches;
   view.dispatch({ effects: settingsCompartment.reconfigure([
     EditorView.theme({ "&": { color: "var(--editor-foreground)", backgroundColor: "var(--editor-background)" } }, { dark }),
     syntaxHighlighting(dark ? darkHighlightStyle : defaultHighlightStyle),
     next.lineWrapping ? EditorView.lineWrapping : [],
   ]) });
+  view.requestMeasure();
 }
 
 function applyHostMessage(value: unknown): void {
@@ -258,20 +314,10 @@ function applyHostMessage(value: unknown): void {
     view.dispatch({ effects: imageResources.of(resources) });
     return;
   }
-  if (message.type === "settings" && keys.every(key => ["type", "protocolVersion", "sessionId", "theme", "fontSize", "lineHeight", "lineWrapping", "reducedMotion", "highContrast"].includes(key)) &&
-      ["type", "protocolVersion", "sessionId", "theme", "fontSize", "lineHeight", "lineWrapping"].every(key => key in message) &&
-      message.sessionId === sessionId && isSettings({ theme: message.theme, fontSize: message.fontSize, lineHeight: message.lineHeight, lineWrapping: message.lineWrapping })) {
-    const nextSettings: Settings = {
-      theme: message.theme as Theme,
-      fontSize: message.fontSize as number,
-      lineHeight: message.lineHeight as number,
-      lineWrapping: message.lineWrapping as boolean,
-    };
-    if (typeof message.reducedMotion === "boolean") nextSettings.reducedMotion = message.reducedMotion;
-    else if ("reducedMotion" in message) return;
-    if (typeof message.highContrast === "boolean") nextSettings.highContrast = message.highContrast;
-    else if ("highContrast" in message) return;
-    styleSettings(nextSettings);
+  if (message.type === "settings" && ["type", "protocolVersion", "sessionId"].every(key => key in message) &&
+      message.sessionId === sessionId) {
+    const nextSettings = normalizedSettings(Object.fromEntries(Object.entries(message).filter(([key]) => !["type", "protocolVersion", "sessionId"].includes(key))));
+    if (nextSettings) styleSettings(nextSettings);
     return;
   }
   if (message.type === "editorCommand" && exact("type", "protocolVersion", "sessionId", "command") && message.sessionId === sessionId && view) {
@@ -304,13 +350,11 @@ function applyHostMessage(value: unknown): void {
 function isSettings(value: unknown): value is Settings {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
-  return Object.keys(item).every(key => ["theme", "fontSize", "lineHeight", "lineWrapping", "reducedMotion", "highContrast"].includes(key)) &&
+  return Object.keys(item).every(key => ["theme", "fontSize", "lineHeight", "lineWrapping"].includes(key)) &&
     ["theme", "fontSize", "lineHeight", "lineWrapping"].every(key => key in item) &&
-    (item.reducedMotion === undefined || typeof item.reducedMotion === "boolean") &&
-    (item.highContrast === undefined || typeof item.highContrast === "boolean") &&
     (item.theme === "light" || item.theme === "dark" || item.theme === "system") &&
     typeof item.fontSize === "number" && item.fontSize >= 12 && item.fontSize <= 24 &&
-    typeof item.lineHeight === "number" && item.lineHeight >= 1.2 && item.lineHeight <= 2 && typeof item.lineWrapping === "boolean";
+    typeof item.lineHeight === "number" && Number.isFinite(item.lineHeight) && item.lineHeight >= 1.2 && item.lineHeight <= 2 && typeof item.lineWrapping === "boolean";
 }
 
 function initialize(nextSessionId: string, text: string): void {

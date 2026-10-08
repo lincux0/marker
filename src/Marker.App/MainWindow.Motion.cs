@@ -36,15 +36,7 @@ public sealed partial class MainWindow
     {
         if (_motionInitialized) return;
         _motionInitialized = true;
-        SettingsNotice.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => UpdateSettingsNotice());
-        UpdateSettingsNotice();
         AnimateEntrance(CommandRow);
-    }
-
-    private void UpdateSettingsNotice()
-    {
-        SettingsNotice.Visibility = string.IsNullOrWhiteSpace(SettingsNotice.Text) ? Visibility.Collapsed : Visibility.Visible;
-        Layout();
     }
 
     private void AnimateEntrance(FrameworkElement element)
@@ -73,7 +65,7 @@ public sealed partial class MainWindow
     internal void RefreshMotionPreferences()
     {
         if (!EffectiveReducedMotion) return;
-        foreach (var element in new FrameworkElement[] { CommandRow, DocumentRow, AppearancePanel })
+        foreach (var element in new FrameworkElement[] { CommandRow, DocumentRow })
         {
             var visual = ElementCompositionPreview.GetElementVisual(element);
             visual.StopAnimation("Opacity");

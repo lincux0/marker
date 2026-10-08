@@ -96,6 +96,8 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
           hide(headingLine.from, Math.min(state.doc.length, headingLine.to + 1), undefined, true);
         } else hide(child.from, child.from === node.from ? followingSpace(child.to) : child.to);
       }
+    } else if (name === "Paragraph" && syntax.parent?.name === "Document") {
+      line(node.to, "cm-md-paragraph");
     } else if (name === "StrongEmphasis") style(node.from, node.to, "cm-md-strong");
     else if (name === "Emphasis") style(node.from, node.to, "cm-md-emphasis");
     else if (name === "Strikethrough") style(node.from, node.to, "cm-md-strike");

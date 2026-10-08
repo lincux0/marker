@@ -43,6 +43,23 @@ public sealed partial class MainWindow
         return new NativePoint { X = width, Y = height };
     }
 
+    // Requested size is in DIP; AppWindow consumes physical pixels on the owner's monitor.
+    internal Windows.Graphics.RectInt32 GetSettingsWindowBounds(int widthDip, int heightDip)
+    {
+        var dpi = Native.GetDpiForWindow(_window);
+        var scale = (dpi == 0 ? 96 : dpi) / 96d;
+        if (!WindowsNative.GetWindowRect(_window, out var owner))
+            throw new InvalidOperationException("无法读取主窗口位置。");
+        var monitor = WindowsNative.MonitorFromWindow(_window, MonitorDefaultToNearest);
+        var info = new NativeMonitorInfo { Size = (uint)Marshal.SizeOf<NativeMonitorInfo>() };
+        var work = monitor != 0 && WindowsNative.GetMonitorInfoW(monitor, ref info) ? info.Work : owner;
+        var width = Math.Clamp((int)Math.Round(widthDip * scale), 1, Math.Max(1, work.Right - work.Left));
+        var height = Math.Clamp((int)Math.Round(heightDip * scale), 1, Math.Max(1, work.Bottom - work.Top));
+        var left = Math.Clamp(owner.Left + (owner.Right - owner.Left - width) / 2, work.Left, work.Right - width);
+        var top = Math.Clamp(owner.Top + (owner.Bottom - owner.Top - height) / 2, work.Top, work.Bottom - height);
+        return new Windows.Graphics.RectInt32(left, top, width, height);
+    }
+
     internal void InitializeWindowsExperience()
     {
         _windowsDispatcherQueue = DispatcherQueue.GetForCurrentThread();
@@ -97,6 +114,7 @@ public sealed partial class MainWindow
 
         WindowsNative.InvalidateRect(_window, 0, true);
         RefreshMotionPreferences();
+        _settingsWindow?.SetAppearance(RequestedTheme, IsHighContrast, EffectiveReducedMotion);
         ApplyWebSettings();
     }
 
@@ -121,8 +139,7 @@ public sealed partial class MainWindow
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            SettingsNotice.Text = "窗口位置保存失败；其他偏好仍可使用。";
-            UpdateSettingsNotice();
+            SetSettingsNotice("窗口位置保存失败；其他偏好仍可使用。");
         }
     }
 
@@ -294,6 +311,10 @@ public sealed partial class MainWindow
 
         [DllImport("dwmapi.dll")]
         internal static extern int DwmSetWindowAttribute(nint window, uint attribute, ref uint value, uint valueSize);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GetWindowRect(nint window, out NativeRect rect);
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]

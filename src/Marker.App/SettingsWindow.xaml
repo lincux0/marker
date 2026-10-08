@@ -1,0 +1,70 @@
+<Window
+    x:Class="Marker.App.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Marker 设置">
+    <Grid x:Name="SettingsRoot" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel MaxWidth="680" HorizontalAlignment="Stretch" Padding="32,24,32,28" Spacing="20">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="设置" FontSize="28" FontWeight="SemiBold" />
+                    <TextBlock Text="调整写作外观与阅读节奏" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="外观" FontSize="18" FontWeight="SemiBold" />
+                        <Grid ColumnSpacing="18" RowSpacing="12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <ComboBox x:Name="ThemeCombo" Header="主题" AutomationProperties.AutomationId="Theme" SelectionChanged="Theme_SelectionChanged">
+                                <ComboBoxItem Content="跟随系统" Tag="system"/><ComboBoxItem Content="浅色" Tag="light"/><ComboBoxItem Content="深色" Tag="dark"/>
+                            </ComboBox>
+                            <ComboBox x:Name="ColorPaletteCombo" Grid.Column="1" Header="颜色组合" AutomationProperties.AutomationId="ColorPalette" SelectionChanged="ColorPalette_SelectionChanged">
+                                <ComboBoxItem Content="薰衣草" Tag="lavender"/><ComboBoxItem Content="森林" Tag="forest"/><ComboBoxItem Content="海洋" Tag="ocean"/><ComboBoxItem Content="纸张" Tag="paper"/><ComboBoxItem Content="石墨" Tag="graphite"/>
+                            </ComboBox>
+                            <ToggleSwitch x:Name="ReducedMotionToggle" Grid.Row="1" Header="减少动画" AutomationProperties.AutomationId="ReducedMotion" Toggled="ReducedMotion_Toggled" />
+                            <ToggleSwitch x:Name="LineWrappingToggle" Grid.Row="1" Grid.Column="1" Header="自动折行" AutomationProperties.AutomationId="LineWrapping" Toggled="LineWrapping_Toggled" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="排版" FontSize="18" FontWeight="SemiBold" />
+                        <Grid ColumnSpacing="18" RowSpacing="12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <NumberBox x:Name="FontSizeBox" Header="正文字号" Minimum="12" Maximum="24" SmallChange="1" Value="16" SpinButtonPlacementMode="Hidden" BorderThickness="0" UseSystemFocusVisuals="True" AutomationProperties.AutomationId="FontSize" ValueChanged="FontSize_ValueChanged"/>
+                            <NumberBox x:Name="LineHeightBox" Grid.Column="1" Header="行间距" Minimum="1.2" Maximum="2" SmallChange="0.1" Value="1.5" SpinButtonPlacementMode="Hidden" BorderThickness="0" UseSystemFocusVisuals="True" AutomationProperties.AutomationId="LineHeight" ValueChanged="LineHeight_ValueChanged"/>
+                            <NumberBox x:Name="ParagraphSpacingBox" Grid.Row="1" Header="段间距" Minimum="0" Maximum="2" SmallChange="0.1" Value="0.5" SpinButtonPlacementMode="Hidden" BorderThickness="0" UseSystemFocusVisuals="True" AutomationProperties.AutomationId="ParagraphSpacing" ValueChanged="ParagraphSpacing_ValueChanged"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Text="在 Markdown 分段空行基础上追加，单位为正文字号。" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="字体" FontSize="18" FontWeight="SemiBold" />
+                        <Grid ColumnSpacing="18" RowSpacing="10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <ComboBox x:Name="BodyFontCombo" Header="正文字体" AutomationProperties.AutomationId="BodyFont" SelectionChanged="BodyFont_SelectionChanged">
+                                <ComboBoxItem Content="系统默认" Tag="system"/><ComboBoxItem Content="宋体" Tag="song"/><ComboBoxItem Content="微软雅黑" Tag="yahei"/><ComboBoxItem Content="等线" Tag="dengxian"/><ComboBoxItem Content="衬线字体" Tag="serif"/>
+                            </ComboBox>
+                            <ComboBox x:Name="H1FontCombo" Grid.Column="1" Header="H1 字体" AutomationProperties.AutomationId="H1Font" SelectionChanged="H1Font_SelectionChanged">
+                                <ComboBoxItem Content="系统默认" Tag="system"/><ComboBoxItem Content="宋体" Tag="song"/><ComboBoxItem Content="微软雅黑" Tag="yahei"/><ComboBoxItem Content="等线" Tag="dengxian"/><ComboBoxItem Content="衬线字体" Tag="serif"/>
+                            </ComboBox>
+                            <ComboBox x:Name="H2FontCombo" Grid.Row="1" Header="H2 字体" AutomationProperties.AutomationId="H2Font" SelectionChanged="H2Font_SelectionChanged">
+                                <ComboBoxItem Content="系统默认" Tag="system"/><ComboBoxItem Content="宋体" Tag="song"/><ComboBoxItem Content="微软雅黑" Tag="yahei"/><ComboBoxItem Content="等线" Tag="dengxian"/><ComboBoxItem Content="衬线字体" Tag="serif"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Text="中文字体按系统已安装字体显示；未安装时由浏览器回退。" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock x:Name="SettingsNotice" Visibility="Collapsed" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.LiveSetting="Polite" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

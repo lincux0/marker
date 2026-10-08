@@ -1,8 +1,8 @@
 # 项目结构与架构基线
 
-本文描述仓库当前真实结构。生产应用由 Win32 主窗口承载 WinUI 3 XAML Islands 工具栏和两个原生子窗口式 WebView2。M3 曾实现源码、分栏和阅读模式；后续 D016 将当前交互改为单一正文编辑视图，解析结果直接呈现，CodeMirror 6 装饰在编辑时隐藏常用 Markdown 标记。Markdig 预览和受控资源桥接继续运行于隐藏的 WebView2。本轮 Release EXE 构建、40 项通过/1 项跳过及单页编辑短网页检查完成；桌面 IME 和长时间实机体验留给用户验收。
+本文描述仓库当前真实结构。生产应用由 Win32 主窗口承载 WinUI 3 XAML Islands 工具栏和两个原生子窗口式 WebView2。M3 曾实现源码、分栏和阅读模式；后续 D016 将当前交互改为单一正文编辑视图，解析结果直接呈现，CodeMirror 6 装饰在编辑时隐藏常用 Markdown 标记。Markdig 预览和受控资源桥接继续运行于隐藏的 WebView2。设置由独立 WinUI owned 窗口承载。各次构建与检查结果以[项目历程](progress.md)为准。
 
-- 当前状态：Win32 + WinUI 3 XAML Islands 工具栏 + 双原生 windowed WebView2；主编辑器 WebView 填满正文区域，Markdig 预览 WebView 隐藏为 1×1 并继续承担解析/资源安全桥接。单文档文件流程、设置、窗口和文件激活能力保留。本轮单页实时呈现已构建并通过短网页检查；桌面 IME 和扩展实机仍待用户验收。
+- 当前状态：Win32 + WinUI 3 XAML Islands 工具栏 + 双原生 windowed WebView2；主编辑器 WebView 填满正文区域，Markdig 预览 WebView 隐藏为 1×1 并继续承担解析/资源安全桥接。单文档文件流程、独立设置窗口、窗口位置和文件激活能力保留。
 - 多标签、文件树和 SQLite 尚未实现。
 - 阶段计划见[开发方案](开发方案.md)；版本与构建操作见[工程开发指南](工程开发指南.md)。
 - 稳定技术取舍见[技术决策](decision.md)，阶段记录见[项目历程](progress.md)。
@@ -32,13 +32,14 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 ### `src/Marker.App/`
 
-- `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
-- `MainWindow.xaml`：定义约 68 DIP 单页工具栏与默认收起的外观排版面板；主 WebView 编辑器占满正文区。文档操作、撤销重做、查找替换及带文字的代码模式按钮集中在顶部原生 CommandBar，窄窗口自动溢出；文档标题并入 logo 右侧，不再单独占行，长标题截断且悬停可查看完整文本；图标命令按钮宽 40 DIP，保留动态溢出。不显示常态解析状态或源码统计。
-- `MainWindow.Views.cs`：加载外观设置并同步主题/动效偏好；旧 `viewMode` 设置只归一为内存中的分栏兼容值，不启动写回迁移。损坏或未知设置以默认值运行并禁止保存；简短说明仅在展开的设置面板显示。
-- `AppSettings.cs`：LocalAppData/Marker/settings.json 的 schemaVersion 1 与 applicationVersion；保存主题、排版、减少动画偏好及窗口普通位置。不存文档文本或自动打开文件。
+- `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
+- `MainWindow.xaml`：定义约 68 DIP 单页工具栏；主 WebView 编辑器占满正文区。文档操作、撤销重做、查找替换和代码模式位于顶部原生 CommandBar，窄窗口自动溢出；设置入口紧邻命令栏；文档标题并入 logo 右侧，长标题截断且悬停可查看完整文本；命令图标按钮为 40×36 DIP。不显示常态解析状态或源码统计。
+- `SettingsWindow.xaml`、`SettingsWindow.xaml.cs`：独立 WinUI 设置子窗口，由主窗口拥有并单例显示；提供外观、排版、字体卡片。设置即时应用并保存，包含主题、减少动画、字号、行高、段间距、自动换行、正文/H1/H2 字体和颜色组合。窗口边界按 owner DPI 换算为物理坐标并夹入显示器工作区；主窗口关闭时一并关闭。
+- `MainWindow.Views.cs`：加载外观设置并同步主题/动效偏好；旧 `viewMode` 设置仅为兼容读取，不启动写回迁移。损坏或未知设置以默认值运行并禁止保存；简短说明仅在设置窗口显示。
+- `AppSettings.cs`：LocalAppData/Marker/settings.json 的 schemaVersion 1 与 applicationVersion；保存主题、字体、段间距、排版、减少动画偏好、配色及窗口普通位置。不存文档文本或自动打开文件。新增字段对旧 schema 1 配置可缺省且不警告；无效字段各自回退默认值并提示，损坏或未知版本保留原文件并禁止保存。
 - `MainWindow.Windows.cs`、`WindowPlacement.cs`：管理系统主题/高对比/Windows 动画偏好、DWM Mica 与系统色回退、Mica backdrop 的 XAML Island 配置、根窗口实色间隙画刷、减少动画即时停止以及多显示器普通位置恢复。新窗口为 960×700 DIP，最小尺寸 720×480 DIP；位置按目标显示器 DPI 换算、夹入工作区，并在 `WINDOWPLACEMENT` 工作区坐标与持久化屏幕坐标间换算，保留系统标题栏和 Snap 布局。
 - `MainWindow.Activation.cs`、`MarkdownActivation.cs`：串行打开受支持的文件激活；校验完整路径及 `.md`/`.markdown` 扩展名；XAML Island 接收 `StorageItems` 拖放，根窗口与两个 WebView2 子窗口提供 `WM_DROPFILES` 兼容路径。
-- `MainWindow.xaml.cs`：`MainWindow` 创建并管理 Win32 根 HWND、编辑器/隐藏预览子 HWND 和工具栏 XAML Island；负责客户区布局、焦点、DPI/窗口消息、WebView2 安全配置、桥接路由、异步 Markdig 解析及关闭流程。编辑器图片只接收受控 `document.marker.example` URL，通过现有 `LocalImageResources.TryRead` 校验后响应；JSON 只传相对 Markdown 引用到随机会话 URL 的映射，不传磁盘绝对路径。启动前检测 Evergreen Runtime，缺失时显示安装提示但不运行安装器。文件拖放通过 `AdditionalObjects` 接收原生 File 对象，宿主不从 JSON 收取路径。
+- `MainWindow.xaml.cs`：`MainWindow` 创建并管理 Win32 根 HWND、编辑器/隐藏预览子 HWND 和工具栏 XAML Island；负责客户区布局、焦点、DPI/窗口消息、WebView2 安全配置、桥接路由、异步 Markdig 解析及关闭流程，并拥有设置子窗口。编辑器图片只接收受控 `document.marker.example` URL，通过现有 `LocalImageResources.TryRead` 校验后响应；JSON 只传相对 Markdown 引用到随机会话 URL 的映射，不传磁盘绝对路径。启动前检测 Evergreen Runtime，缺失时显示安装提示但不运行安装器。文件拖放通过 `AdditionalObjects` 接收原生 File 对象，宿主不从 JSON 收取路径。
 - `MainWindow.Documents.cs`：管理当前单文档会话、脏状态、原生文件选择器、命令/快照 requestId 往返、原生消息框确认、打开/保存/另存为/关闭/恢复流程、外部文件监控和每秒节流的草稿写入。保存前向 CodeMirror 请求最新完整快照；输入法组合尚未提交时拒绝保存。恢复草稿成为未命名副本，不自动覆盖来源文件。
 - `DocumentFile.cs`：按严格 UTF-8（含/不含 BOM）或带 BOM 的 UTF-16 LE/BE 读取；解码失败由界面明确询问 GB18030。磁盘编码与换行保持为元数据，编辑快照统一 LF；混合换行须用户选择策略后保存。文件读取/保存限制 8 MiB，以 SHA-256 指纹检测变更，并通过同目录临时文件、flush-to-disk、原子替换和替换前后校验保存；并发替换的外部内容保留为 `.external` 副本。拒绝路径重解析点。
 - `RecoveryStore.cs`：在 LocalAppData 的 Marker/Recovery 目录按文档 ID 保存 schemaVersion 1 JSON 草稿，附可选 `applicationVersion`；读取旧 schemaVersion 1 时允许该字段缺省。通过同目录临时文件及覆盖式移动保存。未知版本、损坏或超限草稿保留原文件并返回可提示错误。
@@ -60,7 +61,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `src/links.ts`：从正文链接装饰及语法树读取行内、引用式和自动链接，普通单击发送带当前会话/版本的 `openLink`；修饰键点击、拖选与源码模式保留编辑行为。宿主仅接受 HTTP(S) 且无 userinfo 的地址，经显示完整地址、默认“否”的确认后交系统浏览器；不允许页面直接导航。
 - `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用已安装 JavaScript/Lezer 解析器，以 DOM 文本节点实现 JS/TS 围栏高亮；其他语言或超长代码保留纯文本。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。
-- `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、焦点状态、排版元素样式、拖放反馈和减少动画样式。
+- `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、焦点状态、拖放反馈和减少动画样式。颜色组合作用于 Web 正文与隐藏预览；原生设置控件仍跟随系统主题，高对比系统色优先。
 - `vite.config.ts`：构建编辑器和预览两个本地页面入口。
 - `tsconfig.json`：TypeScript 编译器设置。
 - `dist/`：Vite 构建目录，由构建生成，不提交；Web 依赖随产物本地打包，不从 CDN 加载。
@@ -119,7 +120,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - 用户已确认生产 EXE 中微信输入法正常；M1 输入法与 Web 安全核心门槛已通过。M2 核心功能与本机闭环验证完成；生产 MSIX 安装仍未执行，作为独立包验收待办。
 - M3 单元、Web、桌面和性能检查结果及未覆盖边界见[项目历程](progress.md)；文档中的阶段结果不替代最新一次构建记录。
 - 独立原型仅使用内置样例，没有打开、保存、恢复、文件树、多标签或真实图片工作流。
-- 当前生产宿主具备 Win32/XAML Islands/双 WebView2 边界；D016 单页即时呈现与设置提示调整正在本轮集成，实际构建和用户手测结果由本轮项目历程记录。旧 M3 视图脚本不覆盖此单页 UI。多标签、文件树、SQLite 和跨 HWND 内容动画仍未实现。
+- 当前生产宿主具备 Win32/XAML Islands/双 WebView2 边界、单页即时呈现和独立设置窗口。旧 M3 视图脚本不覆盖此单页 UI。多标签、文件树、SQLite 和跨 HWND 内容动画仍未实现。
 - 运行、测试与打包证据及其限制见[项目历程](progress.md)。
 
 ## 文档维护

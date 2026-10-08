@@ -21,6 +21,13 @@ const protocolVersion = 1;
 const maxHtmlChars = 4 * 1024 * 1024;
 const maxOutlineEntries = 10000;
 const maxHighlightChars = 100000;
+const fontStacks = {
+  system: '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif',
+  song: '"SimSun", "Noto Serif CJK SC", Georgia, serif',
+  yahei: '"Microsoft YaHei UI", "Segoe UI Variable Text", "Segoe UI", sans-serif',
+  dengxian: '"DengXian", "Microsoft YaHei UI", sans-serif',
+  serif: 'Georgia, "SimSun", serif',
+} as const;
 const preview = document.querySelector<HTMLElement>("#preview");
 const outlineElement = document.querySelector<HTMLDetailsElement>("#outline");
 if (!preview || !outlineElement) throw new Error("找不到预览入口元素。");
@@ -45,6 +52,8 @@ function applySettings(value: unknown): void {
   const fontSize = settings.fontSize;
   const lineHeight = settings.lineHeight;
   const lineWrapping = settings.lineWrapping;
+  const fonts = ["system", "song", "yahei", "dengxian", "serif"] as const;
+  const palettes = ["lavender", "forest", "ocean", "paper", "graphite"] as const;
   if (theme === "light" || theme === "dark" || theme === "system") document.documentElement.dataset.theme = theme;
   if (typeof fontSize === "number" && Number.isFinite(fontSize)) {
     document.documentElement.style.setProperty("--preview-font-size", `${Math.max(12, Math.min(24, fontSize))}px`);
@@ -53,6 +62,18 @@ function applySettings(value: unknown): void {
     document.documentElement.style.setProperty("--preview-line-height", String(Math.max(1.2, Math.min(2, lineHeight))));
   }
   if (typeof lineWrapping === "boolean") document.documentElement.dataset.lineWrapping = String(lineWrapping);
+  if (typeof settings.paragraphSpacing === "number" && Number.isFinite(settings.paragraphSpacing) && settings.paragraphSpacing >= 0 && settings.paragraphSpacing <= 2) {
+    document.documentElement.style.setProperty("--preview-paragraph-spacing", `${settings.paragraphSpacing}em`);
+  }
+  for (const key of ["bodyFont", "h1Font", "h2Font"] as const) {
+    const choice = settings[key];
+    if (typeof choice === "string" && (fonts as readonly string[]).includes(choice)) {
+      document.documentElement.style.setProperty(`--preview-${key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}`, fontStacks[choice as keyof typeof fontStacks]);
+    }
+  }
+  if (typeof settings.colorPalette === "string" && (palettes as readonly string[]).includes(settings.colorPalette)) {
+    document.documentElement.dataset.colorPalette = settings.colorPalette;
+  }
   if (typeof settings.reducedMotion === "boolean") {
     document.documentElement.dataset.reducedMotion = String(settings.reducedMotion);
   } else delete document.documentElement.dataset.reducedMotion;

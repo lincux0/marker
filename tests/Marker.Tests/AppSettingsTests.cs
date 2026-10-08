@@ -14,7 +14,8 @@ public sealed class AppSettingsTests
         var settings = AppSettings.Default with
         {
             Theme = "dark", FontSize = 20, LineHeight = 1.8, LineWrapping = false, ViewMode = "read",
-            ReducedMotion = true, WindowPlacement = new WindowPlacement(-1200, 80, 1100, 760, true)
+            ReducedMotion = true, WindowPlacement = new WindowPlacement(-1200, 80, 1100, 760, true),
+            ParagraphSpacing = 0.8, BodyFont = "yahei", H1Font = "song", H2Font = "dengxian", ColorPalette = "ocean"
         };
 
         settings.Save(temp.Path);
@@ -42,6 +43,11 @@ public sealed class AppSettingsTests
         Assert.IsTrue(loaded.CanSave);
         Assert.IsFalse(loaded.Settings.ReducedMotion);
         Assert.IsNull(loaded.Settings.WindowPlacement);
+        Assert.AreEqual(0.5, loaded.Settings.ParagraphSpacing);
+        Assert.AreEqual("system", loaded.Settings.BodyFont);
+        Assert.AreEqual("song", loaded.Settings.H1Font);
+        Assert.AreEqual("song", loaded.Settings.H2Font);
+        Assert.AreEqual("lavender", loaded.Settings.ColorPalette);
     }
 
     [TestMethod]
@@ -99,6 +105,37 @@ public sealed class AppSettingsTests
         Assert.AreEqual(AppSettings.Default.Theme, loaded.Settings.Theme);
         Assert.AreEqual(20, loaded.Settings.FontSize);
         Assert.AreEqual("read", loaded.Settings.ViewMode);
+    }
+
+    [TestMethod]
+    public void InvalidNewFieldsFallBackIndividuallyAndValidFieldsRoundTrip()
+    {
+        using var temp = new TempDirectory();
+        File.WriteAllText(Path.Combine(temp.Path, "settings.json"), """
+            {"schemaVersion":1,"paragraphSpacing":3,"bodyFont":"comic","h1Font":"yahei","h2Font":7,"colorPalette":"ocean"}
+            """);
+
+        var loaded = AppSettings.Load(temp.Path);
+        Assert.IsTrue(loaded.CanSave);
+        Assert.IsNotNull(loaded.Warning);
+        Assert.AreEqual(AppSettings.Default.ParagraphSpacing, loaded.Settings.ParagraphSpacing);
+        Assert.AreEqual(AppSettings.Default.BodyFont, loaded.Settings.BodyFont);
+        Assert.AreEqual("yahei", loaded.Settings.H1Font);
+        Assert.AreEqual(AppSettings.Default.H2Font, loaded.Settings.H2Font);
+        Assert.AreEqual("ocean", loaded.Settings.ColorPalette);
+
+        loaded.Settings.Save(temp.Path);
+        Assert.AreEqual(loaded.Settings, AppSettings.Load(temp.Path).Settings);
+    }
+
+    [TestMethod]
+    public void SaveRejectsInvalidNewSettings()
+    {
+        using var temp = new TempDirectory();
+
+        Assert.ThrowsException<ArgumentException>(() => (AppSettings.Default with { ParagraphSpacing = double.NaN }).Save(temp.Path));
+        Assert.ThrowsException<ArgumentException>(() => (AppSettings.Default with { BodyFont = "unknown" }).Save(temp.Path));
+        Assert.ThrowsException<ArgumentException>(() => (AppSettings.Default with { ColorPalette = "unknown" }).Save(temp.Path));
     }
 
     [TestMethod]

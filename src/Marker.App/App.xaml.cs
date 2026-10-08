@@ -16,6 +16,8 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        // The main window is Win32; only its close workflow should stop the message pump.
+        DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
     }
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
