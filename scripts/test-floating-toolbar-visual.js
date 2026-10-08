@@ -17,22 +17,39 @@ async (page) => {
     const layout = await editor.evaluate(() => {
       const bar=document.querySelector('.marker-toolbar'), content=document.querySelector('.cm-content');
       const logo=bar.querySelector('img'), title=bar.querySelector('.marker-toolbar-title');
-      return { gap: content.getBoundingClientRect().top-bar.getBoundingClientRect().bottom,
+      const barRect=bar.getBoundingClientRect(), paperRect=content.getBoundingClientRect();
+      return { gap: paperRect.top-barRect.bottom, toolbarWidth:barRect.width, paperWidth:paperRect.width,
+        centered:Math.abs((barRect.left+barRect.right)/2-innerWidth/2)<1,
         logoLeft: logo.getBoundingClientRect().right < title.getBoundingClientRect().left,
         blur: getComputedStyle(bar).backdropFilter };
     });
-    if (layout.gap < 28 || !layout.logoLeft || !layout.blur.includes("blur(32px)")) throw Error(JSON.stringify(layout));
+    if (layout.gap < 28 || layout.toolbarWidth-layout.paperWidth < 31 || layout.toolbarWidth-layout.paperWidth > 33 ||
+      !layout.centered || !layout.logoLeft || !layout.blur.includes("blur(32px)")) throw Error(JSON.stringify(layout));
+    const viewportLayouts=[];
+    for (const width of [1400,2000,720]) {
+      await editor.setViewportSize({width,height:760});
+      const sizing=await editor.evaluate(()=>{
+        const bar=document.querySelector('.marker-toolbar').getBoundingClientRect();
+        const paper=document.querySelector('.cm-content').getBoundingClientRect();
+        return {viewport:innerWidth,toolbar:bar.width,paper:paper.width,center:Math.abs((bar.left+bar.right)/2-innerWidth/2)};
+      });
+      const delta=sizing.toolbar-sizing.paper;
+      if (sizing.center>=1 || delta<=0 ||
+        (width>800 && (delta<31 || delta>33)) || (width<=800 && (delta<20 || delta>44))) throw Error(JSON.stringify(sizing));
+      viewportLayouts.push(sizing);
+    }
+    await editor.setViewportSize({width:1100,height:760});
     await editor.screenshot({path:'D:/marker/artifacts/glass-spacing-top.png'});
     await editor.locator('.cm-scroller').evaluate(e => { e.scrollTop=500; });
     await editor.screenshot({path:'D:/marker/artifacts/glass-spacing-scrolled.png'});
     await editor.locator('.cm-content').evaluate(e => {
       e.style.backgroundImage='repeating-linear-gradient(90deg, #202040 0px, #202040 4px, #ffffff 4px, #ffffff 8px)';
     });
-    const clip={x:300,y:24,width:120,height:24};
+    const clip={x:420,y:24,width:120,height:24};
     const filtered = await editor.screenshot({path:'D:/marker/artifacts/glass-filtered.png',clip});
     await editor.locator('.marker-toolbar').evaluate(e => {e.style.backdropFilter='none';e.style.webkitBackdropFilter='none';});
     const unfiltered = await editor.screenshot({path:'D:/marker/artifacts/glass-unfiltered.png',clip});
     if (filtered.equals(unfiltered)) throw Error('Backdrop filtering did not change actual pixels');
-    return {passed:true,layout,pixelEvidence:['glass-filtered.png','glass-unfiltered.png']};
+    return {passed:true,layout,viewportLayouts,pixelEvidence:['glass-filtered.png','glass-unfiltered.png']};
   } finally { await context.close(); }
 }

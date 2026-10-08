@@ -174,7 +174,7 @@
 ## D018 WebView 内浮动工具栏
 
 - 状态：已采纳并接入当前实现；本轮桌面验收状态以项目历程为准。
-- 可见工具栏作为 HTML/CSS 固定层放在编辑器 WebView2 内，横向边距随视口宽度落在 32–56 CSS px；以 `backdrop-filter` 模糊同页滚动正文，产生真正悬浮于文本上的效果。原 76% 纸面底色与 28 px 模糊虽有滤镜属性，但白色纸面上材质感不明显；依据用户反馈，改为 36% 画布底色、32 px 模糊及 1.5 倍饱和度，首屏与纸面间隔固定为 32 px。验证除计算样式外，增加滤镜开启/关闭的像素对照。工具栏和 CodeMirror 正文在同一 WebView2 HWND，原生编辑器子窗口继续从客户区 `(0,0)` 铺满。
+- 可见工具栏作为 HTML/CSS 固定层放在编辑器 WebView2 内，初版横向边距为 32–56 CSS px，后续按用户反馈改为居中、宽度随正文纸面收缩，常规宽度比纸面多 32 px（1012 对 980 px），窄窗保留至少 16 px 外边距；长文档名采用原生省略号，悬停保留完整名称；以 `backdrop-filter` 模糊同页滚动正文，产生真正悬浮于文本上的效果。原 76% 纸面底色与 28 px 模糊虽有滤镜属性，但白色纸面上材质感不明显；依据用户反馈，改为 36% 画布底色、32 px 模糊及 1.5 倍饱和度，首屏与纸面间隔固定为 32 px。验证除计算样式外，增加滤镜开启/关闭的像素对照。工具栏和 CodeMirror 正文在同一 WebView2 HWND，原生编辑器子窗口继续从客户区 `(0,0)` 铺满。
 - 原 `DesktopWindowXamlSource` 缩为 1×1 隐藏，只保留旧控件字段和 handler 的兼容路径。Win32 主窗口、编辑器/预览 WebView2、中文输入法宿主和窗口焦点路径不因工具栏迁移而替换。
 - HTML 工具栏将撤销、重做、查找、替换和代码模式直接路由给现有编辑器；`new`、`open`、`save`、`saveAs`、`recover` 和 `settings` 通过既有 command envelope 交原生宿主。原生 `TryReadCommand` 仅增加 `recover` 与 `settings` 白名单值，来源、sessionId、protocolVersion、字段精确检查保持不变。宿主通过当前协议版本和 session 绑定的 `toolbarState` 传递 `title`、`notification`、`busy`。
 - 顶栏品牌图标通过 Web 包内 `/app-logo.png` 使用桌面端 `Assets/AppLogo.png` 的副本；图标置于文档标题左侧；不增加运行时依赖或 CDN 资源。

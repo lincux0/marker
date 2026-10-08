@@ -9,6 +9,8 @@ body,
 html {
   color-scheme: light;
   --marker-toolbar-top: 14px;
+  --editor-paper-width: 980px;
+  --editor-canvas-inset: clamp(12px, 4vw, 48px);
   --editor-foreground: #292832;
   --editor-background: #f2f0f7;
   --editor-paper: #fff;
@@ -66,12 +68,13 @@ body {
   position: fixed;
   z-index: 50;
   top: var(--marker-toolbar-top);
-  left: clamp(32px, 4vw, 56px);
-  right: clamp(32px, 4vw, 56px);
+  left: 50%;
+  right: auto;
+  width: min(calc(var(--editor-paper-width) + 32px), calc(100% - var(--editor-canvas-inset) - var(--editor-canvas-inset) + 32px), calc(100% - 32px));
   box-sizing: border-box;
   min-height: 50px;
   display: grid;
-  grid-template-columns: minmax(72px, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 5px 8px 5px 16px;
@@ -81,6 +84,7 @@ body {
   background: var(--editor-paper);
   box-shadow: 0 10px 32px rgb(35 29 47 / 9%);
   font: 13px/1.35 var(--editor-body-font, "Segoe UI Variable Text"), "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  transform: translateX(-50%);
 }
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -94,7 +98,7 @@ body {
 }
 
 .marker-toolbar-document { min-width: 0; display: flex; align-items: center; gap: 10px; }
-.marker-toolbar-title { display: block; min-width: 0; overflow: hidden; color: var(--editor-foreground); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.marker-toolbar-title { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--editor-foreground); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .marker-toolbar-actions { display: flex; align-items: center; gap: 2px; }
 .marker-toolbar-button,
 .marker-toolbar-more summary {
@@ -125,7 +129,7 @@ body {
 .marker-toolbar-more { position: relative; display: none; }
 .marker-toolbar-more summary::-webkit-details-marker { display: none; }
 .marker-toolbar-trailing { display: flex; align-items: center; gap: 6px; }
-.marker-toolbar-logo { display: block; width: 28px; height: 28px; object-fit: contain; }
+.marker-toolbar-logo { display: block; flex: 0 0 28px; width: 28px; height: 28px; object-fit: contain; }
 .marker-toolbar-menu {
   position: absolute;
   z-index: 55;
@@ -176,7 +180,7 @@ body {
 
 #editor .cm-scroller {
   overflow: auto;
-  padding-inline: clamp(12px, 4vw, 48px);
+  padding-inline: var(--editor-canvas-inset);
   padding-top: calc(var(--marker-toolbar-top) + 50px);
   font-family: var(--editor-body-font, "Segoe UI Variable Text"), "Segoe UI", "Microsoft YaHei UI", sans-serif;
   line-height: inherit;
@@ -186,8 +190,8 @@ body {
 
 #editor .cm-content {
   box-sizing: border-box;
-  width: min(100%, 980px);
-  max-width: 980px;
+  width: min(100%, var(--editor-paper-width));
+  max-width: var(--editor-paper-width);
   min-height: calc(100% - 64px);
   flex: 0 1 auto;
   margin: 32px auto;
@@ -571,7 +575,7 @@ html[data-high-contrast="true"][data-color-palette] .marker-toolbar-menu {
 
 @media (max-width: 800px) {
   :root { --marker-toolbar-top: 8px; }
-  .marker-toolbar { left: 32px; right: 32px; grid-template-columns: minmax(48px, 1fr) auto; gap: 8px; padding-left: 12px; }
+  .marker-toolbar { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding-left: 12px; }
   .marker-toolbar-actions > .marker-toolbar-button[data-overflow="true"] { display: none; }
   .marker-toolbar-more { display: block; }
   .marker-toolbar-notification { max-width: calc(100vw - 64px); }
