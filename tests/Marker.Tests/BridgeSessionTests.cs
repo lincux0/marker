@@ -9,6 +9,20 @@ public sealed class BridgeSessionTests
     private const string EditorUrl = "https://editor.marker.example/index.html";
 
     [TestMethod]
+    public void FileDropRequiresTrustedSessionAndBoundedCountWithoutJsonPaths()
+    {
+        var session = new BridgeSession("session-1");
+        const string json = "{\"type\":\"filesDropped\",\"protocolVersion\":1,\"sessionId\":\"session-1\",\"count\":2}";
+        Assert.IsTrue(session.TryReadFilesDropped(EditorUrl, EditorUrl, json, out var count, out _));
+        Assert.AreEqual(2, count);
+        Assert.IsFalse(session.TryReadFilesDropped("https://external.invalid", EditorUrl, json, out _, out _));
+        Assert.IsFalse(session.TryReadFilesDropped(EditorUrl, EditorUrl, json.Replace("session-1", "stale"), out _, out _));
+        Assert.IsFalse(session.TryReadFilesDropped(EditorUrl, EditorUrl, json.Replace("\"count\":2", "\"count\":65"), out _, out _));
+        Assert.IsFalse(session.TryReadFilesDropped(EditorUrl, EditorUrl, json.Replace("\"count\":2", "\"count\":0"), out _, out _));
+        Assert.IsFalse(session.TryReadFilesDropped(EditorUrl, EditorUrl, json.Replace("\"count\":2", "\"count\":2,\"paths\":[\"C:/Windows/file.md\"]"), out _, out _));
+    }
+
+    [TestMethod]
     public void SnapshotsRequireProtocolVersionAndPreserveRequestCorrelation()
     {
         var session = new BridgeSession("session-1");

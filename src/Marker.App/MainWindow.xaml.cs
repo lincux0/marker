@@ -18,7 +18,6 @@ public sealed partial class MainWindow : UserControl
     private const string EditorHost = "editor.marker.example";
     private const string PreviewHost = "preview.marker.example";
     private const uint WsOverlappedWindow = 0x00CF0000;
-    private const uint WsVisible = 0x10000000;
     private const uint WsClipChildren = 0x02000000;
     private const uint WsChildVisible = 0x56000000;
     private const uint SwpNoZOrder = 0x0004;
@@ -56,13 +55,14 @@ public sealed partial class MainWindow : UserControl
         {
             Procedure = Marshal.GetFunctionPointerForDelegate(_procedure),
             Instance = module,
+            Icon = Native.LoadIconW(module, (nint)32512),
             Name = _className,
-            Background = 6
+            Background = 0
         };
         if (Native.RegisterClassW(ref definition) == 0)
             throw new Win32Exception(Marshal.GetLastWin32Error());
 
-        _window = Native.CreateWindowExW(0, _className, "Marker", WsOverlappedWindow | WsVisible | WsClipChildren,
+        _window = Native.CreateWindowExW(0, _className, "Marker", WsOverlappedWindow | WsClipChildren,
             200, 150, 1200, 850, 0, 0, module, 0);
         if (_window == 0)
             throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -76,11 +76,14 @@ public sealed partial class MainWindow : UserControl
         _toolbar.GotFocus += (_, _) => _lastFocus = 0;
         InitializeDocuments();
         InitializeViews();
+        InitializeFileDrop();
+        InitializeWindowsExperience();
     }
 
     internal void Show()
     {
         Native.ShowWindow(_window, 5);
+        ApplySystemAppearance();
         Layout();
         InitializeWebViewsAsync();
     }
@@ -101,6 +104,15 @@ public sealed partial class MainWindow : UserControl
             var webRoot = Path.Combine(AppContext.BaseDirectory, "Web");
             if (!File.Exists(Path.Combine(webRoot, "index.html")) || !File.Exists(Path.Combine(webRoot, "preview.html")))
                 throw new FileNotFoundException("应用内 Web 资源不完整，请重新构建安装包。");
+
+            try { _ = CoreWebView2Environment.GetAvailableBrowserVersionString(); }
+            catch (Exception runtimeError)
+            {
+                SetStatus("未检测到可用的 WebView2 Runtime，编辑器暂时无法启动。");
+                MessageBoxW(_window, "Marker 需要 Microsoft Edge WebView2 Evergreen Runtime。\n请安装该运行时后重新打开 Marker；安装说明见项目工程指南。\n\n" + runtimeError.Message,
+                    "Marker · 缺少 WebView2 Runtime", 0x10);
+                return;
+            }
 
             var userData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Marker", "WebView2");
             var environment = await CoreWebView2Environment.CreateWithOptionsAsync(null, userData, new CoreWebView2EnvironmentOptions());
@@ -128,13 +140,14 @@ public sealed partial class MainWindow : UserControl
         {
             CloseControllers();
             if (!_closed)
-                SetStatus($"WebView2 初始化失败：{exception.Message}");
+                SetStatus($"WebView2 初始化失败：{(string.IsNullOrWhiteSpace(exception.Message) ? exception.GetType().Name : exception.Message)}");
         }
     }
 
     private void ConfigureController(CoreWebView2Controller controller, bool editor)
     {
         controller.BoundsMode = CoreWebView2BoundsMode.UseRawPixels;
+        controller.AllowExternalDrop = true;
         controller.GotFocus += (_, _) => _lastFocus = editor ? _editorWindow : _previewWindow;
         controller.MoveFocusRequested += (_, args) =>
         {
@@ -194,9 +207,22 @@ public sealed partial class MainWindow : UserControl
                 || uri.Host != host || uri.Query.Length != 0 || !pathAllowed || hasTraversal)
                 args.Response = core.Environment.CreateWebResourceResponse(null, 403, "Blocked", "Content-Type: text/plain");
         };
-        core.WebMessageReceived += (_, args) =>
+        core.WebMessageReceived += (sender, args) =>
         {
             if (_closed) return;
+            if (_session.TryReadFilesDropped(args.Source, editor ? EditorUrl : PreviewUrl, args.WebMessageAsJson, out var count, out _))
+            {
+                var objects = args.AdditionalObjects;
+                if (objects is null || objects.Count != count || objects.Any(item => item is not CoreWebView2File)) return;
+                try
+                {
+                    var paths = objects.Cast<CoreWebView2File>().Select(file => file.Path).ToArray();
+                    if (paths.Any(path => !MarkdownActivation.TryNormalizePath(path, out _))) return;
+                    QueueOpenFiles(paths);
+                }
+                catch (Exception error) when (error is COMException or InvalidOperationException) { }
+                return;
+            }
             if (editor)
                 HandleEditorMessage(args.Source, args.WebMessageAsJson);
             else
@@ -218,6 +244,7 @@ public sealed partial class MainWindow : UserControl
             }));
             SetStatus("编辑器已连接，等待首个快照。");
             ApplyWebSettings();
+            ConsumePendingFileActivations();
             _ = OfferRecoveryOnStartupAsync();
             return;
         }
@@ -427,8 +454,15 @@ public sealed partial class MainWindow : UserControl
 
     private nint WindowProcedure(nint window, uint message, nuint wParam, nint lParam)
     {
+        if (message == 0x0233 && IsFileDropWindow(window))
+        {
+            HandleDroppedFiles(wParam);
+            return 0;
+        }
         if (window == _window)
         {
+            if (message == 0x0014) return PaintWindowBackground((nint)wParam) ? 1 : 0;
+            if (message == 0x001A || message == 0x031A) ApplySystemAppearance();
             if (message == WmSize)
             {
                 Layout();
@@ -447,9 +481,8 @@ public sealed partial class MainWindow : UserControl
             if (message == WmGetMinMaxInfo)
             {
                 var info = Marshal.PtrToStructure<Native.MinMaxInfo>(lParam);
-                var dpi = Native.GetDpiForWindow(_window);
-                var scale = (dpi == 0 ? 96 : dpi) / 96d;
-                info.MinTrackSize = new Native.Point { X = (int)Math.Round(800 * scale), Y = (int)Math.Round(560 * scale) };
+                var minimum = GetMinimumTrackSize();
+                info.MinTrackSize = new Native.Point { X = minimum.X, Y = minimum.Y };
                 Marshal.StructureToPtr(info, lParam, false);
                 return 0;
             }
@@ -468,7 +501,9 @@ public sealed partial class MainWindow : UserControl
                     _ = ExecuteDocumentCommandAsync("close");
                     return 0;
                 }
+                SaveWindowPlacement();
                 _closed = true;
+                DisposeWindowsExperience();
                 DisposeDocuments();
                 CloseControllers();
                 _toolbar.Dispose();
@@ -546,6 +581,12 @@ public sealed partial class MainWindow : UserControl
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
         internal static extern nint GetModuleHandleW(string? moduleName);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        internal static extern nint LoadIconW(nint instance, nint name);
+
+        [DllImport("user32.dll")]
+        internal static extern short GetKeyState(int virtualKey);
 
         [DllImport("user32.dll")]
         internal static extern bool GetClientRect(nint window, out Rect rect);

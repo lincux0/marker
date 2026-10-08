@@ -61,7 +61,7 @@
 
 ## D007 配置与存储
 
-- 状态：轻量 JSON 设置已实现；SQLite 延期。
+- 状态：轻量 JSON 设置已实现；SQLite 延期。M4 在 schema 1 中加入可选减少动画偏好与窗口位置，旧 schema 1 缺少这些字段时无警告地使用默认值。
 - 计划用 JSON 保存轻量设置；Markdown 文档首发保存在普通本地文件中。
 - SQLite 仅在需要查询型元数据、规模化历史或跨文档关系后重新评估。
 - 恢复草稿与设置使用各自独立的 schemaVersion 1 JSON，并记录 applicationVersion。设置持久化已在 M3 实现；不把设置当文档恢复库。设置字段无效时单字段回退并提示；损坏或未来 schema 使用默认值且禁止覆盖原文件。
@@ -70,11 +70,13 @@
 
 ## D008 视觉与动效
 
-- 状态：Fluent 2、Mica/Mica Alt 与 Composition 为设计方向，尚未实现。
-- 计划优先使用 WinUI 控件及内置过渡；只在必要的细节场景使用 Composition。
-- Mica 需要纯色/系统能力降级，阅读正文优先维持稳定对比度。
-- 理由：系统风格与减少自定义动画代码并重。
-- 代价：平台效果需按目标 Windows 版本及主题实机验收。
+- 状态：M4 系统材质、Fluent 2 shell 与减少动画已实现，本机核心检查及用户输入法/动效体验回归通过；多屏、整机高对比与读屏器仍待验。
+- Win32 根窗口使用 DWM 主窗口 backdrop，顶部 XAML Island 使用 `DesktopWindowXamlSource.SystemBackdrop` 和 `MicaBackdrop`；高对比或 backdrop 不可用时回退到系统色背景。编辑器/预览保留不透明纸面，窗口间隙用主题实色填充以保持阅读对比度。
+- 两行 132 DIP 工具栏将常用文档命令与导航放在主层；外观/排版面板默认收起，展开增加约 84 DIP。全局命令由 WinUI Island 路由，窗口保留系统标题栏与 Snap 行为。
+- Composition 仅用于工具栏 Island 内部短暂入场反馈（167 ms opacity、250 ms scale）；不跨 HWND 动画。用户“减少动画”或 Windows `UISettings.AnimationsEnabled=false` 会停止应用自定义 Composition 与 Web CSS 动画；WinUI 内置动画继续遵循系统策略。
+- 理由：Fluent 2 建议短时、自然并提供无动效方式；系统材质只放在工具栏，编辑/阅读内容维持高对比和稳定表面。
+- 代价：XAML Island 与 windowed WebView2 处于不同 HWND，不能做覆盖编辑器/预览的连续 Composition 动画；目标系统材质、缩放和辅助功能仍需实机检查。
+- 依据：[Fluent 2 motion](https://fluent2.microsoft.design/motion)、[Mica material](https://learn.microsoft.com/en-us/windows/apps/design/style/mica)、[DWM system backdrop](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type)、[DwmSetWindowAttribute](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmsetwindowattribute)、[DesktopWindowXamlSource.SystemBackdrop](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.hosting.desktopwindowxamlsource.systembackdrop)。
 
 ## D009 分发渠道
 
@@ -108,8 +110,10 @@
 - 状态：生产 Win32/XAML Islands 双 windowed WebView2 使用来源/会话/字段/版本/大小白名单桥接；用户已确认生产 IME 正常，M1 的输入和安全核心门槛通过。Web 安全回归 9 类检查通过；MSIX 安装未执行，读屏器与最低 build 仍待验。
 - 两个视图只从包内 Web 资源加载，使用 `editor.marker.example` 与 `preview.marker.example` 两个来源；宿主限定页面导航、页面资源路径、消息来源、字段、会话、消息深度与尺寸，并拒绝 frame 导航和新窗口。
 - 不暴露 WebView2 Host Object 或通用文件 API。文件命令和快照经会话桥接；本地图片只通过受控 `document.marker.example` 资源端点响应。Markdig 禁用原始 HTML；预览通过 DOMPurify 白名单后写入 DOM，并由 CSP 限制网络、对象、表单和 frame。
+- M4 正文拖放用 `postMessageWithAdditionalObjects` 单独传送原生 File 对象；JSON 只携带已校验会话、类型和文件数。宿主校验来源/会话/协议、对象数量与 `.md`/`.markdown` 扩展名后读取 `CoreWebView2File.Path`，绝不接受网页 JSON 提供的任意磁盘路径。
 - 理由：将原生文件操作和受限图片读取留在宿主，网页只接收当前文档文本、HTML 和不透明资源引用。
 - 原先 M1/M2 禁止所有预览超链接；M3 由 D014 替代该限制，仅开放经宿主确认的 HTTP(S) 与受控本页标题定位。SVG、表单等仍拒绝；安全样例通过不替代发布验收。
+- 依据：[WebView2 postMessageWithAdditionalObjects](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/javascript/webview#postmessagewithadditionalobjects)、[CoreWebView2WebMessageReceivedEventArgs.AdditionalObjects](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2webmessagereceivedeventargs#additionalobjects)。
 
 ## D013 本地文档与图片资源安全
 
@@ -134,6 +138,16 @@
 - 设置缺字段或单字段无效时回默认值并提示；损坏和未知 schema 原文件保留，应用禁止覆盖。视图状态保存在设置中，不存文档全文，不自动重开文件。初始化控件事件须在加载设置前禁写。
 - 代价：预览采用完整 HTML 更新；当前在约 100 ms 安静窗口后解析以合并快速输入，不引入缓存。性能探针表明超长文档的持续编辑不保证实时舒适；具体样本、对照和测量范围见项目历程，不将单次输入到预览完成时间解释为连续输入延迟或帧率保证。
 - 兼容范围以[样例](samples/m3-compatibility.md)为准；参考 [CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/) 与 [GFM 官方规范](https://github.github.com/gfm/)，未宣称完整规范符合性或与 GitHub 渲染完全一致。
+
+## D015 启动激活与窗口恢复
+
+- 状态：M4 已实现；本机文件队列、真实 OLE 拖放和窗口恢复通过；安装后 Explorer 文件关联与多显示器恢复仍待验。
+- `AppInstance` 保证单实例；文件关联、命令行、二次实例重定向和原生拖放统一进入串行队列，并复用现有未保存确认与文档打开流程。只接收 `.md`/`.markdown`。
+- 每批最多 64 个文件，超限整批拒绝；启动恢复与文件命令共享操作锁，并在恢复的异步边界复核激活状态，让启动文件优先，避免旧草稿覆盖已打开文件。
+- `WINDOWPLACEMENT.rcNormalPosition` 保存为屏幕坐标时显式转换 work area 偏移；恢复时按目标 monitor DPI 将位置夹入 work area。新窗口默认 960×700 DIP，最小尺寸 720×480 DIP；保留 Windows 系统标题栏和 Snap。
+- 理由：单实例避免同一文档由多个应用副本竞争，串行队列保留现有文档切换/冲突保护；显式屏幕坐标与 work area 夹取可恢复已拔除显示器上的窗口。
+- 代价：窗口位置与目标显示器 DPI 相关，拓扑变化后的实际摆放必须在多屏设备验证；平台保留的系统标题栏优先于自定义拖拽/标题区动画。
+- 依据：[WINDOWPLACEMENT](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-windowplacement)、[AppLifecycle AppInstance](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.windows.applifecycle.appinstance)。
 
 ## 决策维护
 

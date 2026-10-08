@@ -9,7 +9,9 @@ public sealed record AppSettings(
     int FontSize,
     double LineHeight,
     bool LineWrapping,
-    string ViewMode)
+    string ViewMode,
+    bool ReducedMotion = false,
+    WindowPlacement? WindowPlacement = null)
 {
     public const int CurrentSchemaVersion = 1;
 
@@ -43,7 +45,12 @@ public sealed record AppSettings(
             var lineHeight = ReadDouble(root, "lineHeight", 1.2, 2, defaults.LineHeight, warnings);
             var wrapping = ReadBool(root, "lineWrapping", defaults.LineWrapping, warnings);
             var viewMode = ReadEnum(root, "viewMode", ["source", "split", "read"], defaults.ViewMode, warnings);
-            return new(new AppSettings(CurrentSchemaVersion, appVersion, theme, fontSize, lineHeight, wrapping, viewMode),
+            var reducedMotion = root.TryGetProperty("reducedMotion", out _)
+                ? ReadBool(root, "reducedMotion", defaults.ReducedMotion, warnings)
+                : defaults.ReducedMotion;
+            var windowPlacement = ReadWindowPlacement(root, warnings);
+            return new(new AppSettings(CurrentSchemaVersion, appVersion, theme, fontSize, lineHeight, wrapping, viewMode,
+                    reducedMotion, windowPlacement),
                 warnings.Count == 0 ? null : $"部分设置无效，已使用默认值：{string.Join("、", warnings)}。", true);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -57,7 +64,8 @@ public sealed record AppSettings(
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         if (SchemaVersion != CurrentSchemaVersion || Theme is not ("system" or "light" or "dark")
             || FontSize is < 12 or > 24 || !double.IsFinite(LineHeight) || LineHeight is < 1.2 or > 2
-            || ViewMode is not ("source" or "split" or "read"))
+            || ViewMode is not ("source" or "split" or "read")
+            || WindowPlacement is { IsValid: false })
             throw new ArgumentException("设置值无效，未保存。", nameof(directory));
 
         var fullDirectory = Path.GetFullPath(directory);
@@ -126,6 +134,28 @@ public sealed record AppSettings(
             return value.GetBoolean();
         warnings.Add(name);
         return fallback;
+    }
+
+    private static WindowPlacement? ReadWindowPlacement(JsonElement root, List<string> warnings)
+    {
+        if (!root.TryGetProperty("windowPlacement", out var value) || value.ValueKind == JsonValueKind.Null)
+            return null;
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            warnings.Add("windowPlacement");
+            return null;
+        }
+
+        var placementWarnings = new List<string>();
+        var left = ReadInt(value, "left", -32768, 32767, 0, placementWarnings);
+        var top = ReadInt(value, "top", -32768, 32767, 0, placementWarnings);
+        var width = ReadInt(value, "width", 320, 16384, 1200, placementWarnings);
+        var height = ReadInt(value, "height", 240, 16384, 850, placementWarnings);
+        var maximized = ReadBool(value, "maximized", false, placementWarnings);
+        var placement = new WindowPlacement(left, top, width, height, maximized);
+        if (placementWarnings.Count == 0 && placement.IsValid) return placement;
+        warnings.Add("windowPlacement");
+        return null;
     }
 }
 

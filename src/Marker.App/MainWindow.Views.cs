@@ -6,7 +6,8 @@ namespace Marker.App;
 
 public sealed partial class MainWindow
 {
-    internal const int ToolbarHeightDip = 232;
+    internal int ToolbarHeightDip => 132 + (AppearancePanel.Visibility == Visibility.Visible ? 84 : 0)
+        + (SettingsNotice.Visibility == Visibility.Visible ? 36 : 0);
     internal string _viewMode = "split";
     internal AppSettings _settings = AppSettings.Default;
     private readonly string _settingsDirectory = Path.Combine(
@@ -26,6 +27,7 @@ public sealed partial class MainWindow
         FontSizeBox.Value = _settings.FontSize;
         LineHeightBox.Value = _settings.LineHeight;
         LineWrappingToggle.IsChecked = _settings.LineWrapping;
+        ReducedMotionToggle.IsChecked = _settings.ReducedMotion;
         RequestedTheme = _settings.Theme switch { "light" => ElementTheme.Light, "dark" => ElementTheme.Dark, _ => ElementTheme.Default };
         _viewsInitializing = false;
         SettingsNotice.Text = loaded.Warning ?? string.Empty;
@@ -42,7 +44,9 @@ public sealed partial class MainWindow
             theme = _settings.Theme,
             fontSize = _settings.FontSize,
             lineHeight = _settings.LineHeight,
-            lineWrapping = _settings.LineWrapping
+            lineWrapping = _settings.LineWrapping,
+            reducedMotion = EffectiveReducedMotion,
+            highContrast = IsHighContrast
         });
         if (_editorReady) _editor?.CoreWebView2.PostWebMessageAsJson(message);
         if (_previewReady) _preview?.CoreWebView2.PostWebMessageAsJson(message);
@@ -85,6 +89,7 @@ public sealed partial class MainWindow
         _viewMode = ViewModeCombo.SelectedIndex switch { 0 => "source", 2 => "read", _ => "split" };
         _settings = _settings with { ViewMode = _viewMode };
         ApplyViewLayout();
+        AnimateEntrance(DocumentRow);
         var controller = _viewMode == "read" ? _preview : _editor;
         var window = _viewMode == "read" ? _previewWindow : _editorWindow;
         if (controller is not null) TryMoveFocus(controller, window, Microsoft.Web.WebView2.Core.CoreWebView2MoveFocusReason.Programmatic);
@@ -97,6 +102,7 @@ public sealed partial class MainWindow
         var theme = ThemeCombo.SelectedIndex switch { 1 => "light", 2 => "dark", _ => "system" };
         _settings = _settings with { Theme = theme };
         RequestedTheme = theme switch { "light" => ElementTheme.Light, "dark" => ElementTheme.Dark, _ => ElementTheme.Default };
+        ApplySystemAppearance();
         ApplyWebSettings();
         PersistSettings();
     }
@@ -131,6 +137,22 @@ public sealed partial class MainWindow
     private void Redo_Click(object sender, RoutedEventArgs e) => SendEditorCommand("redo");
     private void Find_Click(object sender, RoutedEventArgs e) => SendEditorCommand("find");
     private void Replace_Click(object sender, RoutedEventArgs e) => SendEditorCommand("replace");
+
+    private void Appearance_Click(object sender, RoutedEventArgs e)
+    {
+        AppearancePanel.Visibility = AppearanceButton.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        Layout();
+        if (AppearancePanel.Visibility == Visibility.Visible) AnimateEntrance(AppearancePanel);
+    }
+
+    private void ReducedMotion_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewsInitializing) return;
+        _settings = _settings with { ReducedMotion = ReducedMotionToggle.IsChecked == true };
+        ApplySystemAppearance();
+        ApplyWebSettings();
+        PersistSettings();
+    }
 
     private void PersistSettings()
     {

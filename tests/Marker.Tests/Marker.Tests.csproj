@@ -21,5 +21,7 @@
     <Compile Include="..\..\src\Marker.App\LocalImageResources.cs" Link="LocalImageResources.cs" />
     <Compile Include="..\..\src\Marker.App\RecoveryStore.cs" Link="RecoveryStore.cs" />
     <Compile Include="..\..\src\Marker.App\AppSettings.cs" Link="AppSettings.cs" />
+    <Compile Include="..\..\src\Marker.App\WindowPlacement.cs" Link="WindowPlacement.cs" />
+    <Compile Include="..\..\src\Marker.App\MarkdownActivation.cs" Link="MarkdownActivation.cs" />
   </ItemGroup>
 </Project>

@@ -60,10 +60,30 @@ function Find-ByAutomationId([string]$automationId) {
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $automationId)
     $element = [System.Windows.Automation.AutomationElement]::FromHandle($mainWindow).FindFirst(
         [System.Windows.Automation.TreeScope]::Descendants, $condition)
-    if (-not $element -or $element.Current.ProcessId -ne $ProcessId) {
-        throw "Could not find Marker control AutomationId '$automationId' in PID $ProcessId."
+    if ($element -and $element.Current.ProcessId -eq $ProcessId) { return $element }
+
+    # WinUI NumberBox may expose its AutomationId only in UIA Raw View.
+    # Walk that view only after the normal control-view lookup misses.
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($mainWindow)
+    $walker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+    $pending = [System.Collections.Generic.Stack[System.Windows.Automation.AutomationElement]]::new()
+    $matches = [System.Collections.Generic.List[System.Windows.Automation.AutomationElement]]::new()
+    $pending.Push($root)
+    while ($pending.Count -gt 0) {
+        $node = $pending.Pop()
+        if ($node.Current.ProcessId -eq $ProcessId -and $node.Current.AutomationId -eq $automationId) {
+            $matches.Add($node)
+        }
+        $child = $walker.GetFirstChild($node)
+        while ($child) {
+            $pending.Push($child)
+            $child = $walker.GetNextSibling($child)
+        }
     }
-    return $element
+    if ($matches.Count -ne 1) {
+        throw "Could not uniquely find Marker control AutomationId '$automationId' in PID $ProcessId (Raw View matches: $($matches.Count))."
+    }
+    return $matches[0]
 }
 
 function Select-ComboItem([string]$automationId, [string]$name) {
@@ -114,6 +134,14 @@ function Select-ComboItem([string]$automationId, [string]$name) {
     }
 }
 
+# M4 keeps appearance controls in a collapsible panel. Open it through the
+# verified Marker root before attempting to select a hidden setting.
+if ($PSBoundParameters.ContainsKey('Theme') -or $PSBoundParameters.ContainsKey('FontSize')) {
+    $appearance = Find-ByAutomationId 'Appearance'
+    $toggle = $appearance.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) { $toggle.Toggle() }
+}
+
 $modeLabels = @{ source = '源码'; split = '分栏'; read = '阅读' }
 Select-ComboItem 'ViewMode' $modeLabels[$Mode]
 if ($PSBoundParameters.ContainsKey('Theme')) {
@@ -122,7 +150,15 @@ if ($PSBoundParameters.ContainsKey('Theme')) {
 }
 if ($PSBoundParameters.ContainsKey('FontSize')) {
     $fontBox = Find-ByAutomationId 'FontSize'
-    $range = $fontBox.GetCurrentPattern([System.Windows.Automation.RangeValuePattern]::Pattern)
+    if ($fontBox.Current.ProcessId -ne $ProcessId -or
+        $fontBox.Current.ControlType -ne [System.Windows.Automation.ControlType]::Spinner) {
+        throw 'Marker font-size control is not the expected Spinner owned by the verified process.'
+    }
+    $range = $null
+    if (-not $fontBox.TryGetCurrentPattern([System.Windows.Automation.RangeValuePattern]::Pattern, [ref]$range) -or
+        -not ($range -is [System.Windows.Automation.RangeValuePattern])) {
+        throw 'Marker font-size Spinner does not expose the required RangeValue pattern.'
+    }
     if ($range.Current.IsReadOnly -or $FontSize -lt $range.Current.Minimum -or $FontSize -gt $range.Current.Maximum) {
         throw 'Marker font-size control is read-only or does not accept the requested value.'
     }

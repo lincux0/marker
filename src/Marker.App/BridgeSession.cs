@@ -21,6 +21,16 @@ internal sealed class BridgeSession(string sessionId)
         return TryRead(source, expectedSource, json, "ready", ["type", "protocolVersion"], out _, out _);
     }
 
+    public bool TryReadFilesDropped(string source, string expectedSource, string json, out int count, out string error)
+    {
+        count = 0;
+        if (!TryRead(source, expectedSource, json, "filesDropped", ["type", "protocolVersion", "sessionId", "count"], out var root, out error)
+            || !HasMatchingSession(root, out error)) return false;
+        if (!TryReadInt32(root, "count", out count) || count is < 1 or > 64)
+            return Fail("拖入文件数量无效。", out error);
+        return true;
+    }
+
     public bool TryAcceptSnapshot(string source, string expectedSource, string json, out MarkdownSnapshot snapshot, out string error)
     {
         snapshot = default;

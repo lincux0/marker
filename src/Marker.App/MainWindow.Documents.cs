@@ -20,6 +20,10 @@ public sealed partial class MainWindow
     private DispatcherQueueTimer? _recoveryTimer;
     private FileSystemWatcher? _watcher;
     private Task _draftWrite = Task.CompletedTask;
+    private readonly Queue<string> _pendingFileOpenPaths = new();
+    private readonly HashSet<string> _queuedFileOpenPaths = new(StringComparer.OrdinalIgnoreCase);
+    private int _fileActivationReceived;
+    private bool _fileOpenDrainActive;
     private string? _snapshotRequestId;
     private TaskCompletionSource<MarkdownSnapshot>? _snapshotCompletion;
     private bool IsDirty => _forceDirty || (_latestSnapshot?.Text ?? _document.Text) != _savedText;
@@ -74,7 +78,7 @@ public sealed partial class MainWindow
     private async void SaveAsDocument_Click(object sender, RoutedEventArgs e) => await ExecuteDocumentCommandAsync("saveAs");
     private async void RecoverDocument_Click(object sender, RoutedEventArgs e) => await ExecuteDocumentCommandAsync("recover");
 
-    private async Task ExecuteDocumentCommandAsync(string command)
+    private async Task ExecuteDocumentCommandAsync(string command, string? requestedPath = null)
     {
         if (_closed || _operationBusy) return;
         _operationBusy = true;
@@ -102,8 +106,18 @@ public sealed partial class MainWindow
                         if (await ConfirmLeaveDocumentAsync()) await SwitchDocumentAsync(data);
                     }
                     break;
+                case "openPath":
+                    if (requestedPath is null) throw new IOException("文件激活未提供有效路径。");
+                    var opened = await ReadDocumentAsync(requestedPath);
+                    ValidateEditorText(opened.Text);
+                    if (await ConfirmLeaveDocumentAsync()) await SwitchDocumentAsync(opened);
+                    break;
                 case "recover":
                     if (await ConfirmLeaveDocumentAsync()) await OfferRecoveryAsync();
+                    break;
+                case "recoverStartup":
+                    if (!IsDirty && Volatile.Read(ref _fileActivationReceived) == 0)
+                        await OfferRecoveryAsync(startup: true);
                     break;
                 case "close":
                     if (await ConfirmLeaveDocumentAsync())
@@ -123,6 +137,7 @@ public sealed partial class MainWindow
         {
             _operationBusy = false;
             if (!_closed && !_allowClose) EnableWindow(_editorWindow, true);
+            ConsumePendingFileActivations();
         }
     }
 
@@ -328,28 +343,32 @@ public sealed partial class MainWindow
     {
         // Yield so the initial v0 handshake finishes before opening a native modal dialog.
         await Task.Delay(400);
-        if (!_closed && !_operationBusy && (await Task.Run(_recovery.List)).Count > 0)
-            await ExecuteDocumentCommandAsync("recover");
+        if (!_closed && !_operationBusy && Volatile.Read(ref _fileActivationReceived) == 0)
+            await ExecuteDocumentCommandAsync("recoverStartup");
     }
 
-    private async Task OfferRecoveryAsync()
+    private async Task OfferRecoveryAsync(bool startup = false)
     {
         var entries = await Task.Run(_recovery.List);
+        if (_closed || startup && Volatile.Read(ref _fileActivationReceived) != 0) return;
         if (entries.Count == 0) { SetStatus("没有待恢复的草稿。"); return; }
         foreach (var entry in entries.OrderByDescending(item => item.Draft?.UpdatedUtc))
         {
+            if (_closed || startup && Volatile.Read(ref _fileActivationReceived) != 0) return;
             if (entry.Draft is not { } draft)
             {
                 MessageBoxW(_window, $"{entry.Error}\n损坏或未知版本草稿保留在 Recovery 目录，不会自动删除。", "Marker · 恢复草稿", 0x30);
                 continue;
             }
             var answer = MessageBoxW(_window, $"发现 {draft.UpdatedUtc.LocalDateTime:g} 的恢复草稿。\n来源：{draft.OriginalPath ?? "未命名"}\n选择“是”恢复为未命名副本；选择“否”查看差异；选择“取消”保留草稿并继续。", "Marker · 恢复草稿", 0x23);
+            if (_closed || startup && Volatile.Read(ref _fileActivationReceived) != 0) return;
             if (answer == 2) return;
             if (answer == 7)
             {
                 var disk = "";
                 try { if (draft.OriginalPath is not null) disk = (await ReadDocumentAsync(draft.OriginalPath)).Text; }
                 catch (IOException) { disk = "（原文件不存在或无法读取）"; }
+                if (_closed || startup && Volatile.Read(ref _fileActivationReceived) != 0) return;
                 var oldLines = disk.Split('\n'); var newLines = draft.Text.Split('\n');
                 var first = 0;
                 while (first < Math.Min(oldLines.Length, newLines.Length) && oldLines[first] == newLines[first]) first++;
@@ -357,6 +376,7 @@ public sealed partial class MainWindow
                 MessageBoxW(_window, diff.Length > 12000 ? diff[..12000] + "\n（内容截断）" : diff, "Marker · 草稿差异", 0x40);
                 if (MessageBoxW(_window, "是否将此草稿恢复为未命名副本？原文件不会被写入。", "Marker · 恢复副本", 0x34) != 6) continue;
             }
+            if (_closed || startup && Volatile.Read(ref _fileActivationReceived) != 0) return;
             ValidateEditorText(draft.Text);
             var data = new DocumentFileData(draft.Text, null, draft.Format.EncodingName, draft.Format.HasBom, draft.Format.Newline, "");
             await SwitchDocumentAsync(data, draft.DocId, draft.OriginalPath);

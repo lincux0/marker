@@ -1,9 +1,11 @@
 import { defaultKeymap, history, historyKeymap, isolateHistory, redo, undo } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 import { Compartment, EditorState } from "@codemirror/state";
 import { closeSearchPanel, findNext, findPrevious, getSearchQuery, openSearchPanel, replaceAll, replaceNext, search, searchKeymap, SearchQuery, setSearchQuery } from "@codemirror/search";
 import { EditorView, keymap, type Panel } from "@codemirror/view";
+import { enableFileDrop } from "./file-drop";
 import "./style.css";
 
 declare global {
@@ -11,6 +13,7 @@ declare global {
     chrome?: {
       webview?: {
         postMessage(message: object): void;
+        postMessageWithAdditionalObjects?(message: object, objects: File[]): void;
         addEventListener(type: "message", listener: (event: MessageEvent<unknown>) => void): void;
       };
     };
@@ -18,7 +21,14 @@ declare global {
 }
 
 type Theme = "light" | "dark" | "system";
-type Settings = { theme: Theme; fontSize: number; lineHeight: number; lineWrapping: boolean };
+type Settings = {
+  theme: Theme;
+  fontSize: number;
+  lineHeight: number;
+  lineWrapping: boolean;
+  reducedMotion?: boolean;
+  highContrast?: boolean;
+};
 
 const protocolVersion = 1 as const;
 const maxMessageChars = 1_048_576;
@@ -34,7 +44,13 @@ let view: EditorView | undefined;
 let sessionId: string | undefined;
 let version = 0;
 let fullSnapshotPending = false;
-let settings: Settings = { theme: "system", fontSize: 15, lineHeight: 1.5, lineWrapping: true };
+let settings: Settings = {
+  theme: "system",
+  fontSize: 15,
+  lineHeight: 1.5,
+  lineWrapping: true,
+};
+enableFileDrop(bridge, () => sessionId);
 const status = document.createElement("div");
 status.id = "status";
 status.setAttribute("role", "status");
@@ -143,10 +159,11 @@ function createSearchPanel(editor: EditorView): Panel {
   replace.placeholder = "替换为";
   replace.setAttribute("aria-label", "替换为");
 
-  const button = (label: string, action: () => void): HTMLButtonElement => {
+  const button = (label: string, action: () => void, actionName: string): HTMLButtonElement => {
     const element = document.createElement("button");
     element.type = "button";
     element.textContent = label;
+    element.dataset.action = actionName;
     element.addEventListener("click", action);
     return element;
   };
@@ -155,12 +172,12 @@ function createSearchPanel(editor: EditorView): Panel {
   replace.addEventListener("input", syncQuery);
   form.append(
     find,
-    button("上一个", () => { syncQuery(); findPrevious(editor); }),
-    button("下一个", () => { syncQuery(); findNext(editor); }),
+    button("上一个", () => { syncQuery(); findPrevious(editor); }, "previous"),
+    button("下一个", () => { syncQuery(); findNext(editor); }, "next"),
     replace,
-    button("替换", () => { syncQuery(); replaceNext(editor); }),
-    button("全部替换", () => { syncQuery(); replaceAll(editor); }),
-    button("关闭", () => closeSearchPanel(editor)),
+    button("替换", () => { syncQuery(); replaceNext(editor); }, "replace"),
+    button("全部替换", () => { syncQuery(); replaceAll(editor); }, "replace-all"),
+    button("关闭", () => closeSearchPanel(editor), "close"),
   );
 
   const updateFields = (): void => {
@@ -178,15 +195,26 @@ function openReplacePanel(editor: EditorView): boolean {
   return true;
 }
 
+const darkHighlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map(style => style.color ? {
+  ...style,
+  color: style.tag === tags.meta || style.tag === tags.comment ? "var(--editor-muted)" : "var(--editor-accent)",
+} : style));
+
 function styleSettings(next: Settings): void {
   settings = next;
   if (!view) return;
+  document.documentElement.dataset.theme = next.theme;
+  if (next.reducedMotion === undefined) delete document.documentElement.dataset.reducedMotion;
+  else document.documentElement.dataset.reducedMotion = String(next.reducedMotion);
+  if (next.highContrast === undefined) delete document.documentElement.dataset.highContrast;
+  else document.documentElement.dataset.highContrast = String(next.highContrast);
   editorParent!.dataset.theme = next.theme;
   editorParent!.style.setProperty("--editor-font-size", `${next.fontSize}px`);
   editorParent!.style.setProperty("--editor-line-height", String(next.lineHeight));
   const dark = next.theme === "dark" || next.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches;
   view.dispatch({ effects: settingsCompartment.reconfigure([
     EditorView.theme({ "&": { color: "var(--editor-foreground)", backgroundColor: "var(--editor-background)" } }, { dark }),
+    syntaxHighlighting(dark ? darkHighlightStyle : defaultHighlightStyle),
     next.lineWrapping ? EditorView.lineWrapping : [],
   ]) });
 }
@@ -209,9 +237,20 @@ function applyHostMessage(value: unknown): void {
     sendSnapshot(message.requestId as string | undefined);
     return;
   }
-  if (message.type === "settings" && exact("type", "protocolVersion", "sessionId", "theme", "fontSize", "lineHeight", "lineWrapping") &&
+  if (message.type === "settings" && keys.every(key => ["type", "protocolVersion", "sessionId", "theme", "fontSize", "lineHeight", "lineWrapping", "reducedMotion", "highContrast"].includes(key)) &&
+      ["type", "protocolVersion", "sessionId", "theme", "fontSize", "lineHeight", "lineWrapping"].every(key => key in message) &&
       message.sessionId === sessionId && isSettings({ theme: message.theme, fontSize: message.fontSize, lineHeight: message.lineHeight, lineWrapping: message.lineWrapping })) {
-    styleSettings({ theme: message.theme as Theme, fontSize: message.fontSize as number, lineHeight: message.lineHeight as number, lineWrapping: message.lineWrapping as boolean });
+    const nextSettings: Settings = {
+      theme: message.theme as Theme,
+      fontSize: message.fontSize as number,
+      lineHeight: message.lineHeight as number,
+      lineWrapping: message.lineWrapping as boolean,
+    };
+    if (typeof message.reducedMotion === "boolean") nextSettings.reducedMotion = message.reducedMotion;
+    else if ("reducedMotion" in message) return;
+    if (typeof message.highContrast === "boolean") nextSettings.highContrast = message.highContrast;
+    else if ("highContrast" in message) return;
+    styleSettings(nextSettings);
     return;
   }
   if (message.type === "editorCommand" && exact("type", "protocolVersion", "sessionId", "command") && message.sessionId === sessionId && view) {
@@ -242,7 +281,10 @@ function applyHostMessage(value: unknown): void {
 function isSettings(value: unknown): value is Settings {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
-  return Object.keys(item).length === 4 && Object.keys(item).every(key => ["theme", "fontSize", "lineHeight", "lineWrapping"].includes(key)) &&
+  return Object.keys(item).every(key => ["theme", "fontSize", "lineHeight", "lineWrapping", "reducedMotion", "highContrast"].includes(key)) &&
+    ["theme", "fontSize", "lineHeight", "lineWrapping"].every(key => key in item) &&
+    (item.reducedMotion === undefined || typeof item.reducedMotion === "boolean") &&
+    (item.highContrast === undefined || typeof item.highContrast === "boolean") &&
     (item.theme === "light" || item.theme === "dark" || item.theme === "system") &&
     typeof item.fontSize === "number" && item.fontSize >= 12 && item.fontSize <= 24 &&
     typeof item.lineHeight === "number" && item.lineHeight >= 1.2 && item.lineHeight <= 2 && typeof item.lineWrapping === "boolean";
@@ -260,7 +302,6 @@ function initialize(nextSessionId: string, text: string): void {
       doc: text,
       extensions: [
         markdown({ base: markdownLanguage }),
-        syntaxHighlighting(defaultHighlightStyle),
         history(),
         search({ top: true, createPanel: createSearchPanel }),
         settingsCompartment.of([]),
@@ -273,9 +314,10 @@ function initialize(nextSessionId: string, text: string): void {
           ...defaultKeymap,
           ...historyKeymap,
         ]),
-        EditorView.contentAttributes.of({ "aria-label": "Markdown 编辑器", "aria-description": "Ctrl+Enter 在当前行后新建段落" }),
+        EditorView.contentAttributes.of({ "aria-label": "Markdown 编辑器", "aria-description": "从标题开始写作。Ctrl+Enter 在当前行后新建段落" }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
+            editorParent!.dataset.empty = String(update.state.doc.length === 0);
             if (version >= Number.MAX_SAFE_INTEGER) {
               fullSnapshotPending = true;
               setStatus("编辑器版本已达上限；内容保留在本地编辑器中。");
@@ -305,6 +347,7 @@ function initialize(nextSessionId: string, text: string): void {
       ],
     }),
   });
+  editorParent!.dataset.empty = String(view.state.doc.length === 0);
   styleSettings(settings);
   sendSnapshot();
   sendStatus(view);

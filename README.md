@@ -2,7 +2,7 @@
 
 Marker 是一款面向 Windows 的 Markdown 编辑与阅读器，目标是提供本地文件工作流、CodeMirror 6 编辑体验和 Markdig 预览。
 
-项目已实现 M3 编辑阅读功能：在 M2 安全文件闭环上加入版本化增量同步、源码/分栏/阅读模式、标题大纲、中文查找替换、光标状态，以及可持久化的主题与排版设置。生产宿主采用 Win32 根窗口、WinUI 3 XAML Islands 工具栏与原生 WebView2；M1 微信输入法已由用户实机确认正常。发布与兼容性验收仍在进行。
+项目已完成 M4 开发与本机核心验收：提供安全文件工作流、增量同步、三种视图、大纲与中文查找替换，以及 Fluent 2 工具栏、浅深色排版、局部动效、减少动画、窗口恢复、单实例文件激活与拖放。生产宿主采用 Win32 根窗口、WinUI 3 XAML Islands 工具栏与原生 WebView2；M4 微信输入法和动效体验已由用户实机确认正常。发布与兼容性验收仍在进行。
 
 ## 项目决策
 
@@ -35,4 +35,4 @@ MSIX 输出到 `artifacts/msix/`，默认未签名。构建、签名与安装流
 
 ## 当前状态
 
-Web 生产构建、x64 Release/MSIX 构建通过；业务测试 34 项通过、1 项因符号链接权限跳过。M3 Web 测试覆盖增量、查找替换、设置与历史保留、大纲、链接安全和代码高亮。完整实测结果与未通过/待验范围见[项目建设历程](docs/progress.md)；语法边界见[兼容样例](docs/samples/m3-compatibility.md)。GitHub Actions 尚未在远端执行。
+Web 生产构建、x64 Release/MSIX 构建通过；业务测试 40 项通过、1 项因符号链接权限跳过。Web、真实 WebView2 安全与文件桥接、桌面 OLE 拖放、焦点和窗口恢复检查通过；MSIX 已开发签名，本轮未安装。多屏、读屏器、最低系统及安装后文件关联仍待验。完整结果见[项目建设历程](docs/progress.md)；语法边界见[兼容样例](docs/samples/m3-compatibility.md)。GitHub Actions 尚未在远端执行。

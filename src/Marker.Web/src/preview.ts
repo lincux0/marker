@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { javascript } from "@codemirror/lang-javascript";
 import { classHighlighter, highlightTree } from "@lezer/highlight";
+import { enableFileDrop } from "./file-drop";
 import "./preview.css";
 
 declare global {
@@ -8,6 +9,7 @@ declare global {
     chrome?: {
       webview?: {
         postMessage(message: object): void;
+        postMessageWithAdditionalObjects?(message: object, objects: File[]): void;
         addEventListener(type: "message", listener: (event: MessageEvent<unknown>) => void): void;
       };
     };
@@ -28,6 +30,7 @@ const bridge = window.chrome?.webview;
 let sessionId: string | undefined;
 let version = -1;
 let headings: OutlineEntry[] = [];
+enableFileDrop(bridge, () => sessionId);
 const javascriptParser = javascript().language.parser;
 const typescriptParser = javascript({ typescript: true, jsx: true }).language.parser;
 const codeParsers = new Map([
@@ -50,6 +53,17 @@ function applySettings(value: unknown): void {
     document.documentElement.style.setProperty("--preview-line-height", String(Math.max(1.2, Math.min(2, lineHeight))));
   }
   if (typeof lineWrapping === "boolean") document.documentElement.dataset.lineWrapping = String(lineWrapping);
+  if (typeof settings.reducedMotion === "boolean") {
+    document.documentElement.dataset.reducedMotion = String(settings.reducedMotion);
+  } else delete document.documentElement.dataset.reducedMotion;
+  if (typeof settings.highContrast === "boolean") {
+    document.documentElement.dataset.highContrast = String(settings.highContrast);
+  } else delete document.documentElement.dataset.highContrast;
+}
+
+function scrollBehavior(): ScrollBehavior {
+  return document.documentElement.dataset.reducedMotion === "true" ||
+    matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 }
 
 function validateOutline(value: unknown): OutlineEntry[] | null {
@@ -89,7 +103,7 @@ function renderOutline(entries: OutlineEntry[]): void {
       const target = document.getElementById(entry.id);
       if (!target) return;
       requiredOutline.open = false;
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       bridge?.postMessage({ protocolVersion, type: "revealSource", sessionId, version, offset: entry.offset });
     });
     item.append(button);
@@ -168,7 +182,7 @@ preview.addEventListener("click", (event) => {
   const fragment = anchor.dataset.markerFragment;
   if (fragment) {
     requiredOutline.open = false;
-    document.getElementById(fragment)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById(fragment)?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
   }
   const url = anchor.dataset.markerUrl;
   if (url && sessionId) bridge?.postMessage({ protocolVersion, type: "openLink", sessionId, version, url });

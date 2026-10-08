@@ -6,46 +6,59 @@ body,
   margin: 0;
 }
 
+html {
+  color-scheme: light;
+  --editor-foreground: #292832;
+  --editor-background: #fbfaff;
+  --editor-paper: #fff;
+  --editor-muted: #777581;
+  --editor-border: #e7e4ed;
+  --editor-accent: #7665a8;
+  --editor-accent-soft: #eeeaf7;
+  --editor-focus: #8a78bd;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --editor-foreground: #e8e5ef;
+  --editor-background: #1b1a20;
+  --editor-paper: #211f27;
+  --editor-muted: #aaa5b4;
+  --editor-border: #393640;
+  --editor-accent: #b6a5df;
+  --editor-accent-soft: #383246;
+  --editor-focus: #c4b2ed;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    color-scheme: dark;
+    --editor-foreground: #e8e5ef;
+    --editor-background: #1b1a20;
+    --editor-paper: #211f27;
+    --editor-muted: #aaa5b4;
+    --editor-border: #393640;
+    --editor-accent: #b6a5df;
+    --editor-accent-soft: #383246;
+    --editor-focus: #c4b2ed;
+  }
+}
+
 body {
+  overflow: hidden;
   color: var(--editor-foreground);
   background: var(--editor-background);
-  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  scrollbar-color: color-mix(in srgb, var(--editor-muted) 34%, transparent) transparent;
 }
 
 #editor {
-  --editor-foreground: #202124;
-  --editor-background: #fff;
+  position: relative;
   height: 100%;
   color: var(--editor-foreground);
   background: var(--editor-background);
   font-size: var(--editor-font-size, 15px);
-  line-height: var(--editor-line-height, 1.5);
-}
-
-#editor[data-theme="dark"] {
-  --editor-foreground: #e6e6e6;
-  --editor-background: #202020;
-}
-
-@media (prefers-color-scheme: dark) {
-  #editor[data-theme="system"] {
-    --editor-foreground: #e6e6e6;
-    --editor-background: #202020;
-  }
-}
-
-#status {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  z-index: 10;
-  max-width: min(520px, calc(100vw - 24px));
-  padding: 8px 12px;
-  border: 1px solid #b36b00;
-  border-radius: 6px;
-  color: #592f00;
-  background: #fff4ce;
-  font: 13px/1.4 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  line-height: var(--editor-line-height, 1.65);
 }
 
 .cm-editor {
@@ -53,48 +66,253 @@ body {
   color: var(--editor-foreground);
   background: var(--editor-background);
   font-size: inherit;
+  outline: 0;
 }
 
-.cm-scroller {
+.cm-editor.cm-focused {
+  outline: 0;
+}
+
+#editor .cm-scroller {
   overflow: auto;
-  font-family: Consolas, "Microsoft YaHei UI", monospace;
+  font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace;
   line-height: inherit;
+  scrollbar-color: color-mix(in srgb, var(--editor-muted) 30%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+#editor .cm-content {
+  box-sizing: border-box;
+  width: min(100%, 78ch);
+  max-width: 78ch;
+  min-height: 100%;
+  flex: 0 1 auto;
+  margin-inline: auto;
+  padding: clamp(34px, 6vh, 68px) clamp(22px, 5vw, 52px) 48px;
+  caret-color: var(--editor-accent);
+}
+
+#editor .cm-line {
+  padding-inline: 0.12em;
+}
+
+.cm-selectionBackground,
+.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
+::selection {
+  background: color-mix(in srgb, var(--editor-accent) 23%, transparent) !important;
+}
+
+.cm-cursor,
+.cm-dropCursor {
+  border-left-color: var(--editor-accent);
+}
+
+.cm-gutters {
+  border: 0;
+  color: color-mix(in srgb, var(--editor-muted) 70%, transparent);
+  background: transparent;
+  transition: color 160ms ease;
+}
+
+.cm-activeLineGutter {
+  color: var(--editor-accent);
+  background: transparent;
+}
+
+.cm-activeLine {
+  background: color-mix(in srgb, var(--editor-accent) 4%, transparent);
 }
 
 .cm-search-panel {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 12px clamp(14px, 3vw, 28px);
   color: var(--editor-foreground);
-  background: var(--editor-background);
-  border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  font: 13px/1.35 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  background: color-mix(in srgb, var(--editor-paper) 94%, transparent);
+  border-bottom: 1px solid var(--editor-border);
+  box-shadow: 0 8px 22px rgb(34 28 48 / 7%);
+  font: 13px/1.35 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  backdrop-filter: blur(18px) saturate(1.2);
+  animation: panel-enter 180ms cubic-bezier(.2, .75, .25, 1) both;
 }
 
 .cm-search-panel input,
 .cm-search-panel button {
-  min-height: 28px;
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-  border-radius: 4px;
+  box-sizing: border-box;
+  min-height: 34px;
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
   color: inherit;
-  background: color-mix(in srgb, var(--editor-background) 92%, currentColor 8%);
+  background: var(--editor-paper);
   font: inherit;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .cm-search-panel input {
-  box-sizing: border-box;
-  width: min(220px, 28vw);
-  padding: 3px 7px;
+  width: min(210px, 38vw);
+  padding: 6px 10px;
+  outline: 0;
+}
+
+.cm-search-panel input::placeholder {
+  color: var(--editor-muted);
+}
+
+.cm-search-panel input:focus {
+  border-color: var(--editor-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--editor-accent) 18%, transparent);
 }
 
 .cm-search-panel button {
-  padding: 3px 8px;
+  padding: 5px 10px;
   cursor: pointer;
 }
 
+.cm-search-panel button:hover {
+  border-color: color-mix(in srgb, var(--editor-accent) 40%, var(--editor-border));
+  background: var(--editor-accent-soft);
+}
+
+.cm-search-panel button:active {
+  transform: translateY(1px) scale(.98);
+}
+
+.cm-search-panel button[data-action="replace-all"] {
+  border-color: transparent;
+  color: #fff;
+  background: #71609e;
+}
+
+html[data-theme="dark"] .cm-search-panel button[data-action="replace-all"] {
+  color: #211f27;
+  background: #c4b2ed;
+}
+
+.cm-search-panel button:focus-visible,
+.cm-search-panel input:focus-visible,
 .cm-search-panel :focus-visible {
-  outline: 2px solid #0f6cbd;
-  outline-offset: 1px;
+  outline: 2px solid var(--editor-focus);
+  outline-offset: 2px;
+}
+
+#editor[data-empty="true"]::after {
+  position: absolute;
+  top: clamp(106px, 18vh, 170px);
+  left: 50%;
+  width: min(78ch, calc(100% - 52px));
+  color: var(--editor-muted);
+  content: "从标题开始记录灵感\A\A输入 # 创建标题，或直接开始写作。\A\A Ctrl + Enter 可在当前行后新建段落。";
+  font: 14px/1.8 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  white-space: pre-wrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  opacity: 0.76;
+}
+
+#status {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 10;
+  max-width: min(520px, calc(100vw - 28px));
+  padding: 9px 13px;
+  border: 1px solid #c8a66b;
+  border-radius: 10px;
+  color: #523b19;
+  background: #fff8e9;
+  box-shadow: 0 10px 30px rgb(41 33 20 / 14%);
+  font: 13px/1.5 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  animation: status-enter 180ms ease-out both;
+}
+
+html[data-file-drag="true"]::after {
+  position: fixed;
+  inset: 12px;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--editor-accent);
+  border-radius: 14px;
+  color: var(--editor-foreground);
+  background: color-mix(in srgb, var(--editor-paper) 88%, transparent);
+  content: "释放文件以打开";
+  font: 600 15px/1.5 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  letter-spacing: .02em;
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+  animation: panel-enter 140ms ease-out both;
+}
+
+html[data-theme="dark"] #status {
+  border-color: #766142;
+  color: #f1dfbf;
+  background: #302a20;
+}
+
+@keyframes panel-enter {
+  from { opacity: 0; transform: translateY(-7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes status-enter {
+  from { opacity: 0; transform: translateY(6px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (forced-colors: active) {
+  .cm-cursor,
+  .cm-dropCursor { border-left-color: Highlight; }
+  .cm-selectionBackground,
+  .cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground { background: Highlight !important; }
+  .cm-search-panel input,
+  .cm-search-panel button,
+  #status { border: 1px solid ButtonText; }
+  .cm-search-panel button[data-action="replace-all"] { color: ButtonText; background: ButtonFace; }
+  html[data-file-drag="true"]::after { border-color: Highlight; color: CanvasText; background: Canvas; }
+}
+
+html[data-high-contrast="true"] {
+  --editor-foreground: CanvasText;
+  --editor-background: Canvas;
+  --editor-paper: Canvas;
+  --editor-muted: CanvasText;
+  --editor-border: CanvasText;
+  --editor-accent: LinkText;
+  --editor-accent-soft: Highlight;
+  --editor-focus: Highlight;
+  color-scheme: light dark;
+}
+
+html[data-high-contrast="true"] .cm-search-panel button[data-action="replace-all"] {
+  color: ButtonText;
+  background: ButtonFace;
+  border-color: ButtonText;
+}
+
+html[data-high-contrast="true"][data-file-drag="true"]::after {
+  border-color: Highlight;
+  color: CanvasText;
+  background: Canvas;
 }

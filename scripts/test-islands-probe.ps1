@@ -8,10 +8,10 @@ $exe = if ($Production) {
 } else {
     Join-Path $root 'experiments\Marker.IslandsProbe\bin\x64\Release\net10.0-windows10.0.26100.0\win-x64\Marker.IslandsProbe.exe'
 }
-$windowTitle = if ($Production) { 'Marker' } else { 'Marker XAML Islands 输入验收原型' }
+$windowTitle = if ($Production) { 'Marker — native-host-smoke.md' } else { 'Marker XAML Islands 输入验收原型' }
 $editorTitle = if ($Production) { 'Marker editor' } else { 'Marker Islands editor' }
 $previewTitle = if ($Production) { 'Marker preview' } else { 'Marker Islands preview' }
-$toolbarFirstButton = if ($Production) { '新建' } else { '进入编辑器' }
+$toolbarFirstButton = if ($Production) { '新建文档' } else { '进入编辑器' }
 $resultPath = Join-Path $root $(if ($Production) { 'artifacts\native-host-smoke.json' } else { 'artifacts\islands-probe-smoke.json' })
 New-Item -ItemType Directory -Path (Split-Path $resultPath -Parent) -Force | Out-Null
 $process = $null
@@ -118,7 +118,13 @@ public static class MarkerIslandsWin32 {
     $oldDpiContext = [MarkerIslandsWin32]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
     if ($oldDpiContext -eq [IntPtr]::Zero) { throw 'Could not enable per-monitor DPI awareness for physical window bounds.' }
 
-    $process = Start-Process -FilePath $exe -PassThru
+    if ($Production) {
+        # Use an explicit test file so startup never offers the user's recovery
+        # draft. This smoke checks the host, not recovery acceptance.
+        $fixture = Join-Path $root 'artifacts\native-host-smoke.md'
+        [IO.File]::WriteAllText($fixture, [string]::Empty, [Text.UTF8Encoding]::new($false))
+        $process = Start-Process -FilePath $exe -ArgumentList "`"$fixture`"" -PassThru
+    } else { $process = Start-Process -FilePath $exe -PassThru }
     $result.started = $true
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         $process.Refresh()
@@ -138,13 +144,14 @@ public static class MarkerIslandsWin32 {
         if (-not $Production) { return }
         $recoveryDialog = [MarkerIslandsWin32]::FindOwnedDialog($mainWindow, [uint32]$process.Id, 'Marker · 恢复草稿')
         if ($recoveryDialog -eq [IntPtr]::Zero) { return }
-        if (-not [MarkerIslandsWin32]::ActivateOwnedWindow($recoveryDialog, [uint32]$process.Id, 'Marker · 恢复草稿')) {
-            throw 'Found the exact Marker recovery prompt but could not activate it safely; the recovery draft was left untouched.'
-        }
+        # The button helper verifies owner/PID/title/caption; BM_CLICK does not
+        # need global foreground focus and cannot target another application's prompt.
+        Start-Sleep -Milliseconds 200
         if (-not [MarkerIslandsWin32]::ClickOwnedDialogButton($recoveryDialog, $mainWindow, [uint32]$process.Id, 'Marker · 恢复草稿', 2, '取消')) {
             throw 'Found Marker recovery prompt but could not safely select its Cancel button; recovery draft was left untouched.'
         }
         $result.recoveryPromptPreserved = $true
+        Start-Sleep -Milliseconds 200
         if (-not [MarkerIslandsWin32]::ActivateOwnedWindow($mainWindow, [uint32]$process.Id, $windowTitle)) {
             throw 'The recovery prompt was cancelled without changing its draft, but Marker could not be restored to the foreground for input.'
         }
