@@ -33,7 +33,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 ### `src/Marker.App/`
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
-- `MainWindow.xaml`：定义约 104 DIP 单页工具栏与默认收起的外观排版面板；主 WebView 编辑器占满正文区。文档操作、撤销重做、查找替换及带文字的代码模式按钮集中在顶部原生 CommandBar，窄窗口自动溢出；下方仅保留放大的文档标题，不显示常态解析状态或源码统计。
+- `MainWindow.xaml`：定义约 68 DIP 单页工具栏与默认收起的外观排版面板；主 WebView 编辑器占满正文区。文档操作、撤销重做、查找替换及带文字的代码模式按钮集中在顶部原生 CommandBar，窄窗口自动溢出；文档标题并入 logo 右侧，不再单独占行，长标题截断且悬停可查看完整文本；图标命令按钮宽 40 DIP，保留动态溢出。不显示常态解析状态或源码统计。
 - `MainWindow.Views.cs`：加载外观设置并同步主题/动效偏好；旧 `viewMode` 设置只归一为内存中的分栏兼容值，不启动写回迁移。损坏或未知设置以默认值运行并禁止保存；简短说明仅在展开的设置面板显示。
 - `AppSettings.cs`：LocalAppData/Marker/settings.json 的 schemaVersion 1 与 applicationVersion；保存主题、排版、减少动画偏好及窗口普通位置。不存文档文本或自动打开文件。
 - `MainWindow.Windows.cs`、`WindowPlacement.cs`：管理系统主题/高对比/Windows 动画偏好、DWM Mica 与系统色回退、Mica backdrop 的 XAML Island 配置、根窗口实色间隙画刷、减少动画即时停止以及多显示器普通位置恢复。新窗口为 960×700 DIP，最小尺寸 720×480 DIP；位置按目标显示器 DPI 换算、夹入工作区，并在 `WINDOWPLACEMENT` 工作区坐标与持久化屏幕坐标间换算，保留系统标题栏和 Snap 布局。

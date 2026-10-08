@@ -6,7 +6,7 @@ namespace Marker.App;
 
 public sealed partial class MainWindow
 {
-    internal int ToolbarHeightDip => 104
+    internal int ToolbarHeightDip => 68
         + (AppearancePanel.Visibility == Visibility.Visible ? 84 + (SettingsNotice.Visibility == Visibility.Visible ? 28 : 0) : 0)
         + (NotificationStatus.Visibility == Visibility.Visible ? 24 : 0);
     // The preview bridge still processes Markdig output behind the single editing surface.
