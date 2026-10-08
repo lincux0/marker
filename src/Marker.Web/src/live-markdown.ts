@@ -257,11 +257,6 @@ export const liveMarkdown = [
     mousedown(event, view) {
       const checkbox = (event.target as Element).closest(".cm-md-task");
       if (checkbox && toggleTask(view, checkbox)) { event.preventDefault(); return true; }
-      const clickedLine = (event.target as Element).closest<HTMLElement>(".cm-line");
-      if (clickedLine) {
-        clickedLine.classList.remove("cm-md-touched");
-        requestAnimationFrame(() => { if (clickedLine.isConnected) clickedLine.classList.add("cm-md-touched"); });
-      }
       return false;
     },
     mouseup(_event, view) {

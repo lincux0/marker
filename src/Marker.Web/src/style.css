@@ -102,7 +102,6 @@ body {
 #editor .cm-line {
   padding-inline: 0.12em;
   border-radius: 4px;
-  transition: background-color 200ms ease;
 }
 
 #editor .cm-focused .cm-content {
@@ -110,24 +109,18 @@ body {
   box-shadow: 0 16px 64px rgb(36 27 59 / 7%), 0 0 0 3px color-mix(in srgb, var(--editor-accent) 3%, transparent);
 }
 
-#editor .cm-line:hover {
-  background: color-mix(in srgb, var(--editor-accent) 3%, transparent);
-}
-
-#editor .cm-md-touched {
-  animation: writing-focus 650ms ease-out;
-}
-
 #editor .cm-md-heading {
   color: var(--editor-foreground);
-  margin-top: .85em;
-  margin-bottom: .4em;
+  /* CodeMirror measures line boxes, not vertical margins, for pointer coordinates. */
+  margin-block: 0;
+  padding-top: .85em;
+  padding-bottom: .4em;
   font-weight: 650;
   line-height: 1.4;
   letter-spacing: -.025em;
 }
 
-#editor .cm-md-h1 { font-size: 2.25em; margin-top: .15em; margin-bottom: .65em; font-weight: 700; }
+#editor .cm-md-h1 { font-size: 2.25em; padding-top: .15em; padding-bottom: .65em; font-weight: 700; }
 #editor .cm-md-h2 { font-size: 1.65em; }
 #editor .cm-md-h3 { font-size: 1.3em; }
 #editor .cm-md-h4 { font-size: 1.12em; }
@@ -209,11 +202,6 @@ body {
 @keyframes document-arrive {
   from { opacity: .35; }
   to { opacity: 1; }
-}
-
-@keyframes writing-focus {
-  from { background-color: color-mix(in srgb, var(--editor-accent) 14%, transparent); }
-  to { background-color: transparent; }
 }
 
 .cm-selectionBackground,

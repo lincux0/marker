@@ -68,8 +68,8 @@
             <StackPanel Spacing="6">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                     <ComboBox x:Name="ThemeCombo" Header="主题" Width="128" AutomationProperties.AutomationId="Theme" SelectionChanged="Theme_SelectionChanged"><x:String>跟随系统</x:String><x:String>浅色</x:String><x:String>深色</x:String></ComboBox>
-                    <NumberBox x:Name="FontSizeBox" Header="字号" Width="88" Minimum="12" Maximum="24" SmallChange="1" Value="16" SpinButtonPlacementMode="Inline" AutomationProperties.AutomationId="FontSize" ValueChanged="FontSize_ValueChanged"/>
-                    <NumberBox x:Name="LineHeightBox" Header="行高" Width="92" Minimum="1.2" Maximum="2" SmallChange="0.1" Value="1.5" SpinButtonPlacementMode="Inline" AutomationProperties.AutomationId="LineHeight" ValueChanged="LineHeight_ValueChanged"/>
+                    <NumberBox x:Name="FontSizeBox" Header="字号" Width="100" Minimum="12" Maximum="24" SmallChange="1" Value="16" SpinButtonPlacementMode="Hidden" BorderThickness="0" UseSystemFocusVisuals="True" AutomationProperties.AutomationId="FontSize" ValueChanged="FontSize_ValueChanged"/>
+                    <NumberBox x:Name="LineHeightBox" Header="行高" Width="108" Minimum="1.2" Maximum="2" SmallChange="0.1" Value="1.5" SpinButtonPlacementMode="Hidden" BorderThickness="0" UseSystemFocusVisuals="True" AutomationProperties.AutomationId="LineHeight" ValueChanged="LineHeight_ValueChanged"/>
                     <ToggleButton x:Name="LineWrappingToggle" Content="自动折行" IsChecked="True" VerticalAlignment="Bottom" AutomationProperties.AutomationId="LineWrapping" Click="LineWrapping_Click"/>
                     <ToggleButton x:Name="ReducedMotionToggle" Content="减少动画" VerticalAlignment="Bottom" AutomationProperties.AutomationId="ReducedMotion" Click="ReducedMotion_Click"/>
                 </StackPanel>
