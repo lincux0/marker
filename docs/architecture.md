@@ -33,7 +33,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 ### `src/Marker.App/`
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
-- `MainWindow.xaml`：定义约 68 DIP 单页工具栏；主 WebView 编辑器占满正文区。文档操作、撤销重做、查找替换和代码模式位于顶部原生 CommandBar，窄窗口自动溢出；设置入口紧邻命令栏；文档标题并入 logo 右侧，长标题截断且悬停可查看完整文本；命令图标按钮为 40×36 DIP。不显示常态解析状态或源码统计。
+- `MainWindow.xaml`：定义约 68 DIP 单页工具栏；主 WebView 编辑器从工具栏下沿铺满客户区，不保留固定颜色的宿主边距；正文留白与配色由 Web 页面统一绘制。文档操作、撤销重做、查找替换和代码模式位于顶部原生 CommandBar，窄窗口自动溢出；设置入口紧邻命令栏；文档标题并入 logo 右侧，长标题截断且悬停可查看完整文本；命令图标按钮为 40×36 DIP。不显示常态解析状态或源码统计。
 - `SettingsWindow.xaml`、`SettingsWindow.xaml.cs`：独立 WinUI 设置子窗口，由主窗口拥有并单例显示；提供外观、排版、字体卡片。设置即时应用并保存，包含主题、减少动画、字号、行高、段间距、自动换行、正文/H1/H2 字体和颜色组合。窗口边界按 owner DPI 换算为物理坐标并夹入显示器工作区；主窗口关闭时一并关闭。
 - `MainWindow.Views.cs`：加载外观设置并同步主题/动效偏好；旧 `viewMode` 设置仅为兼容读取，不启动写回迁移。损坏或未知设置以默认值运行并禁止保存；简短说明仅在设置窗口显示。
 - `AppSettings.cs`：LocalAppData/Marker/settings.json 的 schemaVersion 1 与 applicationVersion；保存主题、字体、段间距、排版、减少动画偏好、配色及窗口普通位置。不存文档文本或自动打开文件。新增字段对旧 schema 1 配置可缺省且不警告；无效字段各自回退默认值并提示，损坏或未知版本保留原文件并禁止保存。

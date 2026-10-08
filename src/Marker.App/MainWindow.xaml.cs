@@ -442,11 +442,10 @@ public sealed partial class MainWindow : UserControl
         Native.GetClientRect(_window, out var rect);
         var scale = Native.GetDpiForWindow(_window) / 96d;
         var header = (int)Math.Round(ToolbarHeightDip * scale);
-        var gap = (int)Math.Round(12 * scale);
-        var height = Math.Max(1, rect.Bottom - header - gap);
+        var height = Math.Max(1, rect.Bottom - header);
         _toolbar.SiteBridge.MoveAndResize(new RectInt32(0, 0, Math.Max(1, rect.Right), header));
-        var fullWidth = Math.Max(1, rect.Right - gap * 2);
-        ResizeView(_editorWindow, _editor, gap, header, fullWidth, height);
+        // The Web page owns the writing background and inset; leave no fixed-color host frame.
+        ResizeView(_editorWindow, _editor, 0, header, Math.Max(1, rect.Right), height);
         ResizeView(_previewWindow, _preview, 0, 0, 1, 1);
         Native.ShowWindow(_editorWindow, 5);
         Native.ShowWindow(_previewWindow, 0);
