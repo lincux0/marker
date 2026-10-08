@@ -95,11 +95,6 @@ public sealed partial class MainWindow
         // Paint the entire toolbar band like the writing canvas; only the floating surface is acrylic.
         _toolbar.SystemBackdrop = null;
         RootGrid.Background = new SolidColorBrush(background);
-        BrandBadge.Background = new SolidColorBrush(IsHighContrast
-            ? _uiSettings?.GetColorValue(UIColorType.Foreground) ?? colors.Accent : colors.Accent);
-        BrandIcon.Foreground = new SolidColorBrush(IsHighContrast
-            ? _uiSettings?.GetColorValue(UIColorType.Background) ?? Color.FromArgb(255, 255, 255, 255)
-            : dark ? Color.FromArgb(255, 27, 26, 32) : Color.FromArgb(255, 255, 255, 255));
         ToolbarGlass.Background = IsHighContrast ? new SolidColorBrush(background) : new AcrylicBrush
         {
             TintColor = background,

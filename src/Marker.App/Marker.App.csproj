@@ -30,7 +30,8 @@
     <PackageReference Include="Markdig" Version="1.4.0" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Assets\*.png" />
+    <Content Include="Assets\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Marker.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\Marker.Web\dist\**\*" Link="Web\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

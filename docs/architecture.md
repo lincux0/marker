@@ -32,13 +32,15 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 ### `src/Marker.App/`
 
+- `Assets/`：应用 ICO、顶栏 `AppLogo.png` 与 MSIX 标识素材由用户原图 `asserts/icon.png` 生成；`scripts/build-icon-assets.ps1` 精确裁掉外侧近白留白、等比缩放并封装七尺寸 ICO，保留原图。PNG/ICO 随 EXE 输出复制；原生主窗口与设置窗口从输出 ICO 加载，顶栏右侧使用同源 PNG。
+
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
 - `MainWindow.xaml`：定义约 84 DIP 单页工具栏与按需出现的 24 DIP 错误区；主 WebView 编辑器从工具栏下沿铺满客户区，不保留固定颜色的宿主边距。工具栏使用圆角 Acrylic、渐变描边和 `ThemeShadow`，仅在 XAML Island 内提供浮起视觉，不跨 HWND 覆盖正文；整条宿主 band、窗口客户区和系统标题栏 caption 与当前 palette 的正文背景一致。WinUI 命令栏窄窗口自动溢出；代码模式按钮常态仅显示图标，保留 Tooltip、无障碍名称及溢出项文字。设置入口紧邻命令栏；文档标题并入 logo 右侧，长标题截断且悬停可查看完整文本；命令图标按钮为 40×36 DIP。不显示常态解析状态或源码统计。
 - `SettingsWindow.xaml`、`SettingsWindow.xaml.cs`：独立 WinUI 设置子窗口，由主窗口拥有并单例显示；提供外观、排版、字体卡片。设置即时应用并保存，包含主题、减少动画、字号、行高、段间距、自动换行、正文/H1/H2 字体和颜色组合。窗口边界按 owner DPI 换算为物理坐标并夹入显示器工作区；主窗口关闭时一并关闭。
 - `MainWindow.Views.cs`：加载外观设置并同步主题/动效偏好；旧 `viewMode` 设置仅为兼容读取，不启动写回迁移。损坏或未知设置以默认值运行并禁止保存；简短说明仅在设置窗口显示。
 - `AppSettings.cs`：LocalAppData/Marker/settings.json 的 schemaVersion 1 与 applicationVersion；保存主题、字体、段间距、排版、减少动画偏好、配色及窗口普通位置。不存文档文本或自动打开文件。新增字段对旧 schema 1 配置可缺省且不警告；无效字段各自回退默认值并提示，损坏或未知版本保留原文件并禁止保存。
 - `MainWindow.Windows.cs`、`WindowPlacement.cs`：管理系统主题/高对比/Windows 动画偏好、DWM Mica 与系统色回退、工具栏 Acrylic 与高对比回退、根窗口背景、减少动画即时停止以及多显示器普通位置恢复。新窗口为 960×700 DIP，最小尺寸 720×480 DIP；位置按目标显示器 DPI 换算、夹入工作区，并在 `WINDOWPLACEMENT` 工作区坐标与持久化屏幕坐标间换算，保留系统标题栏和 Snap 布局。
-- `WritingPalette.cs`：根据配置的颜色组合与明暗主题统一提供背景/强调色；主窗口 band、宿主客户区、系统标题栏 caption、品牌标记和设置窗口复用该配色，并与 Web 编辑器背景/强调 CSS 颜色变量保持精确一致。高对比模式改用 Windows 系统色。
+- `WritingPalette.cs`：根据配置的颜色组合与明暗主题统一提供背景/强调色；主窗口 band、宿主客户区、系统标题栏 caption、设置窗口复用该配色，并与 Web 编辑器背景/强调 CSS 颜色变量保持精确一致。高对比模式改用 Windows 系统色。
 - `MainWindow.Activation.cs`、`MarkdownActivation.cs`：串行打开受支持的文件激活；校验完整路径及 `.md`/`.markdown` 扩展名；XAML Island 接收 `StorageItems` 拖放，根窗口与两个 WebView2 子窗口提供 `WM_DROPFILES` 兼容路径。
 - `MainWindow.xaml.cs`：`MainWindow` 创建并管理 Win32 根 HWND、编辑器/隐藏预览子 HWND 和工具栏 XAML Island；负责客户区布局、焦点、DPI/窗口消息、WebView2 安全配置、桥接路由、异步 Markdig 解析及关闭流程，并拥有设置子窗口。编辑器图片只接收受控 `document.marker.example` URL，通过现有 `LocalImageResources.TryRead` 校验后响应；JSON 只传相对 Markdown 引用到随机会话 URL 的映射，不传磁盘绝对路径。启动前检测 Evergreen Runtime，缺失时显示安装提示但不运行安装器。文件拖放通过 `AdditionalObjects` 接收原生 File 对象，宿主不从 JSON 收取路径。
 - `MainWindow.Documents.cs`：管理当前单文档会话、脏状态、原生文件选择器、命令/快照 requestId 往返、原生消息框确认、打开/保存/另存为/关闭/恢复流程、外部文件监控和每秒节流的草稿写入。保存前向 CodeMirror 请求最新完整快照；输入法组合尚未提交时拒绝保存。恢复草稿成为未命名副本，不自动覆盖来源文件。

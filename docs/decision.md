@@ -160,14 +160,16 @@
 
 - 状态：已实现。主工具栏保留同高设置入口；设置使用独立 WinUI owned 窗口单例显示，主窗口关闭时一并关闭。设置值即时应用并写入原 schema 1 JSON。
 - 设置划分为外观、排版和字体卡片，保留主题、动效偏好、正文大小、行高、自动换行；新增段间距、正文/H1/H2字体与五组颜色组合。段间距范围为 0–2 em、默认 0.5 em；段间距通过顶层段落末尾 padding 实现，不删除 Markdown 空行。字号范围 12–24，行高范围 1.2–2。
-- 字体选项为系统、宋体、微软雅黑、等线和衬线；正文默认系统字体，H1/H2 默认宋体。颜色组合由 `WritingPalette.GetColors` 统一解析，Web 编辑器的背景与强调 CSS 变量和原生主工具栏 band、宿主客户区、系统标题栏 caption、品牌标记及设置窗口使用完全相同的值；普通原生控件其余部分沿用系统样式。正文 WebView 铺满工具栏下方客户区，去除旧分栏宿主边距。Windows 高对比系统色优先。
+- 字体选项为系统、宋体、微软雅黑、等线和衬线；正文默认系统字体，H1/H2 默认宋体。颜色组合由 `WritingPalette.GetColors` 统一解析，Web 编辑器的背景与强调 CSS 变量和原生主工具栏 band、宿主客户区、系统标题栏 caption及设置窗口使用完全相同的值；普通原生控件其余部分沿用系统样式。正文 WebView 铺满工具栏下方客户区，去除旧分栏宿主边距。Windows 高对比系统色优先。
 - 新字段沿用 schema 1 且均可缺省，旧配置无新增字段时静默使用默认值；非法新字段独立回退并提示。损坏或未知版本仍保留原文件并禁止写入。设置窗口坐标按 owner DPI 换算到物理边界并夹入目标显示器工作区。
 - 理由：把较多的外观和写作控制从正文工具栏移出，同时让读者可分别调整正文字体、标题字体和段落节奏；兼容 schema 1 避免仅因新增偏好打断旧配置。
 - 代价：所选字体是否安装由目标 Windows 决定，Web CSS 回退到可用字体；palette 统一着色范围限于约定的窗口背景和强调面，其他 WinUI 控件仍使用系统样式。
 - 替代关系：本决策替代 D008 中可展开的内联外观/排版面板方案，以及 D016 中固定 H2 微软雅黑 UI 的方案；D016 记录的 H1 宋体默认继续保留。
-- 变更依据：D017 初版只把 palette 应用于 Web 正文和隐藏预览；本轮为解决顶部宿主 band、窗口 caption/品牌区与纸面颜色不一致，扩展为原生复用 `WritingPalette`、其背景/强调色与 Web 编辑器 CSS 保持同值。高对比时仍由 Windows 系统颜色优先；这一扩展没有改变“其他 WinUI 控件使用系统样式”的边界。
+- 变更依据：D017 初版只把 palette 应用于 Web 正文和隐藏预览；本轮为解决顶部宿主 band、窗口 caption与纸面颜色不一致，扩展为原生复用 `WritingPalette`、其背景/强调色与 Web 编辑器 CSS 保持同值。高对比时仍由 Windows 系统颜色优先；这一扩展没有改变“其他 WinUI 控件使用系统样式”的边界。
 - 实现位置：`src/Marker.App/SettingsWindow.xaml`、`SettingsWindow.xaml.cs`、`AppSettings.cs`、`MainWindow.Views.cs`、`MainWindow.Windows.cs`、`App.xaml.cs`、`src/Marker.Web/src/main.ts`、`style.css`、`preview.css`。
 - Win32 主窗口不计入 XAML Window 数量，应用采用 `DispatcherShutdownMode.OnExplicitShutdown`，关闭设置子窗不会退出；主窗口复用现有未保存确认与显式退出流程。依据：[DispatcherShutdownMode](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.dispatchershutdownmode)。
+
+- 图标变更：根据用户指定的 `asserts/icon.png` 裁剪生成 ICO 与 PNG，应用/设置窗口图标和顶栏右侧 logo 同源；logo 保留原图色彩，不再根据配色替换为通用文档图形。
 
 ## D015 启动激活与窗口恢复
 

@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -19,6 +20,8 @@ public sealed partial class SettingsWindow : Window
     public SettingsWindow(AppSettings settings, string? notice, Action<AppSettings> onChanged)
     {
         InitializeComponent();
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Marker.ico");
+        if (File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
         _settings = settings;
         _onChanged = onChanged;
         ThemeCombo.SelectedIndex = IndexFor(ThemeCombo, settings.Theme);

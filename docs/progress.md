@@ -279,6 +279,14 @@
 - NumberBox 共享样式的 `Padding="10,0"` 被模板绑定到内部 TextBox，缺少垂直内边距；改为 `10,8,10,8`，让字号、行间距、段间距三个框的常态文本与聚焦选中文本均位于框内中部。不复制控件模板，不恢复加减按钮，保留系统聚焦指示、值域与原有保存回调。
 - 完整构建通过：Web 检查/生产构建、锁定还原、x64 Release 零警告/错误，逻辑测试 43 通过/1 符号链接权限跳过。短实机截图核对字号/段距的常态与行间距聚焦全选状态，见 `artifacts/numberbox-aligned.png`；窗口 10 控件可访问，单例和关闭行为正常，配置字节未改变。未做复杂输入法或多屏回归，测试进程已关闭。
 
+### 2026-10-08：应用与右侧顶栏标志替换
+
+- 使用用户指定的 `asserts/icon.png`，保留原文件；识别源 1254×1254 的外侧近白留白，内容范围约 x=178..1076、y=180..1074，居中方形裁剪 x/y=178..1076（899×899）。生成 256px 顶栏 PNG、现有四类 MSIX PNG 和 16/24/32/48/64/128/256px 多帧 ICO；脚本 `build-icon-assets.ps1` 使用本机 System.Drawing，不引入依赖。
+- EXE 嵌入 ICO 与输出目录 PNG/ICO 同步；Win32 主窗口从 ICO 文件加载并在关闭时释放图标句柄，设置窗口使用同源 ICO。顶栏通用文档图形替换为用户图标并按要求放在右侧，不按色系改色。现有 MSIX manifest 路径沿用，只更新素材，未生成或安装 MSIX。
+- 本轮完整构建零警告/错误，逻辑测试 43 通过/1 符号链接权限跳过；ICO 解码可读取，短截图确认主/设置窗口图标及右侧 logo，见 `artifacts/icon-toolbar.png` 与 `artifacts/numberbox-aligned.png`。测试设置窗口十项控件、单例与关闭行为通过，用户配置字节未改变；本轮样例进程已关闭。
+- Graphify code-only 更新为 1133 节点/2034 边，保留 global.json 无节点提示；用户原有开发方案格式变更未纳入提交。数值文字修复独立提交 `2d54990`，本条随图标更新提交，未推送远端。
+- 顶栏加大边距、真正覆盖独立正文区域及更强正文模糊尚未实施：Exa/Context7核实了现有 windowed WebView2 与 XAML Island 的 HWND/合成限制，已询问是否把顶栏移入现有 WebView2；文件操作与设置窗口仍由原生执行、编辑器 IME 宿主保留。该架构变更等待用户选择，当前不得标为完成。参考：[WebView2 hosting](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/windowed-vs-visual-hosting)。
+
 ## 当前阶段
 
 - M0 已完成。生产微信输入法与 Web 安全核心门槛通过；M2 核心文件工作流、本机操作与恢复验证已完成。

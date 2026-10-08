@@ -32,6 +32,7 @@ public sealed partial class MainWindow : UserControl
     private readonly DesktopWindowXamlSource _toolbar;
     private BridgeSession _session = new(Guid.NewGuid().ToString("N"));
     private readonly nint _window;
+    private readonly nint _appIcon;
     private readonly nint _editorWindow;
     private readonly nint _previewWindow;
     private readonly string _className;
@@ -51,12 +52,13 @@ public sealed partial class MainWindow : UserControl
         InitializeComponent();
         _procedure = WindowProcedure;
         var module = Native.GetModuleHandleW(null);
+        _appIcon = Native.LoadImageW(0, Path.Combine(AppContext.BaseDirectory, "Assets", "Marker.ico"), 1, 0, 0, 0x50);
         _className = "Marker.MainWindow." + Guid.NewGuid().ToString("N");
         var definition = new Native.WindowClass
         {
             Procedure = Marshal.GetFunctionPointerForDelegate(_procedure),
             Instance = module,
-            Icon = Native.LoadIconW(module, (nint)32512),
+            Icon = _appIcon != 0 ? _appIcon : Native.LoadIconW(module, (nint)32512),
             Name = _className,
             Background = 0
         };
@@ -521,6 +523,7 @@ public sealed partial class MainWindow : UserControl
                 CloseControllers();
                 _toolbar.Dispose();
                 Native.DestroyWindow(_window);
+                if (_appIcon != 0) Native.DestroyIcon(_appIcon);
                 Application.Current.Exit();
                 return 0;
             }
@@ -540,6 +543,12 @@ public sealed partial class MainWindow : UserControl
     {
         [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] internal static extern bool IsWindowEnabled(nint window);
         internal delegate nint Procedure(nint window, uint message, nuint wParam, nint lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        internal static extern nint LoadImageW(nint instance, string name, uint type, int width, int height, uint flags);
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool DestroyIcon(nint icon);
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         internal struct WindowClass
