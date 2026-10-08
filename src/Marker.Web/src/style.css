@@ -120,8 +120,8 @@ body {
   letter-spacing: -.025em;
 }
 
-#editor .cm-md-h1 { font-size: 2.25em; padding-top: .15em; padding-bottom: .65em; font-weight: 700; }
-#editor .cm-md-h2 { font-size: 1.8em; font-weight: 700; }
+#editor .cm-md-h1 { font-family: "SimSun", "Noto Serif CJK SC", Georgia, serif; font-size: 2.25em; padding-top: .15em; padding-bottom: .65em; font-weight: 700; }
+#editor .cm-md-h2 { font-family: "Microsoft YaHei UI", "Segoe UI Variable Display", "Segoe UI", sans-serif; font-size: 1.8em; font-weight: 700; }
 #editor .cm-md-h3 { font-size: 1.5em; }
 #editor .cm-md-h4 { font-size: 1.28em; }
 #editor .cm-md-h5 { font-size: 1.12em; }
