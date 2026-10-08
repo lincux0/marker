@@ -121,7 +121,8 @@ public sealed partial class MainWindow
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            SettingsNotice.Text = $"窗口位置保存失败：{error.Message}";
+            SettingsNotice.Text = "窗口位置保存失败；其他偏好仍可使用。";
+            UpdateSettingsNotice();
         }
     }
 

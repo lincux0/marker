@@ -6,6 +6,7 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { closeSearchPanel, findNext, findPrevious, getSearchQuery, openSearchPanel, replaceAll, replaceNext, search, searchKeymap, SearchQuery, setSearchQuery } from "@codemirror/search";
 import { EditorView, keymap, type Panel } from "@codemirror/view";
 import { enableFileDrop } from "./file-drop";
+import { imageResources, liveMarkdown } from "./live-markdown";
 import "./style.css";
 
 declare global {
@@ -237,6 +238,19 @@ function applyHostMessage(value: unknown): void {
     sendSnapshot(message.requestId as string | undefined);
     return;
   }
+  if (message.type === "imageResources" && exact("type", "protocolVersion", "sessionId", "version", "resources") &&
+      message.sessionId === sessionId && message.version === version && view && Array.isArray(message.resources) && message.resources.length <= 8192) {
+    const resources = new Map<string, string>();
+    const safeUrl = new RegExp(`^https://document\\.marker\\.example/${sessionId}/image/[0-9a-f]{48}$`);
+    for (const resource of message.resources) {
+      if (!resource || typeof resource !== "object" || Array.isArray(resource)) return;
+      const item = resource as Record<string, unknown>;
+      if (Object.keys(item).length !== 2 || typeof item.source !== "string" || item.source.length > 32768 || typeof item.url !== "string" || !safeUrl.test(item.url)) return;
+      resources.set(item.source, item.url);
+    }
+    view.dispatch({ effects: imageResources.of(resources) });
+    return;
+  }
   if (message.type === "settings" && keys.every(key => ["type", "protocolVersion", "sessionId", "theme", "fontSize", "lineHeight", "lineWrapping", "reducedMotion", "highContrast"].includes(key)) &&
       ["type", "protocolVersion", "sessionId", "theme", "fontSize", "lineHeight", "lineWrapping"].every(key => key in message) &&
       message.sessionId === sessionId && isSettings({ theme: message.theme, fontSize: message.fontSize, lineHeight: message.lineHeight, lineWrapping: message.lineWrapping })) {
@@ -302,6 +316,7 @@ function initialize(nextSessionId: string, text: string): void {
       doc: text,
       extensions: [
         markdown({ base: markdownLanguage }),
+        liveMarkdown,
         history(),
         search({ top: true, createPanel: createSearchPanel }),
         settingsCompartment.of([]),
@@ -314,7 +329,7 @@ function initialize(nextSessionId: string, text: string): void {
           ...defaultKeymap,
           ...historyKeymap,
         ]),
-        EditorView.contentAttributes.of({ "aria-label": "Markdown 编辑器", "aria-description": "从标题开始写作。Ctrl+Enter 在当前行后新建段落" }),
+        EditorView.contentAttributes.of({ "aria-label": "Markdown 呈现编辑器", "aria-description": "点击文档直接编辑。Ctrl+Enter 新建段落，Ctrl+Alt+M 临时查看或隐藏 Markdown 源码" }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             editorParent!.dataset.empty = String(update.state.doc.length === 0);

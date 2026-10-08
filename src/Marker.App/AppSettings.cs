@@ -35,7 +35,7 @@ public sealed record AppSettings(
             var root = json.RootElement;
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("schemaVersion", out var schema)
                 || schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out var version) || version != CurrentSchemaVersion)
-                return new(Default, "设置文件版本无法识别，已保留原文件并使用默认设置。", false);
+                return new(Default, "设置版本不兼容，已保留原文件并使用默认设置。", false);
 
             var warnings = new List<string>();
             var defaults = Default;
@@ -51,11 +51,11 @@ public sealed record AppSettings(
             var windowPlacement = ReadWindowPlacement(root, warnings);
             return new(new AppSettings(CurrentSchemaVersion, appVersion, theme, fontSize, lineHeight, wrapping, viewMode,
                     reducedMotion, windowPlacement),
-                warnings.Count == 0 ? null : $"部分设置无效，已使用默认值：{string.Join("、", warnings)}。", true);
+                warnings.Count == 0 ? null : "部分设置无效，已使用默认值。", true);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
         {
-            return new(Default, $"设置文件无法读取，已保留原文件并使用默认设置：{error.Message}", false);
+            return new(Default, "设置文件无法读取，已保留原文件并使用默认设置。", false);
         }
     }
 

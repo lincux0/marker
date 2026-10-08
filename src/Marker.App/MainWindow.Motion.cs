@@ -44,7 +44,6 @@ public sealed partial class MainWindow
     private void UpdateSettingsNotice()
     {
         SettingsNotice.Visibility = string.IsNullOrWhiteSpace(SettingsNotice.Text) ? Visibility.Collapsed : Visibility.Visible;
-        ToolTipService.SetToolTip(SettingsNotice, SettingsNotice.Text);
         Layout();
     }
 

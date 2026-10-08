@@ -68,7 +68,7 @@ public sealed partial class MainWindow
     private void UpdateDocumentStatus()
     {
         var name = _document.Path is null ? "未命名" : Path.GetFileName(_document.Path);
-        DocumentStatus.Text = $"{name}{(IsDirty ? " · 未保存" : "")} · {_document.EncodingName}{(_document.HasBom ? " BOM" : "")} · {_document.Newline}{(_diskChanged ? " · 磁盘已变更" : "")}";
+        DocumentStatus.Text = $"{name}{(IsDirty ? " · 未保存" : "")}{(_diskChanged ? " · 磁盘已变更" : "")}";
         SetWindowTextW(_window, _document.Path is null && !IsDirty ? "Marker" : $"Marker — {name}{(IsDirty ? " *" : "")}");
     }
 
@@ -180,7 +180,7 @@ public sealed partial class MainWindow
         ApplyWebSettings();
         StartFileWatcher();
         UpdateDocumentStatus();
-        if (data.Newline == "Mixed") SetStatus("检测到混合换行；保存时须明确选择统一为 CRLF 或 LF。");
+        AnimateEntrance(DocumentRow);
     }
 
     private async Task<bool> SaveDocumentAsync(bool saveAs)
@@ -236,7 +236,7 @@ public sealed partial class MainWindow
             if (!IsDirty) await DeleteCurrentRecoveryAsync();
             else QueueRecovery();
             UpdateDocumentStatus();
-            SetStatus(IsDirty ? "所选快照已保存，后续编辑仍未保存。" : "已安全保存。");
+            AnimateEntrance(DocumentRow);
             return true;
         }
         catch (DocumentConflictException conflict)
@@ -351,7 +351,7 @@ public sealed partial class MainWindow
     {
         var entries = await Task.Run(_recovery.List);
         if (_closed || startup && Volatile.Read(ref _fileActivationReceived) != 0) return;
-        if (entries.Count == 0) { SetStatus("没有待恢复的草稿。"); return; }
+        if (entries.Count == 0) return;
         foreach (var entry in entries.OrderByDescending(item => item.Draft?.UpdatedUtc))
         {
             if (_closed || startup && Volatile.Read(ref _fileActivationReceived) != 0) return;
@@ -380,7 +380,6 @@ public sealed partial class MainWindow
             ValidateEditorText(draft.Text);
             var data = new DocumentFileData(draft.Text, null, draft.Format.EncodingName, draft.Format.HasBom, draft.Format.Newline, "");
             await SwitchDocumentAsync(data, draft.DocId, draft.OriginalPath);
-            SetStatus("已恢复为未命名副本；使用另存为选择目标，原文件没有被覆盖。");
             return;
         }
     }

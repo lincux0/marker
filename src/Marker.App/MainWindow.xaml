@@ -14,17 +14,17 @@
         <Style x:Key="QuietButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="MinWidth" Value="34" />
-            <Setter Property="Height" Value="34" />
-            <Setter Property="Padding" Value="9,5" />
-            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="MinWidth" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="CornerRadius" Value="9" />
         </Style>
         <Style x:Key="QuietToggle" TargetType="ToggleButton">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="MinWidth" Value="34" />
-            <Setter Property="Height" Value="34" />
-            <Setter Property="Padding" Value="9,5" />
-            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="MinWidth" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="CornerRadius" Value="9" />
         </Style>
         </ResourceDictionary>
     </UserControl.Resources>
@@ -33,7 +33,6 @@
             <RowDefinition Height="40" />
             <RowDefinition Height="32" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="20" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid x:Name="CommandRow" ColumnSpacing="12">
@@ -44,19 +43,14 @@
                 </Border>
                 <TextBlock Text="Marker" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                <Button x:Name="NewButton" Style="{StaticResource QuietButton}" AutomationProperties.Name="新建文档" AutomationProperties.AutomationId="NewDocument" ToolTipService.ToolTip="新建文档 · Ctrl+N" Click="NewDocument_Click"><FontIcon Glyph="&#xE8A5;" FontSize="16"/></Button>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                <Button x:Name="NewButton" Style="{StaticResource QuietButton}" AutomationProperties.Name="新建文档" AutomationProperties.AutomationId="NewDocument" ToolTipService.ToolTip="新建文档 · Ctrl+N" Click="NewDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE8A5;" FontSize="16"/><TextBlock Text="新建"/></StackPanel></Button>
                 <Button x:Name="OpenButton" Style="{StaticResource QuietButton}" AutomationProperties.AutomationId="OpenDocument" ToolTipService.ToolTip="打开 · Ctrl+O" Click="OpenDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE8E5;" FontSize="16"/><TextBlock Text="打开"/></StackPanel></Button>
                 <Button x:Name="SaveButton" Style="{StaticResource QuietButton}" AutomationProperties.AutomationId="SaveDocument" ToolTipService.ToolTip="保存 · Ctrl+S" Click="SaveDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE74E;" FontSize="16"/><TextBlock Text="保存"/></StackPanel></Button>
-                <Button Style="{StaticResource QuietButton}" AutomationProperties.Name="另存为" AutomationProperties.AutomationId="SaveAsDocument" ToolTipService.ToolTip="另存为 · Ctrl+Shift+S" Click="SaveAsDocument_Click"><FontIcon Glyph="&#xE792;" FontSize="16"/></Button>
-                <Button Style="{StaticResource QuietButton}" AutomationProperties.Name="恢复草稿" AutomationProperties.AutomationId="RecoverDocument" ToolTipService.ToolTip="恢复草稿" Click="RecoverDocument_Click"><FontIcon Glyph="&#xE81C;" FontSize="16"/></Button>
-                <Button x:Name="MoreButton" Style="{StaticResource QuietButton}" AutomationProperties.Name="更多文档操作" AutomationProperties.AutomationId="DocumentMenu" ToolTipService.ToolTip="更多文档操作">
-                    <FontIcon Glyph="&#xE712;" FontSize="16"/>
-                    <Button.Flyout><MenuFlyout><MenuFlyoutItem x:Name="EditorFocusButton" Text="进入编辑器" Click="EditorFocusButton_Click"/><MenuFlyoutItem x:Name="ResyncButton" Text="重新同步预览" Click="ResyncButton_Click"/></MenuFlyout></Button.Flyout>
-                </Button>
+                <Button Style="{StaticResource QuietButton}" AutomationProperties.Name="另存为" AutomationProperties.AutomationId="SaveAsDocument" ToolTipService.ToolTip="另存为 · Ctrl+Shift+S" Click="SaveAsDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE792;" FontSize="16"/><TextBlock Text="另存为"/></StackPanel></Button>
+                <Button Style="{StaticResource QuietButton}" AutomationProperties.Name="恢复草稿" AutomationProperties.AutomationId="RecoverDocument" ToolTipService.ToolTip="恢复草稿" Click="RecoverDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE81C;" FontSize="16"/><TextBlock Text="恢复"/></StackPanel></Button>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <ComboBox x:Name="ViewModeCombo" Width="116" Height="34" AutomationProperties.Name="视图模式" AutomationProperties.AutomationId="ViewMode" SelectionChanged="ViewMode_SelectionChanged"><x:String>源码</x:String><x:String>分栏</x:String><x:String>阅读</x:String></ComboBox>
                 <ToggleButton x:Name="AppearanceButton" Style="{StaticResource QuietToggle}" AutomationProperties.Name="外观与排版" AutomationProperties.AutomationId="Appearance" ToolTipService.ToolTip="外观与排版" Click="Appearance_Click"><FontIcon Glyph="&#xE713;" FontSize="16"/></ToggleButton>
             </StackPanel>
         </Grid>
@@ -71,19 +65,17 @@
             </StackPanel>
         </Grid>
         <Border x:Name="AppearancePanel" Grid.Row="2" Visibility="Collapsed" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="9" Padding="12,8">
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <ComboBox x:Name="ThemeCombo" Header="主题" Width="128" AutomationProperties.AutomationId="Theme" SelectionChanged="Theme_SelectionChanged"><x:String>跟随系统</x:String><x:String>浅色</x:String><x:String>深色</x:String></ComboBox>
-                <NumberBox x:Name="FontSizeBox" Header="字号" Width="88" Minimum="12" Maximum="24" SmallChange="1" Value="16" SpinButtonPlacementMode="Inline" AutomationProperties.AutomationId="FontSize" ValueChanged="FontSize_ValueChanged"/>
-                <NumberBox x:Name="LineHeightBox" Header="行高" Width="92" Minimum="1.2" Maximum="2" SmallChange="0.1" Value="1.5" SpinButtonPlacementMode="Inline" AutomationProperties.AutomationId="LineHeight" ValueChanged="LineHeight_ValueChanged"/>
-                <ToggleButton x:Name="LineWrappingToggle" Content="自动折行" IsChecked="True" VerticalAlignment="Bottom" AutomationProperties.AutomationId="LineWrapping" Click="LineWrapping_Click"/>
-                <ToggleButton x:Name="ReducedMotionToggle" Content="减少动画" VerticalAlignment="Bottom" AutomationProperties.AutomationId="ReducedMotion" Click="ReducedMotion_Click"/>
+            <StackPanel Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ComboBox x:Name="ThemeCombo" Header="主题" Width="128" AutomationProperties.AutomationId="Theme" SelectionChanged="Theme_SelectionChanged"><x:String>跟随系统</x:String><x:String>浅色</x:String><x:String>深色</x:String></ComboBox>
+                    <NumberBox x:Name="FontSizeBox" Header="字号" Width="88" Minimum="12" Maximum="24" SmallChange="1" Value="16" SpinButtonPlacementMode="Inline" AutomationProperties.AutomationId="FontSize" ValueChanged="FontSize_ValueChanged"/>
+                    <NumberBox x:Name="LineHeightBox" Header="行高" Width="92" Minimum="1.2" Maximum="2" SmallChange="0.1" Value="1.5" SpinButtonPlacementMode="Inline" AutomationProperties.AutomationId="LineHeight" ValueChanged="LineHeight_ValueChanged"/>
+                    <ToggleButton x:Name="LineWrappingToggle" Content="自动折行" IsChecked="True" VerticalAlignment="Bottom" AutomationProperties.AutomationId="LineWrapping" Click="LineWrapping_Click"/>
+                    <ToggleButton x:Name="ReducedMotionToggle" Content="减少动画" VerticalAlignment="Bottom" AutomationProperties.AutomationId="ReducedMotion" Click="ReducedMotion_Click"/>
+                </StackPanel>
+                <TextBlock x:Name="SettingsNotice" Visibility="Collapsed" MaxHeight="36" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
         </Border>
-        <Grid Grid.Row="3" ColumnSpacing="16">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <TextBlock x:Name="BridgeStatus" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="BridgeStatus" Text="正在准备写作空间…" />
-            <TextBlock x:Name="EditorSelectionStatus" Grid.Column="1" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="EditorSelectionStatus" Text="行 1，列 1"/>
-        </Grid>
-        <TextBlock x:Name="SettingsNotice" Grid.Row="4" Visibility="Collapsed" MaxHeight="32" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <TextBlock x:Name="NotificationStatus" Grid.Row="3" Visibility="Collapsed" MaxHeight="28" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
     </Grid>
 </UserControl>

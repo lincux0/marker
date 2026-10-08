@@ -9,7 +9,7 @@ body,
 html {
   color-scheme: light;
   --editor-foreground: #292832;
-  --editor-background: #fbfaff;
+  --editor-background: #f2f0f7;
   --editor-paper: #fff;
   --editor-muted: #777581;
   --editor-border: #e7e4ed;
@@ -75,7 +75,8 @@ body {
 
 #editor .cm-scroller {
   overflow: auto;
-  font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace;
+  padding-inline: clamp(12px, 4vw, 48px);
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
   line-height: inherit;
   scrollbar-color: color-mix(in srgb, var(--editor-muted) 30%, transparent) transparent;
   scrollbar-width: thin;
@@ -83,17 +84,136 @@ body {
 
 #editor .cm-content {
   box-sizing: border-box;
-  width: min(100%, 78ch);
-  max-width: 78ch;
-  min-height: 100%;
+  width: min(100%, 980px);
+  max-width: 980px;
+  min-height: calc(100% - 64px);
   flex: 0 1 auto;
-  margin-inline: auto;
-  padding: clamp(34px, 6vh, 68px) clamp(22px, 5vw, 52px) 48px;
+  margin: 32px auto;
+  padding: clamp(36px, 6vh, 72px) clamp(24px, 6vw, 76px) 160px;
+  border: 1px solid color-mix(in srgb, var(--editor-border) 80%, transparent);
+  border-radius: 18px;
+  background: var(--editor-paper);
+  box-shadow: 0 12px 50px rgb(36 27 59 / 4%);
+  transition: border-color 320ms ease, box-shadow 320ms ease, background-color 320ms ease;
   caret-color: var(--editor-accent);
+  animation: document-arrive 420ms ease-out both;
 }
 
 #editor .cm-line {
   padding-inline: 0.12em;
+  border-radius: 4px;
+  transition: background-color 200ms ease;
+}
+
+#editor .cm-focused .cm-content {
+  border-color: color-mix(in srgb, var(--editor-accent) 26%, var(--editor-border));
+  box-shadow: 0 16px 64px rgb(36 27 59 / 7%), 0 0 0 3px color-mix(in srgb, var(--editor-accent) 3%, transparent);
+}
+
+#editor .cm-line:hover {
+  background: color-mix(in srgb, var(--editor-accent) 3%, transparent);
+}
+
+#editor .cm-md-touched {
+  animation: writing-focus 650ms ease-out;
+}
+
+#editor .cm-md-heading {
+  color: var(--editor-foreground);
+  margin-top: .85em;
+  margin-bottom: .4em;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: -.025em;
+}
+
+#editor .cm-md-h1 { font-size: 2.25em; margin-top: .15em; margin-bottom: .65em; font-weight: 700; }
+#editor .cm-md-h2 { font-size: 1.65em; }
+#editor .cm-md-h3 { font-size: 1.3em; }
+#editor .cm-md-h4 { font-size: 1.12em; }
+#editor .cm-md-h5, #editor .cm-md-h6 { font-size: 1em; }
+#editor .cm-md-heading span:not(.cm-md-link),
+#editor .cm-md-table-header span:not(.cm-md-link),
+#editor .cm-md-image-caption,
+#editor .cm-md-image-caption span { text-decoration: none; }
+
+.cm-md-strong { font-weight: 650; }
+.cm-md-emphasis { font-style: italic; }
+.cm-md-strike { text-decoration: line-through; color: var(--editor-muted); }
+.cm-md-subscript { vertical-align: sub; font-size: .78em; }
+.cm-md-superscript { vertical-align: super; font-size: .78em; }
+
+#editor .cm-md-inline-code {
+  padding: .13em .35em;
+  border-radius: 5px;
+  color: var(--editor-accent);
+  background: var(--editor-accent-soft);
+  font: .9em/1.5 "Cascadia Code", Consolas, monospace;
+  box-decoration-break: clone;
+}
+
+#editor .cm-md-quote {
+  border-left: 3px solid color-mix(in srgb, var(--editor-accent) 55%, transparent);
+  border-radius: 0 6px 6px 0;
+  padding-inline: 1em .75em;
+  color: var(--editor-muted);
+  background: color-mix(in srgb, var(--editor-accent) 5%, transparent);
+}
+
+#editor .cm-md-list { padding-left: .45em; }
+#editor .cm-md-list-marker { display: inline-block; min-width: 1.35em; color: var(--editor-accent); font-weight: 600; }
+#editor .cm-md-list-marker:empty { min-width: 0; }
+.cm-md-task {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: .85em;
+  height: .85em;
+  margin-right: .65em;
+  border: 1.5px solid var(--editor-muted);
+  border-radius: 4px;
+  vertical-align: -.05em;
+  cursor: pointer;
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+.cm-md-task:hover { border-color: var(--editor-accent); background: var(--editor-accent-soft); }
+.cm-md-task:focus-visible { outline: 2px solid var(--editor-focus); outline-offset: 3px; }
+.cm-md-task-checked { color: var(--editor-paper); border-color: var(--editor-accent); background: var(--editor-accent); }
+
+#editor .cm-md-code-header,
+#editor .cm-md-code-line {
+  padding-inline: 20px;
+  background: color-mix(in srgb, var(--editor-accent-soft) 56%, var(--editor-paper));
+  font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace;
+  font-size: .9em;
+  line-height: 1.8;
+}
+#editor .cm-md-code-header { border-radius: 10px 10px 0 0; padding-block: 10px 6px; }
+#editor .cm-md-code-language { color: var(--editor-muted); font: 600 .82em/1.6 "Segoe UI", sans-serif; letter-spacing: .04em; }
+#editor .cm-md-code-last { border-radius: 0 0 10px 10px; padding-bottom: 14px; }
+.cm-md-link { color: var(--editor-accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--editor-accent) 40%, transparent); text-underline-offset: .2em; }
+.cm-md-image { display: inline-block; width: 100%; margin-block: 1em .35em; vertical-align: middle; }
+.cm-md-image img { display: block; max-width: 100%; max-height: 640px; height: auto; margin-inline: auto; border-radius: 12px; box-shadow: 0 8px 30px rgb(36 27 59 / 9%); }
+.cm-md-image-unavailable img { min-height: 2em; box-shadow: none; }
+.cm-md-image-caption { color: var(--editor-muted); font-size: .87em; }
+.cm-md-image-placeholder { color: var(--editor-muted); margin-right: .5em; }
+.cm-md-rule { display: inline-block; width: 100%; height: 1px; margin-block: .9em; background: var(--editor-border); vertical-align: middle; }
+
+#editor .cm-md-table-row { padding: 0; border: 1px solid var(--editor-border); border-top: 0; border-radius: 0; white-space: normal; }
+#editor .cm-md-table-header { background: var(--editor-accent-soft); border-top: 1px solid var(--editor-border); border-radius: 8px 8px 0 0; font-weight: 650; }
+#editor .cm-md-table-cell { display: inline-block; box-sizing: border-box; width: calc(100% / var(--table-columns, 1)); min-height: 2.5em; padding: .55em .75em; border-right: 1px solid var(--editor-border); overflow-wrap: anywhere; vertical-align: top; }
+#editor .cm-md-table-cell:last-child { border-right: 0; }
+#editor .cm-md-reference { color: var(--editor-muted); font-size: .85em; }
+#editor .cm-editor[data-source-mode="true"] .cm-scroller { font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace; }
+
+@keyframes document-arrive {
+  from { opacity: .35; }
+  to { opacity: 1; }
+}
+
+@keyframes writing-focus {
+  from { background-color: color-mix(in srgb, var(--editor-accent) 14%, transparent); }
+  to { background-color: transparent; }
 }
 
 .cm-selectionBackground,
@@ -137,7 +257,7 @@ body {
   box-shadow: 0 8px 22px rgb(34 28 48 / 7%);
   font: 13px/1.35 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
   backdrop-filter: blur(18px) saturate(1.2);
-  animation: panel-enter 180ms cubic-bezier(.2, .75, .25, 1) both;
+  animation: panel-enter 300ms cubic-bezier(.2, .75, .25, 1) both;
 }
 
 .cm-search-panel input,
@@ -205,7 +325,7 @@ html[data-theme="dark"] .cm-search-panel button[data-action="replace-all"] {
   left: 50%;
   width: min(78ch, calc(100% - 52px));
   color: var(--editor-muted);
-  content: "从标题开始记录灵感\A\A输入 # 创建标题，或直接开始写作。\A\A Ctrl + Enter 可在当前行后新建段落。";
+  content: "写下新的想法…";
   font: 14px/1.8 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
   white-space: pre-wrap;
   pointer-events: none;
@@ -254,7 +374,7 @@ html[data-theme="dark"] #status {
 }
 
 @keyframes panel-enter {
-  from { opacity: 0; transform: translateY(-7px); }
+  from { opacity: 0; transform: translateY(-14px); }
   to { opacity: 1; transform: translateY(0); }
 }
 

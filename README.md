@@ -1,8 +1,8 @@
 # Marker
 
-Marker 是一款面向 Windows 的 Markdown 编辑与阅读器，目标是提供本地文件工作流、CodeMirror 6 编辑体验和 Markdig 预览。
+Marker 是一款面向 Windows 的 Markdown 编辑与阅读器，提供安全的本地文件工作流，并以 CodeMirror 6 在单一正文页面即时呈现和编辑 Markdown。
 
-项目已完成 M4 开发与本机核心验收：提供安全文件工作流、增量同步、三种视图、大纲与中文查找替换，以及 Fluent 2 工具栏、浅深色排版、局部动效、减少动画、窗口恢复、单实例文件激活与拖放。生产宿主采用 Win32 根窗口、WinUI 3 XAML Islands 工具栏与原生 WebView2；M4 微信输入法和动效体验已由用户实机确认正常。发布与兼容性验收仍在进行。
+当前界面采用单一正文编辑视图：常见 Markdown 标记会在编辑时隐藏并显示排版效果，原始 Markdown 仍作为唯一文档内容保存；`Ctrl+Alt+M` 可临时显示源码标记。Markdig 继续负责最终解析，编辑期语法呈现与 Markdig 的差异及未支持语法见[技术决策](docs/decision.md)。本轮 Release EXE 构建成功，40 项业务测试通过、1 项因符号链接权限跳过，针对单页编辑的短网页检查通过；没有进行桌面输入法或长时间实机测试，需由用户验收新体验。
 
 ## 项目决策
 
@@ -35,4 +35,4 @@ MSIX 输出到 `artifacts/msix/`，默认未签名。构建、签名与安装流
 
 ## 当前状态
 
-Web 生产构建、x64 Release/MSIX 构建通过；业务测试 40 项通过、1 项因符号链接权限跳过。Web、真实 WebView2 安全与文件桥接、桌面 OLE 拖放、焦点和窗口恢复检查通过；MSIX 已开发签名，本轮未安装。多屏、读屏器、最低系统及安装后文件关联仍待验。完整结果见[项目建设历程](docs/progress.md)；语法边界见[兼容样例](docs/samples/m3-compatibility.md)。GitHub Actions 尚未在远端执行。
+本轮只重新生成 EXE，未重建 MSIX；之前 M3/M4 对三种模式的 UI 自动化脚本针对旧界面，不适用于当前单页界面。文件桥接、安全与语法兼容范围分别见[架构基线](docs/architecture.md)、[技术决策](docs/decision.md)及[历史兼容样例](docs/samples/m3-compatibility.md)。

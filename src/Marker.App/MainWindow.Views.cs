@@ -6,8 +6,10 @@ namespace Marker.App;
 
 public sealed partial class MainWindow
 {
-    internal int ToolbarHeightDip => 132 + (AppearancePanel.Visibility == Visibility.Visible ? 84 : 0)
-        + (SettingsNotice.Visibility == Visibility.Visible ? 36 : 0);
+    internal int ToolbarHeightDip => 104
+        + (AppearancePanel.Visibility == Visibility.Visible ? 84 + (SettingsNotice.Visibility == Visibility.Visible ? 28 : 0) : 0)
+        + (NotificationStatus.Visibility == Visibility.Visible ? 24 : 0);
+    // The preview bridge still processes Markdig output behind the single editing surface.
     internal string _viewMode = "split";
     internal AppSettings _settings = AppSettings.Default;
     private readonly string _settingsDirectory = Path.Combine(
@@ -20,9 +22,9 @@ public sealed partial class MainWindow
         _viewsInitializing = true;
         var loaded = AppSettings.Load(_settingsDirectory);
         _settings = loaded.Settings;
-        _viewMode = _settings.ViewMode;
+        // Keep the old setting readable, but always open the single editing surface.
+        _settings = _settings with { ViewMode = "split" };
         _settingsCanSave = loaded.CanSave;
-        ViewModeCombo.SelectedIndex = _viewMode switch { "source" => 0, "read" => 2, _ => 1 };
         ThemeCombo.SelectedIndex = _settings.Theme switch { "light" => 1, "dark" => 2, _ => 0 };
         FontSizeBox.Value = _settings.FontSize;
         LineHeightBox.Value = _settings.LineHeight;
@@ -31,7 +33,7 @@ public sealed partial class MainWindow
         RequestedTheme = _settings.Theme switch { "light" => ElementTheme.Light, "dark" => ElementTheme.Dark, _ => ElementTheme.Default };
         _viewsInitializing = false;
         SettingsNotice.Text = loaded.Warning ?? string.Empty;
-        if (loaded.Warning is not null) SetStatus(loaded.Warning);
+        UpdateSettingsNotice();
     }
 
     internal void ApplyWebSettings()
@@ -52,16 +54,6 @@ public sealed partial class MainWindow
         if (_previewReady) _preview?.CoreWebView2.PostWebMessageAsJson(message);
     }
 
-    internal void ApplyViewLayout()
-    {
-        Layout();
-        if (_viewMode == "source") ++_renderRequest;
-        else if (_latestSnapshot is { } snapshot && snapshot.Version != _latestPreviewSentVersion)
-            _ = RenderSnapshotAsync(snapshot);
-    }
-
-    internal void UpdateEditorSelectionStatus(string text) => EditorSelectionStatus.Text = text;
-
     internal void SendEditorCommand(string command)
     {
         if (_closed || _operationBusy || !_editorReady || command is not ("undo" or "redo" or "find" or "replace"))
@@ -73,27 +65,6 @@ public sealed partial class MainWindow
             sessionId = _session.SessionId,
             command
         }));
-    }
-
-    private void ViewMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_viewsInitializing || ViewModeCombo.SelectedIndex < 0) return;
-        if (_operationBusy)
-        {
-            _viewsInitializing = true;
-            ViewModeCombo.SelectedIndex = _viewMode switch { "source" => 0, "read" => 2, _ => 1 };
-            _viewsInitializing = false;
-            SetStatus("文档操作期间暂不能切换视图。");
-            return;
-        }
-        _viewMode = ViewModeCombo.SelectedIndex switch { 0 => "source", 2 => "read", _ => "split" };
-        _settings = _settings with { ViewMode = _viewMode };
-        ApplyViewLayout();
-        AnimateEntrance(DocumentRow);
-        var controller = _viewMode == "read" ? _preview : _editor;
-        var window = _viewMode == "read" ? _previewWindow : _editorWindow;
-        if (controller is not null) TryMoveFocus(controller, window, Microsoft.Web.WebView2.Core.CoreWebView2MoveFocusReason.Programmatic);
-        PersistSettings();
     }
 
     private void Theme_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -141,6 +112,7 @@ public sealed partial class MainWindow
     private void Appearance_Click(object sender, RoutedEventArgs e)
     {
         AppearancePanel.Visibility = AppearanceButton.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        UpdateSettingsNotice();
         Layout();
         if (AppearancePanel.Visibility == Visibility.Visible) AnimateEntrance(AppearancePanel);
     }
@@ -158,7 +130,8 @@ public sealed partial class MainWindow
     {
         if (!_settingsCanSave)
         {
-            SettingsNotice.Text = "现有设置已保留；请先移走损坏或新版设置文件，才能保存本次更改。";
+            SettingsNotice.Text = "设置文件已保留；移走该文件后，才能保存外观更改。";
+            UpdateSettingsNotice();
             return;
         }
         try
@@ -169,8 +142,8 @@ public sealed partial class MainWindow
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            SettingsNotice.Text = $"设置保存失败：{error.Message}";
-            SetStatus(SettingsNotice.Text);
+            SettingsNotice.Text = "设置保存失败，请检查文件访问权限。";
+            UpdateSettingsNotice();
         }
     }
 }
