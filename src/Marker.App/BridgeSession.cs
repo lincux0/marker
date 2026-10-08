@@ -117,7 +117,7 @@ internal sealed class BridgeSession(string sessionId)
             return false;
         if (!HasMatchingSession(root, out error)) return false;
         if (!root.TryGetProperty("command", out var commandElement) || commandElement.ValueKind != JsonValueKind.String ||
-            commandElement.GetString() is not ("new" or "open" or "save" or "saveAs"))
+            commandElement.GetString() is not ("new" or "open" or "save" or "saveAs" or "recover" or "settings"))
             return Fail("原生命令不受支持。", out error);
 
         command = commandElement.GetString()!;

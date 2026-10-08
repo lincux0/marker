@@ -70,11 +70,11 @@
 
 ## D008 视觉与动效
 
-- 状态：M4 系统材质、Fluent 2 shell 与减少动画已实现，本机核心检查及用户输入法/动效体验回归通过；多屏、整机高对比与读屏器仍待验。
-- Win32 根窗口使用 DWM 主窗口 backdrop，顶部 XAML Island 使用与正文同色的实色底层，其浮起表面使用 Acrylic；高对比或 backdrop 不可用时回退到系统色背景。编辑器/预览保留不透明纸面，窗口间隙用主题实色填充以保持阅读对比度。
-- 约 84 DIP 工具栏承载常用文档命令与设置入口，另为真实文件错误保留约 24 DIP 状态区；外观/排版选项位于独立 WinUI 设置窗口。圆角玻璃工具栏使用 Acrylic、渐变描边和 ThemeShadow，阴影接收器仅在工具栏 Island 内，不覆盖不同 HWND 上的正文。高对比模式关闭 Acrylic/阴影并采用系统色，Acrylic 无法使用时退化为纯色。代码模式默认收起文字标签，但 Tooltip、无障碍名称和窄窗溢出项标签保留。全局命令由 WinUI Island 路由，窗口保留系统标题栏与 Snap 行为。
-- Composition 仅用于工具栏 Island 内部短暂入场反馈（167 ms opacity、250 ms scale）；不跨 HWND 动画。用户“减少动画”或 Windows `UISettings.AnimationsEnabled=false` 会停止应用自定义 Composition 与 Web CSS 动画；WinUI 内置动画继续遵循系统策略。
-- 理由：Fluent 2 建议短时、自然并提供无动效方式；轻量玻璃与阴影只塑造工具栏 Island 内部层级，编辑/阅读内容维持稳定表面。整条宿主 band 和系统标题栏 caption 跟随选中的配色背景，避免与正文形成异色边框。
+- 状态：M4 的 DWM/Mica 与减少动画决策继续有效；原生 XAML Island 可见工具栏的 Acrylic 实现由 D018 替代。保留已通过用户输入法回归的编辑宿主；本轮输入法与新界面体验仍需用户复验，实测情况以项目历程记录为准。
+- Win32 根窗口保留 DWM 主窗口 backdrop，应用设置决定宿主背景/标题栏配色；高对比或 backdrop 不可用时回退到系统色。编辑器/预览保持不透明纸面，窗口客户区随当前配色填充。
+- 原生 XAML Island 曾显示约 84 DIP 的命令工具栏和真实文件错误状态区，外观包括圆角 Acrylic、渐变描边与 ThemeShadow；高对比关闭玻璃/阴影并回退系统色。该方案可以形成 Island 内局部视觉层次，但受到 HWND 空间约束，不能覆盖原生子窗口 WebView2 正文。
+- M4 时 Composition 用于可见工具栏 Island 内部短暂入场反馈（167 ms opacity、250 ms scale）；D018 隐藏该 Island 后，这段原生入场动画不再作用于可见工具栏。用户“减少动画”或 Windows `UISettings.AnimationsEnabled=false` 仍停止应用自定义 Composition 与 Web CSS 动画；WinUI 内置动画继续遵循系统策略。
+- 理由：Fluent 2 建议短时、自然并提供无动效方式；原生工具栏视觉尝试以轻量玻璃和阴影塑造 Island 内层级，编辑/阅读内容维持稳定表面。整条宿主 band 和系统标题栏 caption 跟随选中的配色背景，避免与正文形成异色边框。D018 后可见工具栏采用 WebView 同层覆盖以实现正文透过磨砂层滚动的视觉。
 - 代价：XAML Island 与 windowed WebView2 处于不同 HWND，不能做覆盖编辑器/预览的连续 Composition 动画；目标系统材质、缩放和辅助功能仍需实机检查。
 - 依据：[Fluent 2 motion](https://fluent2.microsoft.design/motion)、[Mica material](https://learn.microsoft.com/en-us/windows/apps/design/style/mica)、[DWM system backdrop](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type)、[DwmSetWindowAttribute](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmsetwindowattribute)、[DesktopWindowXamlSource.SystemBackdrop](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.hosting.desktopwindowxamlsource.systembackdrop)。
 
@@ -150,7 +150,7 @@
 - 顶栏采用 WinUI 原生 CommandBar 动态溢出，撤销/重做/查找/替换集中到顶栏，代码模式显示图标及文字；文档标题放大后按后续反馈并入 logo 右侧，取消独立标题行；顶栏资源局部收紧图标与内部间距，保留原生命令溢出与系统焦点，忽略不支持的启动参数时不展示常态通知，文件筛选与实际读写错误提示仍保留。代码模式复用同一正文/源码切换函数，模式状态仅通过受限布尔消息同步，不保存到文档或设置。
 - 常用格式快捷键参考 [Typora Windows 官方快捷键](https://support.typora.io/Shortcut-Keys/)，当前实现粗体、斜体、删除线、行内代码、链接与 ATX 标题/正文。复用 CodeMirror 事务与历史，不引入编辑框架；保留 Ctrl+Alt+M 的现有切换习惯。空选区使用选中的占位文本，避免空的 `****` 被解析为分隔线而无法输入；输入法组合期间不改写文档。复杂嵌套格式、跨段行内格式及 Setext 标题的格式转换不承诺完整语义规范化，可用代码模式精确编辑。
 - 六级标题使用递减字号与字重；初版采用 H1 宋体、H2 微软雅黑 UI。后续 D017 将标题和正文的字体选择开放到设置，H1/H2 默认宋体。本机缺少所选字体时使用 CSS 回退，不捆绑或下载字体。表格列分隔线改由整行背景绘制，避免内容换行导致短单元格竖线中断；末行明确标记并绘制底部圆角。任务框两种状态共用固定尺寸与基线，选中勾形使用 CSS 直线绘制，保留原有鼠标、键盘与无障碍行为。
-- Win32 根窗口、WinUI 3 XAML Islands 工具栏及双原生子 HWND/windowed WebView2 宿主保持不变。编辑器 WebView 占据正文区域，预览 WebView 隐藏为 1×1 并继续运行；不引入新的 UI 或编辑器依赖。
+- Win32 根窗口、双原生子 HWND/windowed WebView2 编辑宿主保持不变；可见工具栏迁入编辑器 WebView，原 XAML Island 隐藏为 1×1 兼容宿主。预览 WebView 隐藏为 1×1 并继续运行；D018 不更换编辑器 WebView2 或 IME 宿主，也不引入新的 UI 依赖。
 - 设置错误不展示异常 JSON 或重复启动通知：保留损坏/未知版本设置文件，采用默认值并禁止覆盖，简短中文提示仅在设置窗口显示。无草稿及普通解析进度、源码行列等常态状态不再提示；保存/文件操作错误仍明确告知。
 - 理由：把解析后的文本作为写作时的主界面，减少源码符号干扰并缩短编辑、阅读之间的心智切换，同时保留 Markdown 文件互操作性和既有文件安全边界。
 - 代价：编辑期语法视图与 Markdig 最终 HTML 由不同解析器产生，复杂语法可能出现外观差异；需要以兼容样例和用户编辑验证明确边界。旧 M3/M4 三模式脚本只覆盖历史界面，不能作为本决策验收依据。
@@ -158,18 +158,30 @@
 
 ## D017 独立设置窗口与可配置写作排版
 
-- 状态：已实现。主工具栏保留同高设置入口；设置使用独立 WinUI owned 窗口单例显示，主窗口关闭时一并关闭。设置值即时应用并写入原 schema 1 JSON。
+- 状态：设置窗口、字体及排版设置仍有效；其早期可见原生 Acrylic 工具栏方案已被 D018 替代。设置使用独立 WinUI owned 窗口单例显示，主窗口关闭时一并关闭。设置值即时应用并写入原 schema 1 JSON。
 - 设置划分为外观、排版和字体卡片，保留主题、动效偏好、正文大小、行高、自动换行；新增段间距、正文/H1/H2字体与五组颜色组合。段间距范围为 0–2 em、默认 0.5 em；段间距通过顶层段落末尾 padding 实现，不删除 Markdown 空行。字号范围 12–24，行高范围 1.2–2。
-- 字体选项为系统、宋体、微软雅黑、等线和衬线；正文默认系统字体，H1/H2 默认宋体。颜色组合由 `WritingPalette.GetColors` 统一解析，Web 编辑器的背景与强调 CSS 变量和原生主工具栏 band、宿主客户区、系统标题栏 caption及设置窗口使用完全相同的值；普通原生控件其余部分沿用系统样式。正文 WebView 铺满工具栏下方客户区，去除旧分栏宿主边距。Windows 高对比系统色优先。
+- 字体选项为系统、宋体、微软雅黑、等线和衬线；正文默认系统字体，H1/H2 默认宋体。颜色组合由 `WritingPalette.GetColors` 统一解析，Web 编辑器背景与强调 CSS 变量和宿主客户区、系统标题栏 caption 及设置窗口使用完全相同的值；早期还用于原生可见工具栏 band。D018 后可见工具栏本身和正文共用 Web CSS 色值，普通原生控件其余部分沿用系统样式。正文 WebView 铺满客户区，Windows 高对比系统色优先。
 - 新字段沿用 schema 1 且均可缺省，旧配置无新增字段时静默使用默认值；非法新字段独立回退并提示。损坏或未知版本仍保留原文件并禁止写入。设置窗口坐标按 owner DPI 换算到物理边界并夹入目标显示器工作区。
-- 理由：把较多的外观和写作控制从正文工具栏移出，同时让读者可分别调整正文字体、标题字体和段落节奏；兼容 schema 1 避免仅因新增偏好打断旧配置。
+- 理由：把较多的外观和写作控制从正文工具栏移出，同时让读者可分别调整正文字体、标题字体和段落节奏；兼容 schema 1 避免仅因新增偏好打断旧配置。配色统一宿主背景和 CSS 的决定仍有效。
 - 代价：所选字体是否安装由目标 Windows 决定，Web CSS 回退到可用字体；palette 统一着色范围限于约定的窗口背景和强调面，其他 WinUI 控件仍使用系统样式。
 - 替代关系：本决策替代 D008 中可展开的内联外观/排版面板方案，以及 D016 中固定 H2 微软雅黑 UI 的方案；D016 记录的 H1 宋体默认继续保留。
-- 变更依据：D017 初版只把 palette 应用于 Web 正文和隐藏预览；本轮为解决顶部宿主 band、窗口 caption与纸面颜色不一致，扩展为原生复用 `WritingPalette`、其背景/强调色与 Web 编辑器 CSS 保持同值。高对比时仍由 Windows 系统颜色优先；这一扩展没有改变“其他 WinUI 控件使用系统样式”的边界。
+- 变更依据：D017 初版只把 palette 应用于 Web 正文和隐藏预览；后续曾扩展到原生工具栏/宿主背景/标题栏，以统一窗口配色。D018 移除可见的原生工具栏，但保留宿主客户区和设置窗使用 `WritingPalette`，并让 Web 浮动工具栏与正文 CSS 同层配色；高对比仍由 Windows 系统颜色优先。
 - 实现位置：`src/Marker.App/SettingsWindow.xaml`、`SettingsWindow.xaml.cs`、`AppSettings.cs`、`MainWindow.Views.cs`、`MainWindow.Windows.cs`、`App.xaml.cs`、`src/Marker.Web/src/main.ts`、`style.css`、`preview.css`。
 - Win32 主窗口不计入 XAML Window 数量，应用采用 `DispatcherShutdownMode.OnExplicitShutdown`，关闭设置子窗不会退出；主窗口复用现有未保存确认与显式退出流程。依据：[DispatcherShutdownMode](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.dispatchershutdownmode)。
 
 - 图标变更：根据用户指定的 `asserts/icon.png` 裁剪生成 ICO 与 PNG，应用/设置窗口图标和顶栏右侧 logo 同源；logo 保留原图色彩，不再根据配色替换为通用文档图形。
+
+## D018 WebView 内浮动工具栏
+
+- 状态：已采纳并接入当前实现；本轮桌面验收状态以项目历程为准。
+- 可见工具栏作为 HTML/CSS 固定层放在编辑器 WebView2 内，横向边距随视口宽度落在 32–56 CSS px；以 `backdrop-filter` 模糊同页滚动正文，产生真正悬浮于文本上的效果。工具栏和 CodeMirror 正文在同一 WebView2 HWND，原生编辑器子窗口继续从客户区 `(0,0)` 铺满。
+- 原 `DesktopWindowXamlSource` 缩为 1×1 隐藏，只保留旧控件字段和 handler 的兼容路径。Win32 主窗口、编辑器/预览 WebView2、中文输入法宿主和窗口焦点路径不因工具栏迁移而替换。
+- HTML 工具栏将撤销、重做、查找、替换和代码模式直接路由给现有编辑器；`new`、`open`、`save`、`saveAs`、`recover` 和 `settings` 通过既有 command envelope 交原生宿主。原生 `TryReadCommand` 仅增加 `recover` 与 `settings` 白名单值，来源、sessionId、protocolVersion、字段精确检查保持不变。宿主通过当前协议版本和 session 绑定的 `toolbarState` 传递 `title`、`notification`、`busy`。
+- 顶栏品牌图标通过 Web 包内 `/app-logo.png` 使用桌面端 `Assets/AppLogo.png` 的副本；不增加运行时依赖或 CDN 资源。
+- 替代关系：本决策替代 D017/D008 中“可见 XAML Island 原生 Acrylic/ThemeShadow 工具栏”的实现方案；D017 的独立设置窗口、字体/段间距偏好、schema 1 配色及宿主背景/标题栏配色仍有效。D017/D008 记录的原生方案依据保留为历史：它无法跨 HWND 覆盖 windowed WebView2 内容，不能让正文在磨砂层后滚动。
+- 理由：让正文、工具栏和浮动模糊层共用一个 WebView 的合成表面，绕过 HWND airspace 对跨窗口覆盖的限制，同时保持现有原生编辑/IME 宿主。
+- 代价：浮动层样式与键盘/无障碍行为由 Web 内容负责；高对比模式关闭 backdrop blur/透明效果并使用系统色。该选择不宣称已通过本轮桌面辅助功能验收。
+- 实现位置：`src/Marker.Web/src/toolbar.ts`、`src/Marker.Web/src/main.ts`、`src/Marker.Web/src/style.css`、`src/Marker.App/MainWindow.xaml.cs`、`src/Marker.App/BridgeSession.cs`。
 
 ## D015 启动激活与窗口恢复
 

@@ -8,6 +8,7 @@ import { EditorView, keymap, placeholder, type Panel } from "@codemirror/view";
 import { enableFileDrop } from "./file-drop";
 import { markdownLinkActions } from "./links";
 import { imageResources, liveMarkdown, markdownFormattingKeymap, toggleSourceMode } from "./live-markdown";
+import { FloatingToolbar, type EditorCommand, type NativeCommand } from "./toolbar";
 import "./style.css";
 
 declare global {
@@ -53,6 +54,7 @@ let view: EditorView | undefined;
 let sessionId: string | undefined;
 let version = 0;
 let fullSnapshotPending = false;
+let toolbar: FloatingToolbar | undefined;
 let settings: Settings = {
   theme: "system",
   fontSize: 15,
@@ -132,15 +134,38 @@ function sendSnapshot(requestId?: string): void {
   } else fullSnapshotPending = true;
 }
 
-function sendCommand(command: "new" | "open" | "save" | "saveAs"): boolean {
+function sendCommand(command: NativeCommand): boolean {
   return sessionId ? post({ type: "command", sessionId, command }) : false;
 }
 
 function toggleSource(editor: EditorView): boolean {
   if (!toggleSourceMode(editor)) return false;
+  toolbar?.setSourceMode(editor.dom.dataset.sourceMode === "true");
   post({ type: "sourceMode", sessionId, version, sourceMode: editor.dom.dataset.sourceMode === "true" });
   return true;
 }
+
+function runEditorCommand(command: EditorCommand): void {
+  if (!view) return;
+  if (view.compositionStarted) {
+    if (command === "toggleSource") post({ type: "sourceMode", sessionId, version, sourceMode: view.dom.dataset.sourceMode === "true" });
+    setStatus("请先完成输入法候选输入，再执行编辑器命令。");
+    return;
+  }
+  switch (command) {
+    case "undo": undo(view); view.focus(); break;
+    case "redo": redo(view); view.focus(); break;
+    case "find": openSearchPanel(view); break;
+    case "replace": openReplacePanel(view); break;
+    case "toggleSource": toggleSource(view); view.focus(); break;
+  }
+}
+
+toolbar = new FloatingToolbar({
+  runNative: command => { sendCommand(command); },
+  runEditor: runEditorCommand,
+});
+toolbar.attach(app, editorParent);
 
 editorParent.addEventListener("keydown", (event: KeyboardEvent) => {
   if (event.ctrlKey && event.key.toLowerCase() === "s") {
@@ -320,19 +345,15 @@ function applyHostMessage(value: unknown): void {
     if (nextSettings) styleSettings(nextSettings);
     return;
   }
+  if (message.type === "toolbarState" && exact("type", "protocolVersion", "sessionId", "title", "notification", "busy") &&
+      message.sessionId === sessionId && typeof message.title === "string" && message.title.length <= 4096 &&
+      typeof message.notification === "string" && message.notification.length <= 4096 && typeof message.busy === "boolean") {
+    toolbar?.updateState(message.title, message.notification, message.busy);
+    return;
+  }
   if (message.type === "editorCommand" && exact("type", "protocolVersion", "sessionId", "command") && message.sessionId === sessionId && view) {
-    if (view.compositionStarted) {
-      if (message.command === "toggleSource") post({ type: "sourceMode", sessionId, version, sourceMode: view.dom.dataset.sourceMode === "true" });
-      setStatus("请先完成输入法候选输入，再执行编辑器命令。");
-      return;
-    }
-    switch (message.command) {
-      case "undo": undo(view); break;
-      case "redo": redo(view); break;
-      case "find": openSearchPanel(view); break;
-      case "replace": openReplacePanel(view); break;
-      case "toggleSource": toggleSource(view); break;
-    }
+    if (message.command === "undo" || message.command === "redo" || message.command === "find" || message.command === "replace" || message.command === "toggleSource")
+      runEditorCommand(message.command);
     return;
   }
   if (message.type === "revealSource" && exact("type", "protocolVersion", "sessionId", "version", "offset") &&
@@ -363,6 +384,9 @@ function initialize(nextSessionId: string, text: string): void {
   sessionId = nextSessionId;
   version = 0;
   fullSnapshotPending = false;
+  toolbar?.updateState("", "", false);
+  toolbar?.setReady(true);
+  toolbar?.setSourceMode(false);
   view = new EditorView({
     parent: editorParent!,
     state: EditorState.create({

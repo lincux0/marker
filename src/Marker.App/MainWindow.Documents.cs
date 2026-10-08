@@ -70,6 +70,7 @@ public sealed partial class MainWindow
         var name = _document.Path is null ? "未命名" : Path.GetFileName(_document.Path);
         DocumentStatus.Text = $"{name}{(IsDirty ? " · 未保存" : "")}{(_diskChanged ? " · 磁盘已变更" : "")}";
         SetWindowTextW(_window, _document.Path is null && !IsDirty ? "Marker" : $"Marker — {name}{(IsDirty ? " *" : "")}");
+        SendToolbarState();
     }
 
     private async void NewDocument_Click(object sender, RoutedEventArgs e) => await ExecuteDocumentCommandAsync("new");
@@ -82,6 +83,7 @@ public sealed partial class MainWindow
     {
         if (_closed || _operationBusy) return;
         _operationBusy = true;
+        SendToolbarState();
         try
         {
             switch (command)
@@ -136,6 +138,7 @@ public sealed partial class MainWindow
         finally
         {
             _operationBusy = false;
+            SendToolbarState();
             if (!_closed && !_allowClose) EnableWindow(_editorWindow, true);
             ConsumePendingFileActivations();
         }
@@ -180,7 +183,6 @@ public sealed partial class MainWindow
         ApplyWebSettings();
         StartFileWatcher();
         UpdateDocumentStatus();
-        AnimateEntrance(DocumentRow);
     }
 
     private async Task<bool> SaveDocumentAsync(bool saveAs)
@@ -236,8 +238,7 @@ public sealed partial class MainWindow
             if (!IsDirty) await DeleteCurrentRecoveryAsync();
             else QueueRecovery();
             UpdateDocumentStatus();
-            AnimateEntrance(DocumentRow);
-            return true;
+                return true;
         }
         catch (DocumentConflictException conflict)
         {

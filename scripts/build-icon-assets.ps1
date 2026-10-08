@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$SourcePath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'asserts/icon.png'),
     [string]$AssetsPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'src/Marker.App/Assets')
 )
@@ -139,6 +139,10 @@ try {
         finally { $icoStream.Dispose() }
     }
     finally { $crop.Dispose() }
+
+    $webPublicPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'src/Marker.Web/public'
+    New-Item -ItemType Directory -Path $webPublicPath -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $assetsPath 'AppLogo.png') -Destination (Join-Path $webPublicPath 'app-logo.png')
 
     Write-Output "Source: $sourcePath ($($source.Width)x$($source.Height))"
     Write-Output "Detected content: x=$left..$right, y=$top..$bottom ($contentWidth x $contentHeight), threshold=$threshold from top-left background RGB"

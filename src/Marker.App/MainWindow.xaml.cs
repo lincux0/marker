@@ -154,10 +154,9 @@ public sealed partial class MainWindow : UserControl
         controller.GotFocus += (_, _) => _lastFocus = editor ? _editorWindow : _previewWindow;
         controller.MoveFocusRequested += (_, args) =>
         {
-            _toolbar.NavigateFocus(new XamlSourceFocusNavigationRequest(args.Reason == CoreWebView2MoveFocusReason.Previous
-                ? XamlSourceFocusNavigationReason.Last
-                : XamlSourceFocusNavigationReason.First));
-            args.Handled = _toolbar.HasFocus;
+            // The visible command buttons are now inside this WebView; wrap Tab within it.
+            controller.MoveFocus(args.Reason);
+            args.Handled = true;
         };
     }
 
@@ -193,7 +192,8 @@ public sealed partial class MainWindow : UserControl
             var uri = Uri.TryCreate(args.Request.Uri, UriKind.Absolute, out var parsed) ? parsed : null;
             var path = uri is null ? string.Empty : Uri.UnescapeDataString(uri.AbsolutePath);
             var pathAllowed = path == (editor ? "/index.html" : "/preview.html")
-                || path.StartsWith("/assets/", StringComparison.Ordinal);
+                || path.StartsWith("/assets/", StringComparison.Ordinal)
+                || (editor && path == "/app-logo.png");
             var hasTraversal = path.Split('/').Any(segment => segment is "." or "..") || path.Contains('\\');
             if (uri is null || uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || uri.UserInfo.Length != 0
                 || uri.Host != host || uri.Query.Length != 0 || !pathAllowed || hasTraversal)
@@ -235,6 +235,7 @@ public sealed partial class MainWindow : UserControl
                 text = _document.Text
             }));
             ApplyWebSettings();
+            SendToolbarState();
             ConsumePendingFileActivations();
             _ = OfferRecoveryOnStartupAsync();
             return;
@@ -242,7 +243,11 @@ public sealed partial class MainWindow : UserControl
 
         if (_session.TryReadCommand(source, EditorUrl, json, out var command, out _))
         {
-            _ = ExecuteDocumentCommandAsync(command);
+            if (command == "settings")
+            {
+                if (!_operationBusy) DispatcherQueue.TryEnqueue(ShowSettingsWindow);
+            }
+            else _ = ExecuteDocumentCommandAsync(command);
             return;
         }
         if (_session.TryReadEditorLink(source, EditorUrl, json, out var linkUrl, out _))
@@ -425,7 +430,7 @@ public sealed partial class MainWindow : UserControl
     {
         NotificationStatus.Text = message;
         NotificationStatus.Visibility = Visibility.Visible;
-        Layout();
+        SendToolbarState();
     }
 
     private void SourceMode_Click(object sender, RoutedEventArgs e)
@@ -442,12 +447,10 @@ public sealed partial class MainWindow : UserControl
     {
         if (_closed) return;
         Native.GetClientRect(_window, out var rect);
-        var scale = Native.GetDpiForWindow(_window) / 96d;
-        var header = (int)Math.Round(ToolbarHeightDip * scale);
-        var height = Math.Max(1, rect.Bottom - header);
-        _toolbar.SiteBridge.MoveAndResize(new RectInt32(0, 0, Math.Max(1, rect.Right), header));
-        // The Web page owns the writing background and inset; leave no fixed-color host frame.
-        ResizeView(_editorWindow, _editor, 0, header, Math.Max(1, rect.Right), height);
+        // Keep the compatibility island hidden; the Web toolbar overlays the full writing viewport.
+        _toolbar.SiteBridge.MoveAndResize(new RectInt32(0, 0, 1, 1));
+        Native.ShowWindow(Win32Interop.GetWindowFromWindowId(_toolbar.SiteBridge.WindowId), 0);
+        ResizeView(_editorWindow, _editor, 0, 0, Math.Max(1, rect.Right), Math.Max(1, rect.Bottom));
         ResizeView(_previewWindow, _preview, 0, 0, 1, 1);
         Native.ShowWindow(_editorWindow, 5);
         Native.ShowWindow(_previewWindow, 0);

@@ -60,12 +60,17 @@ public sealed class BridgeSessionTests
     public void CommandsAndSnapshotErrorsRejectWrongProtocolOrUnknownFields()
     {
         var session = new BridgeSession("session-1");
-        foreach (var command in new[] { "new", "open", "save", "saveAs" })
+        foreach (var command in new[] { "new", "open", "save", "saveAs", "recover", "settings" })
         {
             var message = System.Text.Json.JsonSerializer.Serialize(new { type = "command", protocolVersion = 1, sessionId = "session-1", command });
             Assert.IsTrue(session.TryReadCommand(EditorUrl, EditorUrl, message, out var accepted, out _));
             Assert.AreEqual(command, accepted);
         }
+        var settings = "{\"type\":\"command\",\"protocolVersion\":1,\"sessionId\":\"session-1\",\"command\":\"settings\"}";
+        Assert.IsFalse(session.TryReadCommand(EditorUrl, EditorUrl, settings.Replace("\"settings\"", "\"other\"", StringComparison.Ordinal), out _, out _));
+        Assert.IsFalse(session.TryReadCommand("https://attacker.invalid/", EditorUrl, settings, out _, out _));
+        Assert.IsFalse(session.TryReadCommand(EditorUrl, EditorUrl, settings.Replace("session-1", "stale", StringComparison.Ordinal), out _, out _));
+        Assert.IsFalse(session.TryReadCommand(EditorUrl, EditorUrl, settings.Replace("\"settings\"}", "\"settings\",\"extra\":true}", StringComparison.Ordinal), out _, out _));
         Assert.IsFalse(session.TryReadCommand(EditorUrl, EditorUrl, "{\"type\":\"command\",\"protocolVersion\":1,\"sessionId\":\"session-1\",\"command\":\"save\",\"path\":\"C:\\\\x\"}", out _, out _));
         Assert.IsFalse(session.TryReadCommand(EditorUrl, EditorUrl, "{\"type\":\"command\",\"protocolVersion\":2,\"sessionId\":\"session-1\",\"command\":\"save\"}", out _, out _));
 

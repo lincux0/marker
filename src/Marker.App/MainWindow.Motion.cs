@@ -9,7 +9,6 @@ namespace Marker.App;
 public sealed partial class MainWindow
 {
     private bool _motionInitialized;
-    private Microsoft.UI.Xaml.Media.ThemeShadow? _toolbarShadow;
 
     private async void Shell_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs args)
     {
@@ -37,11 +36,7 @@ public sealed partial class MainWindow
     {
         if (_motionInitialized) return;
         _motionInitialized = true;
-        _toolbarShadow = new Microsoft.UI.Xaml.Media.ThemeShadow();
-        _toolbarShadow.Receivers.Add(ToolbarShadowReceiver);
-        ToolbarGlass.Translation = new Vector3(0, 0, 12);
         ApplySystemAppearance();
-        AnimateEntrance(CommandRow);
     }
 
     private void AnimateEntrance(FrameworkElement element)

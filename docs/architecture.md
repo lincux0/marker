@@ -1,8 +1,8 @@
 # 项目结构与架构基线
 
-本文描述仓库当前真实结构。生产应用由 Win32 主窗口承载 WinUI 3 XAML Islands 工具栏和两个原生子窗口式 WebView2。M3 曾实现源码、分栏和阅读模式；后续 D016 将当前交互改为单一正文编辑视图，解析结果直接呈现，CodeMirror 6 装饰在编辑时隐藏常用 Markdown 标记。Markdig 预览和受控资源桥接继续运行于隐藏的 WebView2。设置由独立 WinUI owned 窗口承载。各次构建与检查结果以[项目历程](progress.md)为准。
+本文描述仓库当前真实结构。生产应用由 Win32 主窗口承载两个原生子窗口式 WebView2 和隐藏的 WinUI 3 XAML Island 兼容宿主。主编辑器 WebView 同时承载可见 HTML/CSS 浮动工具栏和 Markdown 编辑器；M3 曾实现源码、分栏和阅读模式，后续 D016 将交互改为单一正文编辑视图，CodeMirror 6 装饰在编辑时隐藏常用 Markdown 标记。Markdig 解析和受控资源桥接继续运行于隐藏的预览 WebView2。设置由独立 WinUI owned 窗口承载。各次构建与检查结果以[项目历程](progress.md)为准。
 
-- 当前状态：Win32 + WinUI 3 XAML Islands 工具栏 + 双原生 windowed WebView2；主编辑器 WebView 填满正文区域，Markdig 预览 WebView 隐藏为 1×1 并继续承担解析/资源安全桥接。单文档文件流程、独立设置窗口、窗口位置和文件激活能力保留。
+- 当前状态：Win32 + 双原生 windowed WebView2 + 隐藏为 1×1 的 XAML Island 兼容宿主；主编辑器 WebView 从客户区 `(0,0)` 铺满并承载正文及浮动工具栏，Markdig 预览 WebView 隐藏为 1×1 并继续承担解析/资源安全桥接。单文档文件流程、独立设置窗口、窗口位置和文件激活能力保留。
 - 多标签、文件树和 SQLite 尚未实现。
 - 阶段计划见[开发方案](开发方案.md)；版本与构建操作见[工程开发指南](工程开发指南.md)。
 - 稳定技术取舍见[技术决策](decision.md)，阶段记录见[项目历程](progress.md)。
@@ -35,19 +35,19 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `Assets/`：应用 ICO、顶栏 `AppLogo.png` 与 MSIX 标识素材由用户原图 `asserts/icon.png` 生成；`scripts/build-icon-assets.ps1` 精确裁掉外侧近白留白、等比缩放并封装七尺寸 ICO，保留原图。PNG/ICO 随 EXE 输出复制；原生主窗口与设置窗口从输出 ICO 加载，顶栏右侧使用同源 PNG。
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
-- `MainWindow.xaml`：定义约 84 DIP 单页工具栏与按需出现的 24 DIP 错误区；主 WebView 编辑器从工具栏下沿铺满客户区，不保留固定颜色的宿主边距。工具栏使用圆角 Acrylic、渐变描边和 `ThemeShadow`，仅在 XAML Island 内提供浮起视觉，不跨 HWND 覆盖正文；整条宿主 band、窗口客户区和系统标题栏 caption 与当前 palette 的正文背景一致。WinUI 命令栏窄窗口自动溢出；代码模式按钮常态仅显示图标，保留 Tooltip、无障碍名称及溢出项文字。设置入口紧邻命令栏；文档标题并入 logo 右侧，长标题截断且悬停可查看完整文本；命令图标按钮为 40×36 DIP。不显示常态解析状态或源码统计。
+- `MainWindow.xaml`：XAML Island 工具栏缩为 1×1 隐藏，保留原生控件字段及兼容 handler；主编辑器 WebView 从客户区原点 `(0,0)` 填满整个客户区。可见浮动工具栏放在编辑器 WebView 的 HTML/CSS 层内，覆盖随正文滚动的内容，不跨 HWND。
 - `SettingsWindow.xaml`、`SettingsWindow.xaml.cs`：独立 WinUI 设置子窗口，由主窗口拥有并单例显示；提供外观、排版、字体卡片。设置即时应用并保存，包含主题、减少动画、字号、行高、段间距、自动换行、正文/H1/H2 字体和颜色组合。窗口边界按 owner DPI 换算为物理坐标并夹入显示器工作区；主窗口关闭时一并关闭。
 - `MainWindow.Views.cs`：加载外观设置并同步主题/动效偏好；旧 `viewMode` 设置仅为兼容读取，不启动写回迁移。损坏或未知设置以默认值运行并禁止保存；简短说明仅在设置窗口显示。
 - `AppSettings.cs`：LocalAppData/Marker/settings.json 的 schemaVersion 1 与 applicationVersion；保存主题、字体、段间距、排版、减少动画偏好、配色及窗口普通位置。不存文档文本或自动打开文件。新增字段对旧 schema 1 配置可缺省且不警告；无效字段各自回退默认值并提示，损坏或未知版本保留原文件并禁止保存。
-- `MainWindow.Windows.cs`、`WindowPlacement.cs`：管理系统主题/高对比/Windows 动画偏好、DWM Mica 与系统色回退、工具栏 Acrylic 与高对比回退、根窗口背景、减少动画即时停止以及多显示器普通位置恢复。新窗口为 960×700 DIP，最小尺寸 720×480 DIP；位置按目标显示器 DPI 换算、夹入工作区，并在 `WINDOWPLACEMENT` 工作区坐标与持久化屏幕坐标间换算，保留系统标题栏和 Snap 布局。
-- `WritingPalette.cs`：根据配置的颜色组合与明暗主题统一提供背景/强调色；主窗口 band、宿主客户区、系统标题栏 caption、设置窗口复用该配色，并与 Web 编辑器背景/强调 CSS 颜色变量保持精确一致。高对比模式改用 Windows 系统色。
+- `MainWindow.Windows.cs`、`WindowPlacement.cs`：管理系统主题/高对比/Windows 动画偏好、DWM Mica 与系统色回退、根窗口背景、减少动画即时停止以及多显示器普通位置恢复。新窗口为 960×700 DIP，最小尺寸 720×480 DIP；位置按目标显示器 DPI 换算、夹入工作区，并在 `WINDOWPLACEMENT` 工作区坐标与持久化屏幕坐标间换算，保留系统标题栏和 Snap 布局。
+- `WritingPalette.cs`：根据配置的颜色组合与明暗主题统一提供背景/强调色；宿主客户区、系统标题栏 caption、设置窗口复用该配色，并与 Web 正文、预览及浮动工具栏 CSS 变量保持精确一致。高对比模式改用 Windows 系统色。
 - `MainWindow.Activation.cs`、`MarkdownActivation.cs`：串行打开受支持的文件激活；校验完整路径及 `.md`/`.markdown` 扩展名；XAML Island 接收 `StorageItems` 拖放，根窗口与两个 WebView2 子窗口提供 `WM_DROPFILES` 兼容路径。
 - `MainWindow.xaml.cs`：`MainWindow` 创建并管理 Win32 根 HWND、编辑器/隐藏预览子 HWND 和工具栏 XAML Island；负责客户区布局、焦点、DPI/窗口消息、WebView2 安全配置、桥接路由、异步 Markdig 解析及关闭流程，并拥有设置子窗口。编辑器图片只接收受控 `document.marker.example` URL，通过现有 `LocalImageResources.TryRead` 校验后响应；JSON 只传相对 Markdown 引用到随机会话 URL 的映射，不传磁盘绝对路径。启动前检测 Evergreen Runtime，缺失时显示安装提示但不运行安装器。文件拖放通过 `AdditionalObjects` 接收原生 File 对象，宿主不从 JSON 收取路径。
 - `MainWindow.Documents.cs`：管理当前单文档会话、脏状态、原生文件选择器、命令/快照 requestId 往返、原生消息框确认、打开/保存/另存为/关闭/恢复流程、外部文件监控和每秒节流的草稿写入。保存前向 CodeMirror 请求最新完整快照；输入法组合尚未提交时拒绝保存。恢复草稿成为未命名副本，不自动覆盖来源文件。
 - `DocumentFile.cs`：按严格 UTF-8（含/不含 BOM）或带 BOM 的 UTF-16 LE/BE 读取；解码失败由界面明确询问 GB18030。磁盘编码与换行保持为元数据，编辑快照统一 LF；混合换行须用户选择策略后保存。文件读取/保存限制 8 MiB，以 SHA-256 指纹检测变更，并通过同目录临时文件、flush-to-disk、原子替换和替换前后校验保存；并发替换的外部内容保留为 `.external` 副本。拒绝路径重解析点。
 - `RecoveryStore.cs`：在 LocalAppData 的 Marker/Recovery 目录按文档 ID 保存 schemaVersion 1 JSON 草稿，附可选 `applicationVersion`；读取旧 schemaVersion 1 时允许该字段缺省。通过同目录临时文件及覆盖式移动保存。未知版本、损坏或超限草稿保留原文件并返回可提示错误。
 - `LocalImageResources.cs`：仅允许当前文档目录内 PNG/JPEG/GIF/WebP/BMP 图片，单张不超过 16 MiB；拒绝绝对/越界/重解析路径，并从最终打开的文件句柄核验真实路径。通过会话绑定随机不透明 URL 提供资源，不将磁盘路径交给 Web 内容。
-- `BridgeSession.cs`：校验页面来源、消息类型与字段白名单、会话标识、版本、JSON 深度和消息/文本大小；支持快照 requestId、命令和 snapshotError，并允许相同版本且相同文本的完整重同步。文本最多 1 Mi UTF-16 单元，JSON 消息最多 2 MiB。
+- `BridgeSession.cs`：校验页面来源、消息类型与字段白名单、会话标识、版本、JSON 深度和消息/文本大小；支持快照 requestId、文档命令和 snapshotError，并允许相同版本且相同文本的完整重同步。原生文档命令白名单含 `recover` 与 `settings`；命令 envelope 的来源、protocolVersion、sessionId 和字段精确校验维持原规则。文本最多 1 Mi UTF-16 单元，JSON 消息最多 2 MiB。
 - `MarkdownRenderer.cs`：使用 Markdig 管线，启用表格、任务列表、自动链接和强调扩展，禁用原始 HTML；图片链接必须通过本地受控资源解析器转换，否则从预览移除。
 - `Package.appxmanifest`：MSIX 身份为 Marker、发布者 `CN=Marker.Dev`、x64，最低 build 26100，并注册 `.md`/`.markdown` 文件关联。
 - `app.manifest`：桌面进程清单；声明 Per-Monitor V2 DPI 感知及 `asInvoker` 权限。
@@ -59,19 +59,21 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 - `package.json`、`package-lock.json`：Web 工程脚本、CodeMirror 6、DOMPurify 及锁定版本。
 - `index.html`、`preview.html`：编辑器与预览独立页面入口，分别声明内容安全策略 CSP。
-- `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配 `live-markdown.ts` 即时排版与 Markdown 快捷键，代码模式按钮/快捷键共用切换函数；通过绑定当前来源/会话/文档版本的 `sourceMode` 布尔消息同步原生按钮，不持久化该临时模式。
+- `src/toolbar.ts`：在编辑 WebView 内创建固定定位的浮动工具栏、文档标题、常用命令和窄窗溢出菜单。原生操作发送既有文档命令；撤销、重做、查找、替换和代码模式由当前编辑器处理。接收经协议版本及 session 校验的 `toolbarState`，包含标题、通知和 busy 状态。
+- `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配 `toolbar.ts`、`live-markdown.ts` 与 Markdown 快捷键；`toolbarState` 按当前来源及 session 校验，仅更新标题、通知与 busy 状态。
 - `src/live-markdown.ts`：复用 CodeMirror GFM 语法树以装饰并隐藏标题、引用、列表、强调、行内代码、链接、表格和围栏标记；任务项、列表标记及受控图片显示为可视元素。源文档与原生同步仍保留完整 Markdown 文本，顶部代码模式按钮或 Ctrl+Alt+M 暂时显示源码标记以调整复杂/暂不支持的语法；同一编辑器和历史不重建。格式化快捷键使用原有 CodeMirror 事务与 changeByRange，保留选区方向并隔离每次格式化的撤销步骤；无选区时插入选中的占位文本供直接输入。CodeMirror 语法解析和装饰不承诺与 Markdig HTML 完全一致，复杂嵌套语法仍需兼容样例实测。
 - `src/links.ts`：从正文链接装饰及语法树读取行内、引用式和自动链接，普通单击发送带当前会话/版本的 `openLink`；修饰键点击、拖选与源码模式保留编辑行为。宿主仅接受 HTTP(S) 且无 userinfo 的地址，经显示完整地址、默认“否”的确认后交系统浏览器；不允许页面直接导航。
 - `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用已安装 JavaScript/Lezer 解析器，以 DOM 文本节点实现 JS/TS 围栏高亮；其他语言或超长代码保留纯文本。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。
-- `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、焦点状态、拖放反馈和减少动画样式。Web 编辑器的背景与强调 CSS 变量与原生 `WritingPalette.GetColors` 保持同值，供正文与原生 shell 精确配色；高对比系统色优先。
+- `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、Web 浮动工具栏与减少动画样式。工具栏 fixed 在正文视口内，水平边距为 32–56 CSS px；`backdrop-filter` 模糊随正文滚动的内容。高对比模式停用透明模糊效果并回退到系统色。
+- `public/app-logo.png`：由桌面端裁剪生成的 `Assets/AppLogo.png` 复制，为 Web 工具栏提供同源品牌图标；不从 CDN 加载。
 - `vite.config.ts`：构建编辑器和预览两个本地页面入口。
 - `tsconfig.json`：TypeScript 编译器设置。
 - `dist/`：Vite 构建目录，由构建生成，不提交；Web 依赖随产物本地打包，不从 CDN 加载。
 
-桌面端分别将 `editor.marker.example` 与 `preview.marker.example` 映射到包内 `Web/` 目录，使用两个 HTTPS 来源隔离页面。两个 WebView2 共享同一个环境，分别由原生子 HWND 承载；编辑器占据可见正文区，预览隐藏为 1×1 并继续处理 Markdig 结果及受控图片资源。Win32 负责窗口和 WebView2 客户区布局；`DesktopWindowXamlSource` 仅承载顶部工具栏。宿主只允许对应页面和 `/assets/` 路径，关闭开发者工具、默认菜单和宿主对象，拦截其他导航、子框架及新窗口。
+桌面端分别将 `editor.marker.example` 与 `preview.marker.example` 映射到包内 `Web/` 目录，使用两个 HTTPS 来源隔离页面。两个 WebView2 共享同一个环境，分别由原生子 HWND 承载；编辑器占据从 `(0,0)` 开始的整个可见客户区，固定工具栏和正文处于同一 WebView2 文档，CSS backdrop blur 呈现正文从工具栏后方滚动的效果；预览隐藏为 1×1 并继续处理 Markdig 结果及受控图片资源。`DesktopWindowXamlSource` 也隐藏为 1×1，仅保留原生字段及 handler 兼容路径。编辑器 windowed WebView2、IME 输入宿主和桥接 session 校验没有变化。宿主只允许对应页面和 `/assets/` 路径，关闭开发者工具、默认菜单和宿主对象，拦截其他导航、子框架及新窗口。
 
-此宿主把 WinUI/XAML 与 windowed WebView2 放在不同 HWND，具备原生窗口的输入和 DPI 路径，但引入 HWND 空间约束：XAML Island 与 WebView2 子窗口之间需手动协调尺寸、Z 顺序、焦点、DPI 和关闭生命周期；原生子窗口也限制跨区域 XAML 裁剪、Composition 动画及覆盖式浮层。Mica 应用于 Win32 根窗口；工具栏 Island 使用配色实色底层和 Acrylic 浮起表面；编辑器/预览保持不透明纸面，根 HWND 间隙使用明暗纯色，避免透材质干扰阅读。Composition 只作用于工具栏 Island 内部；减少动画偏好作用于应用自定义 Composition 与 Web CSS，不关闭 WinUI 内置系统动画。
+此宿主把 WinUI/XAML 与 windowed WebView2 放在不同 HWND，具备原生窗口的输入和 DPI 路径，但引入 HWND 空间约束：XAML Island 与 WebView2 子窗口之间需手动协调尺寸、Z 顺序、焦点、DPI 和关闭生命周期；原生子窗口也限制跨区域 XAML 裁剪、Composition 动画及覆盖式浮层。现将可见工具栏置于编辑器 WebView 的 CSS 层，使浮动工具栏和滚动正文处于同一个窗口；原生 XAML Island 隐藏为 1×1。DWM 主窗口 backdrop 和宿主 caption 配色仍保留；D017 原有可见原生 Acrylic 工具栏已由 D018 替代。
 
 ### `tests/Marker.Tests/`
 
@@ -92,7 +94,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 ## 数据流与边界
 
 1. 应用启动时通过 `AppInstance` 注册 Marker 单实例；文件激活和命令行参数进入并发队列，等待根窗口与编辑器就绪后才串行打开。每批最多 64 个文件，超限整批拒绝。启动恢复占用同一操作锁，并在异步步骤后复核文件激活，避免旧草稿抢占启动文件。创建窗口时恢复普通位置，并按目标显示器 DPI/work area 夹取。
-2. 桌面端创建 Win32 根窗口、两个原生内容子窗口和工具栏 XAML Island；确认包内 `Web/index.html` 与 `Web/preview.html` 存在并检查 WebView2 Evergreen Runtime，再创建共享 WebView2 环境并为两个子窗口创建 controller。
+2. 桌面端创建 Win32 根窗口、两个原生内容子窗口和兼容用工具栏 XAML Island；Island 随后缩为 1×1 隐藏，编辑器子窗口铺满客户区；确认包内 `Web/index.html` 与 `Web/preview.html` 存在并检查 WebView2 Evergreen Runtime，再创建共享 WebView2 环境并为两个子窗口创建 controller。
 3. 编辑器与预览发送 `ready` 后，桌面端建立文档会话并向 CodeMirror 初始化当前文档文本。文件命令经过来源、会话、字段和消息大小验证后交由原生侧执行。
 4. CodeMirror 是编辑期唯一文本权威。所有消息声明 protocolVersion 1；常规编辑发送 baseVersion/version 连续的增量，原生缓存仅在来源、会话、范围、容量均合法后原子更新。拒绝增量时请求完整重同步；保存/切换仍带 requestId 请求最新完整快照，未结束的输入法组合通过 snapshotError 阻止文件操作。桥接 JSON 上限 2 MiB，文本上限 1 Mi UTF-16 单元。
 5. 原生文档服务读取/保存本地文件、维护 SHA-256 指纹，并监控磁盘变化。保存前确认冲突并原子替换；恢复草稿独立存放，不自动写回原始路径。
@@ -100,7 +102,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 7. 预览检查会话、版本与 HTML 长度，通过 DOMPurify 白名单净化，再用 `innerHTML` 更新页面并回报已渲染版本。图片源仅允许当前会话资源 URL，CSP 只开放本地图片来源。
 8. 系统高对比、系统颜色或 Windows 动画偏好变化时更新根窗口、XAML Island 与 WebView2 的外观/动画设置；Mica 不可用或开启高对比时使用系统色背景。
 9. 应用激活、XAML/OLE 拖放和 WebView2 `AdditionalObjects` 文件对象均进入同一个串行文件打开队列；只有 `.md`/`.markdown` 路径进入既有未保存确认与文档读取流程。桥接只传计数和会话信息，宿主对原生文件对象及路径再次校验。
-10. 窗口尺寸/位置变化时按客户区和当前 DPI 更新 Island 与两个子窗口，并通知 WebView2 宿主窗口位置变化；关闭前进行未保存确认，之后保存普通位置、释放主题监听和资源，再关闭 controller、释放 XAML Island 并销毁根窗口。
+10. 窗口尺寸/位置变化时按客户区和当前 DPI更新隐藏 Island 与两个子窗口；编辑器 WebView 从 `(0,0)` 调整为完整客户区边界。关闭前进行未保存确认，之后保存普通位置、释放主题监听和资源，再关闭 controller、释放 XAML Island 并销毁根窗口。
 
 当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。编辑页单次图片资源映射亦受 2 MiB 桥接消息上限约束，超过部分退化为 alt 占位。即时呈现与 Markdig 最终 HTML 不保证一致；复杂表格结构、参考式图片、原始 HTML、脚注、数学公式和 Mermaid 没有完整富呈现，完整边界见 D016。恢复写入的秒级节流及草稿写入节流意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览仅支持受控 HTTP(S) 链接；不支持 SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。WebView2 Evergreen Runtime 由目标机器提供，应用只提示缺失，不自动安装；多标签、文件树和 SQLite 暂未实现。
 

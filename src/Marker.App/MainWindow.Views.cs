@@ -5,7 +5,6 @@ namespace Marker.App;
 
 public sealed partial class MainWindow
 {
-    internal int ToolbarHeightDip => 84 + (NotificationStatus.Visibility == Visibility.Visible ? 24 : 0);
     internal string _viewMode = "split";
     internal AppSettings _settings = AppSettings.Default;
     private readonly string _settingsDirectory = Path.Combine(
@@ -48,6 +47,22 @@ public sealed partial class MainWindow
         if (_previewReady) _preview?.CoreWebView2.PostWebMessageAsJson(message);
     }
 
+    private void SendToolbarState()
+    {
+        if (_closed || !_editorReady || _editor is null) return;
+        var title = DocumentStatus.Text;
+        var notification = NotificationStatus.Visibility == Visibility.Visible ? NotificationStatus.Text : "";
+        _editor.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            type = "toolbarState",
+            protocolVersion = BridgeSession.ProtocolVersion,
+            sessionId = _session.SessionId,
+            title = title[..Math.Min(title.Length, 4096)],
+            notification = notification[..Math.Min(notification.Length, 4096)],
+            busy = _operationBusy
+        }));
+    }
+
     internal void SendEditorCommand(string command)
     {
         if (_closed || _operationBusy || !_editorReady || command is not ("undo" or "redo" or "find" or "replace" or "toggleSource"))
@@ -66,8 +81,11 @@ public sealed partial class MainWindow
     private void Find_Click(object sender, RoutedEventArgs e) => SendEditorCommand("find");
     private void Replace_Click(object sender, RoutedEventArgs e) => SendEditorCommand("replace");
 
-    private void Appearance_Click(object sender, RoutedEventArgs e)
+    private void Appearance_Click(object sender, RoutedEventArgs e) => ShowSettingsWindow();
+
+    private void ShowSettingsWindow()
     {
+        if (_closed || _operationBusy) return;
         if (_settingsWindow is not null)
         {
             _settingsWindow.Activate();

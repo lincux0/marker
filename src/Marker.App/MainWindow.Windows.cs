@@ -92,29 +92,8 @@ public sealed partial class MainWindow
         var background = IsHighContrast
             ? _uiSettings?.GetColorValue(UIColorType.Background) ?? Color.FromArgb(255, 0, 0, 0)
             : colors.Background;
-        // Paint the entire toolbar band like the writing canvas; only the floating surface is acrylic.
         _toolbar.SystemBackdrop = null;
         RootGrid.Background = new SolidColorBrush(background);
-        ToolbarGlass.Background = IsHighContrast ? new SolidColorBrush(background) : new AcrylicBrush
-        {
-            TintColor = background,
-            TintOpacity = 0.6,
-            TintLuminosityOpacity = 0.85,
-            FallbackColor = background
-        };
-        ToolbarGlass.BorderBrush = IsHighContrast
-            ? new SolidColorBrush(_uiSettings?.GetColorValue(UIColorType.Foreground) ?? Color.FromArgb(255, 255, 255, 255))
-            : new LinearGradientBrush
-            {
-                StartPoint = new Windows.Foundation.Point(0, 0),
-                EndPoint = new Windows.Foundation.Point(0, 1),
-                GradientStops =
-                {
-                    new GradientStop { Color = Color.FromArgb(dark ? (byte)64 : (byte)220, 255, 255, 255), Offset = 0 },
-                    new GradientStop { Color = Color.FromArgb(dark ? (byte)24 : (byte)40, colors.Accent.R, colors.Accent.G, colors.Accent.B), Offset = 1 }
-                }
-            };
-        ToolbarGlass.Shadow = IsHighContrast ? null : _toolbarShadow;
         var captionColor = IsHighContrast ? 0xFFFFFFFFu : ToColorRef(background);
         WindowsNative.DwmSetWindowAttribute(_window, DwmaCaptionColor, ref captionColor, sizeof(uint));
 
