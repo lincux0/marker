@@ -69,10 +69,19 @@ export class FloatingToolbar {
 
     const documentGroup = document.createElement("div");
     documentGroup.className = "marker-toolbar-document";
+
+    const logo = document.createElement("img");
+    logo.className = "marker-toolbar-logo";
+    logo.src = "/app-logo.png";
+    logo.alt = "Marker";
+    logo.width = 28;
+    logo.height = 28;
+    logo.addEventListener("error", () => { logo.hidden = true; });
+
     this.title = document.createElement("span");
     this.title.className = "marker-toolbar-title";
     this.title.textContent = "未命名文档";
-    documentGroup.append(this.title);
+    documentGroup.append(logo, this.title);
 
     const buttonGroup = document.createElement("div");
     buttonGroup.className = "marker-toolbar-actions";
@@ -92,17 +101,9 @@ export class FloatingToolbar {
     for (const action of actions.filter(item => item.overflow)) menu.append(this.makeButton(action, more));
     more.append(summary, menu);
 
-    const logo = document.createElement("img");
-    logo.className = "marker-toolbar-logo";
-    logo.src = "/app-logo.png";
-    logo.alt = "Marker";
-    logo.width = 28;
-    logo.height = 28;
-    logo.addEventListener("error", () => { logo.hidden = true; });
-
     const trailing = document.createElement("div");
     trailing.className = "marker-toolbar-trailing";
-    trailing.append(more, logo);
+    trailing.append(more);
     buttonGroup.append(trailing);
 
     this.notification = document.createElement("div");

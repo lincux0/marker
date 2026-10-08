@@ -32,7 +32,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 ### `src/Marker.App/`
 
-- `Assets/`：应用 ICO、顶栏 `AppLogo.png` 与 MSIX 标识素材由用户原图 `asserts/icon.png` 生成；`scripts/build-icon-assets.ps1` 按当前素材的显式 `CropRectangle` 裁剪主体、等比缩放并封装七尺寸 ICO，保留原图。PNG/ICO 随 EXE 输出复制；原生主窗口与设置窗口从输出 ICO 加载，顶栏使用同源 PNG。
+- `Assets/`：应用 ICO、顶栏 `AppLogo.png` 与 MSIX 标识素材由用户原图 `asserts/icon.png` 生成；`scripts/build-icon-assets.ps1` 按当前素材的显式 `CropRectangle` 裁剪主体、等比缩放并封装七尺寸 ICO，保留原图。PNG/ICO 随 EXE 输出复制；原生主窗口与设置窗口从输出 ICO 加载，顶栏文档标题左侧使用同源 PNG。
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
 - `MainWindow.xaml`：XAML Island 工具栏缩为 1×1 隐藏，保留原生控件字段及兼容 handler；主编辑器 WebView 从客户区原点 `(0,0)` 填满整个客户区。可见浮动工具栏放在编辑器 WebView 的 HTML/CSS 层内，覆盖随正文滚动的内容，不跨 HWND。
@@ -65,7 +65,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `src/links.ts`：从正文链接装饰及语法树读取行内、引用式和自动链接，普通单击发送带当前会话/版本的 `openLink`；修饰键点击、拖选与源码模式保留编辑行为。宿主仅接受 HTTP(S) 且无 userinfo 的地址，经显示完整地址、默认“否”的确认后交系统浏览器；不允许页面直接导航。
 - `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用已安装 JavaScript/Lezer 解析器，以 DOM 文本节点实现 JS/TS 围栏高亮；其他语言或超长代码保留纯文本。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。
-- `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、Web 浮动工具栏与减少动画样式。工具栏 fixed 在正文视口内，水平边距为 32–56 CSS px；`backdrop-filter` 模糊随正文滚动的内容。高对比模式停用透明模糊效果并回退到系统色。
+- `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、Web 浮动工具栏与减少动画样式。工具栏 fixed 在正文视口内，水平边距为 32–56 CSS px；玻璃表面使用 36% 画布底色、32 px backdrop blur 和 1.5 倍饱和度，模糊随正文滚动的内容；首屏纸面与工具栏下沿保持 32 px 距离（滚动内边距随顶栏顶部偏移计算）。高对比模式停用透明模糊效果并回退到系统色。
 - `public/app-logo.png`：由桌面端裁剪生成的 `Assets/AppLogo.png` 复制，为 Web 工具栏提供同源品牌图标；不从 CDN 加载。
 - `vite.config.ts`：构建编辑器和预览两个本地页面入口。
 - `tsconfig.json`：TypeScript 编译器设置。

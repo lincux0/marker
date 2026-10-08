@@ -87,13 +87,13 @@ body {
   .marker-toolbar,
   .marker-toolbar-notification,
   .marker-toolbar-menu {
-    background: color-mix(in srgb, var(--editor-paper) 76%, transparent);
-    -webkit-backdrop-filter: blur(28px) saturate(1.3);
-    backdrop-filter: blur(28px) saturate(1.3);
+    background: color-mix(in srgb, var(--editor-background) 36%, transparent);
+    -webkit-backdrop-filter: blur(32px) saturate(1.5);
+    backdrop-filter: blur(32px) saturate(1.5);
   }
 }
 
-.marker-toolbar-document { min-width: 0; display: flex; align-items: center; }
+.marker-toolbar-document { min-width: 0; display: flex; align-items: center; gap: 10px; }
 .marker-toolbar-title { display: block; min-width: 0; overflow: hidden; color: var(--editor-foreground); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .marker-toolbar-actions { display: flex; align-items: center; gap: 2px; }
 .marker-toolbar-button,
@@ -177,7 +177,7 @@ body {
 #editor .cm-scroller {
   overflow: auto;
   padding-inline: clamp(12px, 4vw, 48px);
-  padding-top: clamp(26px, 4vh, 38px);
+  padding-top: calc(var(--marker-toolbar-top) + 50px);
   font-family: var(--editor-body-font, "Segoe UI Variable Text"), "Segoe UI", "Microsoft YaHei UI", sans-serif;
   line-height: inherit;
   scrollbar-color: color-mix(in srgb, var(--editor-muted) 30%, transparent) transparent;
