@@ -6,6 +6,7 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { closeSearchPanel, findNext, findPrevious, getSearchQuery, openSearchPanel, replaceAll, replaceNext, search, searchKeymap, SearchQuery, setSearchQuery } from "@codemirror/search";
 import { EditorView, keymap, type Panel } from "@codemirror/view";
 import { enableFileDrop } from "./file-drop";
+import { markdownLinkActions } from "./links";
 import { imageResources, liveMarkdown } from "./live-markdown";
 import "./style.css";
 
@@ -317,6 +318,10 @@ function initialize(nextSessionId: string, text: string): void {
       extensions: [
         markdown({ base: markdownLanguage }),
         liveMarkdown,
+        markdownLinkActions(
+          url => { if (sessionId) post({ type: "openLink", sessionId, version, url }); },
+          () => setStatus("当前仅支持打开 HTTP(S) 绝对链接；相对链接和页内锚点可按 Ctrl+Alt+M 编辑。"),
+        ),
         history(),
         search({ top: true, createPanel: createSearchPanel }),
         settingsCompartment.of([]),

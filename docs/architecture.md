@@ -57,6 +57,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `index.html`、`preview.html`：编辑器与预览独立页面入口，分别声明内容安全策略 CSP。
 - `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。装配 `live-markdown.ts` 即时排版扩展。
 - `src/live-markdown.ts`：复用 CodeMirror GFM 语法树以装饰并隐藏标题、引用、列表、强调、行内代码、链接、表格和围栏标记；任务项、列表标记及受控图片显示为可视元素。源文档与原生同步仍保留完整 Markdown 文本，Ctrl+Alt+M 暂时显示源码标记以调整复杂/暂不支持的语法。CodeMirror 语法解析和装饰不承诺与 Markdig HTML 完全一致，复杂嵌套语法仍需兼容样例实测。
+- `src/links.ts`：从正文链接装饰及语法树读取行内、引用式和自动链接，普通单击发送带当前会话/版本的 `openLink`；修饰键点击、拖选与源码模式保留编辑行为。宿主仅接受 HTTP(S) 且无 userinfo 的地址，经显示完整地址、默认“否”的确认后交系统浏览器；不允许页面直接导航。
 - `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用已安装 JavaScript/Lezer 解析器，以 DOM 文本节点实现 JS/TS 围栏高亮；其他语言或超长代码保留纯文本。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。
 - `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、焦点状态、排版元素样式、拖放反馈和减少动画样式。

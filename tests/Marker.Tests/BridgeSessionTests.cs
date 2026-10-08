@@ -94,6 +94,10 @@ public sealed class BridgeSessionTests
         const string safeLink = "{\"type\":\"openLink\",\"protocolVersion\":1,\"sessionId\":\"session-1\",\"version\":0,\"url\":\"https://example.com/\"}";
         Assert.IsTrue(session.TryReadPreviewAction("https://preview.marker.example/preview.html", "https://preview.marker.example/preview.html", safeLink, out action, out _, out var url, out _));
         Assert.AreEqual("https://example.com/", url);
+        Assert.IsTrue(session.TryReadEditorLink(EditorUrl, EditorUrl, safeLink, out url, out _));
+        Assert.AreEqual("https://example.com/", url);
+        Assert.IsFalse(session.TryReadEditorLink("https://attacker.example/index.html", EditorUrl, safeLink, out _, out _));
+        Assert.IsFalse(session.TryReadEditorLink(EditorUrl, EditorUrl, reveal, out _, out _));
         Assert.IsFalse(session.TryReadPreviewAction("https://preview.marker.example/preview.html", "https://preview.marker.example/preview.html", safeLink.Replace("https://example.com/", "javascript:alert(1)", StringComparison.Ordinal), out _, out _, out _, out _));
         Assert.IsFalse(session.TryReadPreviewAction("https://preview.marker.example/preview.html", "https://preview.marker.example/preview.html", safeLink.Replace("https://example.com/", "https://user@example.com/", StringComparison.Ordinal), out _, out _, out _, out _));
     }

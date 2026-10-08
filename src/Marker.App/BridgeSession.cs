@@ -224,6 +224,15 @@ internal sealed class BridgeSession(string sessionId)
         return true;
     }
 
+    public bool TryReadEditorLink(string source, string expectedSource, string json, out string? url, out string error)
+    {
+        url = null;
+        if (!TryReadPreviewAction(source, expectedSource, json, out var action, out _, out var candidate, out error)) return false;
+        if (action != "openLink") return Fail("编辑器只允许打开外部链接。", out error);
+        url = candidate;
+        return true;
+    }
+
     public bool TryAcceptRendered(string source, string expectedSource, string json, out long version, out string error)
     {
         version = -1;

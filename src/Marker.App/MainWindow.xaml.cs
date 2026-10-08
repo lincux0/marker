@@ -242,6 +242,11 @@ public sealed partial class MainWindow : UserControl
             _ = ExecuteDocumentCommandAsync(command);
             return;
         }
+        if (_session.TryReadEditorLink(source, EditorUrl, json, out var linkUrl, out _))
+        {
+            if (!_operationBusy && linkUrl is not null) ConfirmOpenLink(linkUrl);
+            return;
+        }
         if (_session.TryReadSnapshotError(source, EditorUrl, json, out var requestId, out var reason, out _))
         {
             if (requestId == _snapshotRequestId)
@@ -314,12 +319,7 @@ public sealed partial class MainWindow : UserControl
                 { protocolVersion = BridgeSession.ProtocolVersion, type = "revealSource", sessionId = _session.SessionId, version = _session.Version, offset }));
                 TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Programmatic);
             }
-            else if (action == "openLink" && url is not null &&
-                MessageBoxW(_window, $"使用默认浏览器打开以下地址？\n{url}", "Marker · 打开链接", 0x124) == 6)
-            {
-                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
-                catch (Exception linkError) { SetStatus($"无法打开链接：{linkError.Message}"); }
-            }
+            else if (action == "openLink" && url is not null && !_operationBusy) ConfirmOpenLink(url);
             return;
         }
 
@@ -328,6 +328,13 @@ public sealed partial class MainWindow : UserControl
             SetStatus(error);
             return;
         }
+    }
+
+    private void ConfirmOpenLink(string url)
+    {
+        if (MessageBoxW(_window, $"使用默认浏览器打开以下地址？\n{url}", "Marker · 打开链接", 0x124) != 6) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception error) { SetStatus($"无法打开链接：{error.Message}"); }
     }
 
     private async Task RenderSnapshotAsync(MarkdownSnapshot snapshot)
