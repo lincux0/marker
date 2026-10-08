@@ -12,6 +12,7 @@ public sealed partial class MainWindow
 {
     private const uint DwmaUseImmersiveDarkMode = 20;
     private const uint DwmaSystemBackdropType = 38;
+    private const uint DwmaCaptionColor = 35;
     private const uint DwmsbtNone = 1;
     private const uint DwmsbtMainWindow = 2;
     private const uint SwShowNormal = 1;
@@ -87,12 +88,40 @@ public sealed partial class MainWindow
         RequestedTheme = IsHighContrast ? Microsoft.UI.Xaml.ElementTheme.Default
             : dark ? Microsoft.UI.Xaml.ElementTheme.Dark : Microsoft.UI.Xaml.ElementTheme.Light;
 
-        // XAML Islands owns its rendering surface: a transparent Grid alone
-        // cannot reveal the parent HWND backdrop. Use its native backdrop API.
-        _toolbar.SystemBackdrop = IsHighContrast ? null : _toolbar.SystemBackdrop ?? new MicaBackdrop();
-        RootGrid.Background = IsHighContrast
-            ? new SolidColorBrush(_uiSettings?.GetColorValue(UIColorType.Background) ?? Color.FromArgb(255, 0, 0, 0))
-            : new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+        var colors = WritingPalette.GetColors(_settings.ColorPalette, dark);
+        var background = IsHighContrast
+            ? _uiSettings?.GetColorValue(UIColorType.Background) ?? Color.FromArgb(255, 0, 0, 0)
+            : colors.Background;
+        // Paint the entire toolbar band like the writing canvas; only the floating surface is acrylic.
+        _toolbar.SystemBackdrop = null;
+        RootGrid.Background = new SolidColorBrush(background);
+        BrandBadge.Background = new SolidColorBrush(IsHighContrast
+            ? _uiSettings?.GetColorValue(UIColorType.Foreground) ?? colors.Accent : colors.Accent);
+        BrandIcon.Foreground = new SolidColorBrush(IsHighContrast
+            ? _uiSettings?.GetColorValue(UIColorType.Background) ?? Color.FromArgb(255, 255, 255, 255)
+            : dark ? Color.FromArgb(255, 27, 26, 32) : Color.FromArgb(255, 255, 255, 255));
+        ToolbarGlass.Background = IsHighContrast ? new SolidColorBrush(background) : new AcrylicBrush
+        {
+            TintColor = background,
+            TintOpacity = 0.6,
+            TintLuminosityOpacity = 0.85,
+            FallbackColor = background
+        };
+        ToolbarGlass.BorderBrush = IsHighContrast
+            ? new SolidColorBrush(_uiSettings?.GetColorValue(UIColorType.Foreground) ?? Color.FromArgb(255, 255, 255, 255))
+            : new LinearGradientBrush
+            {
+                StartPoint = new Windows.Foundation.Point(0, 0),
+                EndPoint = new Windows.Foundation.Point(0, 1),
+                GradientStops =
+                {
+                    new GradientStop { Color = Color.FromArgb(dark ? (byte)64 : (byte)220, 255, 255, 255), Offset = 0 },
+                    new GradientStop { Color = Color.FromArgb(dark ? (byte)24 : (byte)40, colors.Accent.R, colors.Accent.G, colors.Accent.B), Offset = 1 }
+                }
+            };
+        ToolbarGlass.Shadow = IsHighContrast ? null : _toolbarShadow;
+        var captionColor = IsHighContrast ? 0xFFFFFFFFu : ToColorRef(background);
+        WindowsNative.DwmSetWindowAttribute(_window, DwmaCaptionColor, ref captionColor, sizeof(uint));
 
         var darkMode = dark && !IsHighContrast ? 1 : 0;
         WindowsNative.DwmSetWindowAttribute(_window, DwmaUseImmersiveDarkMode, ref darkMode, sizeof(int));
@@ -183,11 +212,13 @@ public sealed partial class MainWindow
         }
     }
 
+    private static uint ToColorRef(Color color) => (uint)(color.R | color.G << 8 | color.B << 16);
+
     private void SetWindowBackgroundBrush(bool dark)
     {
         var replacement = IsHighContrast
             ? WindowsNative.GetSysColorBrush(5)
-            : WindowsNative.CreateSolidBrush(dark ? 0x00201A1Bu : 0x00FAF7F8u);
+            : WindowsNative.CreateSolidBrush(ToColorRef(WritingPalette.GetColors(_settings.ColorPalette, dark).Background));
         var ownsReplacement = !IsHighContrast && replacement != 0;
         if (replacement == 0) replacement = WindowsNative.GetSysColorBrush(5);
         var previous = _windowBackgroundBrush;

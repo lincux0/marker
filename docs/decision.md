@@ -71,10 +71,10 @@
 ## D008 视觉与动效
 
 - 状态：M4 系统材质、Fluent 2 shell 与减少动画已实现，本机核心检查及用户输入法/动效体验回归通过；多屏、整机高对比与读屏器仍待验。
-- Win32 根窗口使用 DWM 主窗口 backdrop，顶部 XAML Island 使用 `DesktopWindowXamlSource.SystemBackdrop` 和 `MicaBackdrop`；高对比或 backdrop 不可用时回退到系统色背景。编辑器/预览保留不透明纸面，窗口间隙用主题实色填充以保持阅读对比度。
-- 约 68 DIP 工具栏承载常用文档命令与设置入口；外观/排版选项位于独立 WinUI 设置窗口。全局命令由 WinUI Island 路由，窗口保留系统标题栏与 Snap 行为。
+- Win32 根窗口使用 DWM 主窗口 backdrop，顶部 XAML Island 使用与正文同色的实色底层，其浮起表面使用 Acrylic；高对比或 backdrop 不可用时回退到系统色背景。编辑器/预览保留不透明纸面，窗口间隙用主题实色填充以保持阅读对比度。
+- 约 84 DIP 工具栏承载常用文档命令与设置入口，另为真实文件错误保留约 24 DIP 状态区；外观/排版选项位于独立 WinUI 设置窗口。圆角玻璃工具栏使用 Acrylic、渐变描边和 ThemeShadow，阴影接收器仅在工具栏 Island 内，不覆盖不同 HWND 上的正文。高对比模式关闭 Acrylic/阴影并采用系统色，Acrylic 无法使用时退化为纯色。代码模式默认收起文字标签，但 Tooltip、无障碍名称和窄窗溢出项标签保留。全局命令由 WinUI Island 路由，窗口保留系统标题栏与 Snap 行为。
 - Composition 仅用于工具栏 Island 内部短暂入场反馈（167 ms opacity、250 ms scale）；不跨 HWND 动画。用户“减少动画”或 Windows `UISettings.AnimationsEnabled=false` 会停止应用自定义 Composition 与 Web CSS 动画；WinUI 内置动画继续遵循系统策略。
-- 理由：Fluent 2 建议短时、自然并提供无动效方式；系统材质只放在工具栏，编辑/阅读内容维持高对比和稳定表面。
+- 理由：Fluent 2 建议短时、自然并提供无动效方式；轻量玻璃与阴影只塑造工具栏 Island 内部层级，编辑/阅读内容维持稳定表面。整条宿主 band 和系统标题栏 caption 跟随选中的配色背景，避免与正文形成异色边框。
 - 代价：XAML Island 与 windowed WebView2 处于不同 HWND，不能做覆盖编辑器/预览的连续 Composition 动画；目标系统材质、缩放和辅助功能仍需实机检查。
 - 依据：[Fluent 2 motion](https://fluent2.microsoft.design/motion)、[Mica material](https://learn.microsoft.com/en-us/windows/apps/design/style/mica)、[DWM system backdrop](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type)、[DwmSetWindowAttribute](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmsetwindowattribute)、[DesktopWindowXamlSource.SystemBackdrop](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.hosting.desktopwindowxamlsource.systembackdrop)。
 
@@ -160,11 +160,12 @@
 
 - 状态：已实现。主工具栏保留同高设置入口；设置使用独立 WinUI owned 窗口单例显示，主窗口关闭时一并关闭。设置值即时应用并写入原 schema 1 JSON。
 - 设置划分为外观、排版和字体卡片，保留主题、动效偏好、正文大小、行高、自动换行；新增段间距、正文/H1/H2字体与五组颜色组合。段间距范围为 0–2 em、默认 0.5 em；段间距通过顶层段落末尾 padding 实现，不删除 Markdown 空行。字号范围 12–24，行高范围 1.2–2。
-- 字体选项为系统、宋体、微软雅黑、等线和衬线；正文默认系统字体，H1/H2 默认宋体。颜色组合只作用于 Web 正文与隐藏预览，不改变原生按钮主题；正文 WebView 铺满工具栏下方客户区，去除旧分栏宿主边距，避免固定宿主颜色形成异色框。Windows 高对比系统色优先。
+- 字体选项为系统、宋体、微软雅黑、等线和衬线；正文默认系统字体，H1/H2 默认宋体。颜色组合由 `WritingPalette.GetColors` 统一解析，Web 编辑器的背景与强调 CSS 变量和原生主工具栏 band、宿主客户区、系统标题栏 caption、品牌标记及设置窗口使用完全相同的值；普通原生控件其余部分沿用系统样式。正文 WebView 铺满工具栏下方客户区，去除旧分栏宿主边距。Windows 高对比系统色优先。
 - 新字段沿用 schema 1 且均可缺省，旧配置无新增字段时静默使用默认值；非法新字段独立回退并提示。损坏或未知版本仍保留原文件并禁止写入。设置窗口坐标按 owner DPI 换算到物理边界并夹入目标显示器工作区。
 - 理由：把较多的外观和写作控制从正文工具栏移出，同时让读者可分别调整正文字体、标题字体和段落节奏；兼容 schema 1 避免仅因新增偏好打断旧配置。
-- 代价：所选字体是否安装由目标 Windows 决定，Web CSS 回退到可用字体；颜色组合不改变原生 WinUI 控件的系统外观。
+- 代价：所选字体是否安装由目标 Windows 决定，Web CSS 回退到可用字体；palette 统一着色范围限于约定的窗口背景和强调面，其他 WinUI 控件仍使用系统样式。
 - 替代关系：本决策替代 D008 中可展开的内联外观/排版面板方案，以及 D016 中固定 H2 微软雅黑 UI 的方案；D016 记录的 H1 宋体默认继续保留。
+- 变更依据：D017 初版只把 palette 应用于 Web 正文和隐藏预览；本轮为解决顶部宿主 band、窗口 caption/品牌区与纸面颜色不一致，扩展为原生复用 `WritingPalette`、其背景/强调色与 Web 编辑器 CSS 保持同值。高对比时仍由 Windows 系统颜色优先；这一扩展没有改变“其他 WinUI 控件使用系统样式”的边界。
 - 实现位置：`src/Marker.App/SettingsWindow.xaml`、`SettingsWindow.xaml.cs`、`AppSettings.cs`、`MainWindow.Views.cs`、`MainWindow.Windows.cs`、`App.xaml.cs`、`src/Marker.Web/src/main.ts`、`style.css`、`preview.css`。
 - Win32 主窗口不计入 XAML Window 数量，应用采用 `DispatcherShutdownMode.OnExplicitShutdown`，关闭设置子窗不会退出；主窗口复用现有未保存确认与显式退出流程。依据：[DispatcherShutdownMode](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.dispatchershutdownmode)。
 

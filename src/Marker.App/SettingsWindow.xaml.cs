@@ -49,15 +49,24 @@ public sealed partial class SettingsWindow : Window
         SettingsRoot.RequestedTheme = highContrast ? ElementTheme.Default : theme;
         _ = reducedMotion; // This window does not run custom motion.
         SystemBackdrop = highContrast ? null : new MicaBackdrop();
-        SettingsRoot.Background = highContrast
-            ? new SolidColorBrush(new UISettings().GetColorValue(UIColorType.Background))
-            : new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0, 0, 0));
+        var uiSettings = highContrast ? new UISettings() : null;
+        var colors = WritingPalette.GetColors(_settings.ColorPalette, theme == ElementTheme.Dark);
+        SettingsRoot.Background = new SolidColorBrush(highContrast
+            ? uiSettings!.GetColorValue(UIColorType.Background)
+            : colors.Background);
+        AccentMark.Background = new SolidColorBrush(highContrast
+            ? uiSettings!.GetColorValue(UIColorType.Foreground)
+            : colors.Accent);
+        AccentIcon.Foreground = new SolidColorBrush(highContrast
+            ? uiSettings!.GetColorValue(UIColorType.Background)
+            : theme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 27, 26, 32)
+            : Windows.UI.Color.FromArgb(255, 255, 255, 255));
     }
 
     public void SetNotice(string? message)
     {
         SettingsNotice.Text = message ?? string.Empty;
-        SettingsNotice.Visibility = string.IsNullOrWhiteSpace(message) ? Visibility.Collapsed : Visibility.Visible;
+        NoticePanel.Visibility = string.IsNullOrWhiteSpace(message) ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private static int IndexFor(ComboBox combo, string value)

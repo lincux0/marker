@@ -21,18 +21,20 @@
         </Style>
         </ResourceDictionary>
     </UserControl.Resources>
-    <Grid x:Name="RootGrid" Padding="16,12,16,8" RowSpacing="4" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid x:Name="RootGrid" Padding="16,10,16,10" RowSpacing="0" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="40" />
+            <RowDefinition Height="64" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Grid x:Name="CommandRow" ColumnSpacing="8">
+        <Grid x:Name="ToolbarShadowReceiver" />
+        <Border x:Name="ToolbarGlass" CornerRadius="18" BorderThickness="1" Padding="12,10">
+        <Grid x:Name="CommandRow" Height="40" ColumnSpacing="8">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="280"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <Grid x:Name="BrandPanel" ColumnSpacing="10" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <Border Width="28" Height="28" CornerRadius="8" Background="{ThemeResource MarkerBrandBrush}">
-                    <FontIcon Glyph="&#xE8A5;" FontSize="16" Foreground="{ThemeResource MarkerBrandTextBrush}" />
+                <Border x:Name="BrandBadge" Width="28" Height="28" CornerRadius="8" Background="{ThemeResource MarkerBrandBrush}">
+                    <FontIcon x:Name="BrandIcon" Glyph="&#xE8A5;" FontSize="16" Foreground="{ThemeResource MarkerBrandTextBrush}" />
                 </Border>
                 <Grid x:Name="DocumentRow" Grid.Column="1">
                     <TextBlock x:Name="DocumentStatus" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Text, ElementName=DocumentStatus}" AutomationProperties.AutomationId="DocumentStatus"/>
@@ -54,7 +56,7 @@
                     <AppBarButton Width="40" x:Name="NewButton" Label="新建" LabelPosition="Collapsed" AutomationProperties.Name="新建文档" AutomationProperties.AutomationId="NewDocument" ToolTipService.ToolTip="新建文档 · Ctrl+N" Click="NewDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE8A5;"/></AppBarButton.Icon></AppBarButton>
                     <AppBarButton Width="40" x:Name="OpenButton" Label="打开" LabelPosition="Collapsed" AutomationProperties.Name="打开" AutomationProperties.AutomationId="OpenDocument" ToolTipService.ToolTip="打开 · Ctrl+O" Click="OpenDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE8E5;"/></AppBarButton.Icon></AppBarButton>
                     <AppBarButton Width="40" x:Name="SaveButton" Label="保存" LabelPosition="Collapsed" AutomationProperties.Name="保存" AutomationProperties.AutomationId="SaveDocument" ToolTipService.ToolTip="保存 · Ctrl+S" Click="SaveDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon></AppBarButton>
-                    <AppBarToggleButton x:Name="SourceModeButton" Label="代码模式" AutomationProperties.Name="代码模式" AutomationProperties.AutomationId="SourceMode" ToolTipService.ToolTip="代码模式 · Ctrl+Alt+M" Click="SourceMode_Click"><AppBarToggleButton.Icon><FontIcon Glyph="&#xE943;"/></AppBarToggleButton.Icon></AppBarToggleButton>
+                    <AppBarToggleButton Width="40" x:Name="SourceModeButton" Label="代码模式" LabelPosition="Collapsed" AutomationProperties.Name="代码模式" AutomationProperties.AutomationId="SourceMode" ToolTipService.ToolTip="代码模式 · Ctrl+Alt+M" Click="SourceMode_Click"><AppBarToggleButton.Icon><FontIcon Glyph="&#xE943;"/></AppBarToggleButton.Icon></AppBarToggleButton>
                     <AppBarButton Width="40" x:Name="SaveAsButton" Label="另存为" LabelPosition="Collapsed" AutomationProperties.Name="另存为" AutomationProperties.AutomationId="SaveAsDocument" ToolTipService.ToolTip="另存为 · Ctrl+Shift+S" Click="SaveAsDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE792;"/></AppBarButton.Icon></AppBarButton>
                     <AppBarButton Width="40" x:Name="RecoverButton" Label="恢复草稿" LabelPosition="Collapsed" AutomationProperties.Name="恢复草稿" AutomationProperties.AutomationId="RecoverDocument" ToolTipService.ToolTip="恢复草稿" Click="RecoverDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE81C;"/></AppBarButton.Icon></AppBarButton>
                     <AppBarButton Width="40" x:Name="UndoButton" Label="撤销" LabelPosition="Collapsed" AutomationProperties.Name="撤销" AutomationProperties.AutomationId="Undo" ToolTipService.ToolTip="撤销 · Ctrl+Z" Click="Undo_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE7A7;"/></AppBarButton.Icon></AppBarButton>
@@ -67,6 +69,7 @@
                 <Button x:Name="AppearanceButton" Style="{StaticResource QuietButton}" Width="40" Height="36" Padding="0" AutomationProperties.Name="设置" AutomationProperties.AutomationId="Appearance" ToolTipService.ToolTip="设置" Click="Appearance_Click"><FontIcon Glyph="&#xE713;" FontSize="14"/></Button>
             </StackPanel>
         </Grid>
+        </Border>
         <TextBlock x:Name="NotificationStatus" Grid.Row="2" Visibility="Collapsed" MaxHeight="28" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
     </Grid>
 </UserControl>

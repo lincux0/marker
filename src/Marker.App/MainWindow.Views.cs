@@ -5,7 +5,7 @@ namespace Marker.App;
 
 public sealed partial class MainWindow
 {
-    internal int ToolbarHeightDip => 68 + (NotificationStatus.Visibility == Visibility.Visible ? 24 : 0);
+    internal int ToolbarHeightDip => 84 + (NotificationStatus.Visibility == Visibility.Visible ? 24 : 0);
     internal string _viewMode = "split";
     internal AppSettings _settings = AppSettings.Default;
     private readonly string _settingsDirectory = Path.Combine(
