@@ -7,13 +7,31 @@ body,
 }
 
 body {
-  color: #202124;
-  background: #fff;
+  color: var(--editor-foreground);
+  background: var(--editor-background);
   font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
 }
 
 #editor {
+  --editor-foreground: #202124;
+  --editor-background: #fff;
   height: 100%;
+  color: var(--editor-foreground);
+  background: var(--editor-background);
+  font-size: var(--editor-font-size, 15px);
+  line-height: var(--editor-line-height, 1.5);
+}
+
+#editor[data-theme="dark"] {
+  --editor-foreground: #e6e6e6;
+  --editor-background: #202020;
+}
+
+@media (prefers-color-scheme: dark) {
+  #editor[data-theme="system"] {
+    --editor-foreground: #e6e6e6;
+    --editor-background: #202020;
+  }
 }
 
 #status {
@@ -32,17 +50,51 @@ body {
 
 .cm-editor {
   height: 100%;
-  font-size: 15px;
+  color: var(--editor-foreground);
+  background: var(--editor-background);
+  font-size: inherit;
 }
 
 .cm-scroller {
   overflow: auto;
   font-family: Consolas, "Microsoft YaHei UI", monospace;
+  line-height: inherit;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    color: #e6e6e6;
-    background: #202020;
-  }
+.cm-search-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  color: var(--editor-foreground);
+  background: var(--editor-background);
+  border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  font: 13px/1.35 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+.cm-search-panel input,
+.cm-search-panel button {
+  min-height: 28px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 4px;
+  color: inherit;
+  background: color-mix(in srgb, var(--editor-background) 92%, currentColor 8%);
+  font: inherit;
+}
+
+.cm-search-panel input {
+  box-sizing: border-box;
+  width: min(220px, 28vw);
+  padding: 3px 7px;
+}
+
+.cm-search-panel button {
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.cm-search-panel :focus-visible {
+  outline: 2px solid #0f6cbd;
+  outline-offset: 1px;
 }

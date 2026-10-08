@@ -75,6 +75,7 @@ public sealed partial class MainWindow : UserControl
         _toolbar.TakeFocusRequested += Toolbar_TakeFocusRequested;
         _toolbar.GotFocus += (_, _) => _lastFocus = 0;
         InitializeDocuments();
+        InitializeViews();
     }
 
     internal void Show()
@@ -137,12 +138,12 @@ public sealed partial class MainWindow : UserControl
         controller.GotFocus += (_, _) => _lastFocus = editor ? _editorWindow : _previewWindow;
         controller.MoveFocusRequested += (_, args) =>
         {
-            if (editor && args.Reason == CoreWebView2MoveFocusReason.Next)
+            if (editor && _viewMode != "source" && args.Reason == CoreWebView2MoveFocusReason.Next)
             {
                 args.Handled = TryMoveFocus(_preview, _previewWindow, CoreWebView2MoveFocusReason.Next);
                 return;
             }
-            if (!editor && args.Reason == CoreWebView2MoveFocusReason.Previous)
+            if (!editor && _viewMode != "read" && args.Reason == CoreWebView2MoveFocusReason.Previous)
             {
                 args.Handled = TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Previous);
                 return;
@@ -156,7 +157,7 @@ public sealed partial class MainWindow : UserControl
 
     private void Toolbar_TakeFocusRequested(object? sender, DesktopWindowXamlSourceTakeFocusRequestedEventArgs args)
     {
-        if (args.Request.Reason == XamlSourceFocusNavigationReason.Last)
+        if (args.Request.Reason == XamlSourceFocusNavigationReason.Last && _viewMode != "source" || _viewMode == "read")
             TryMoveFocus(_preview, _previewWindow, CoreWebView2MoveFocusReason.Previous);
         else
             TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Next);
@@ -211,10 +212,12 @@ public sealed partial class MainWindow : UserControl
             _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "initialize",
+                protocolVersion = BridgeSession.ProtocolVersion,
                 sessionId = _session.SessionId,
                 text = _document.Text
             }));
             SetStatus("编辑器已连接，等待首个快照。");
+            ApplyWebSettings();
             _ = OfferRecoveryOnStartupAsync();
             return;
         }
@@ -231,9 +234,39 @@ public sealed partial class MainWindow : UserControl
             return;
         }
 
+        if (_session.TryReadEditorStatus(source, EditorUrl, json, out var editorStatus, out _))
+        {
+            UpdateEditorSelectionStatus($"行 {editorStatus.Line} · 列 {editorStatus.Column} · {editorStatus.CharCount} UTF-16 单元");
+            return;
+        }
+
+        if (_session.TryAcceptChanges(source, EditorUrl, json, out var changed, out _))
+        {
+            _latestSnapshot = changed;
+            AcceptDocumentSnapshot(changed);
+            _ = RenderSnapshotAsync(changed);
+            return;
+        }
+
         if (!_session.TryAcceptSnapshot(source, EditorUrl, json, out var snapshot, out var error))
         {
             SetStatus(error);
+            // A rejected incremental update cannot mutate the host cache. Recover from the live editor.
+            if (source == EditorUrl && json.Length <= BridgeSession.MaxMessageBytes)
+            {
+                try
+                {
+                    using var message = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 8 });
+                    if (message.RootElement.TryGetProperty("type", out var type) && type.GetString() == "changes"
+                        && message.RootElement.TryGetProperty("sessionId", out var sessionId) && sessionId.GetString() == _session.SessionId
+                        && message.RootElement.TryGetProperty("protocolVersion", out var protocol) && protocol.ValueKind == JsonValueKind.Number
+                        && protocol.TryGetInt32(out var protocolVersion) && protocolVersion == BridgeSession.ProtocolVersion)
+                        _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                        { protocolVersion = BridgeSession.ProtocolVersion, type = "requestSnapshot", sessionId = _session.SessionId }));
+                }
+                catch (JsonException) { }
+                catch (InvalidOperationException) { }
+            }
             return;
         }
         _latestSnapshot = snapshot;
@@ -249,11 +282,31 @@ public sealed partial class MainWindow : UserControl
             _preview?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "initialize",
+                protocolVersion = BridgeSession.ProtocolVersion,
                 sessionId = _session.SessionId
             }));
             SetStatus("预览已连接，等待渲染。");
+            ApplyWebSettings();
             if (_latestSnapshot is { } snapshot)
                 _ = RenderSnapshotAsync(snapshot);
+            return;
+        }
+
+        if (_session.TryReadPreviewAction(source, PreviewUrl, json, out var action, out var offset, out var url, out _))
+        {
+            if (_latestPreviewSentVersion != _session.Version) return;
+            if (action == "revealSource")
+            {
+                _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                { protocolVersion = BridgeSession.ProtocolVersion, type = "revealSource", sessionId = _session.SessionId, version = _session.Version, offset }));
+                if (_viewMode != "read") TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Programmatic);
+            }
+            else if (action == "openLink" && url is not null &&
+                MessageBoxW(_window, $"使用默认浏览器打开以下地址？\n{url}", "Marker · 打开链接", 0x124) == 6)
+            {
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+                catch (Exception linkError) { SetStatus($"无法打开链接：{linkError.Message}"); }
+            }
             return;
         }
 
@@ -270,20 +323,26 @@ public sealed partial class MainWindow : UserControl
     {
         try
         {
+            if (_viewMode == "source") return;
             var session = _session;
             var renderRequest = ++_renderRequest;
+            // ponytail: one render per quiet 100 ms window; no cache until the measured baseline needs one.
+            await Task.Delay(100);
+            if (_closed || renderRequest != _renderRequest || !ReferenceEquals(session, _session)) return;
             var resolver = _images.CreateResolver(session.SessionId);
-            var html = await Task.Run(() => MarkdownRenderer.Render(snapshot.Text, resolver));
-            if (_closed || renderRequest != _renderRequest || !ReferenceEquals(session, _session) || snapshot.Version != session.Version || !_previewReady || _preview is null)
+            var rendered = await Task.Run(() => MarkdownRenderer.RenderDocument(snapshot.Text, resolver));
+            if (_closed || _viewMode == "source" || renderRequest != _renderRequest || !ReferenceEquals(session, _session) || snapshot.Version != session.Version || !_previewReady || _preview is null)
                 return;
 
             _latestPreviewSentVersion = snapshot.Version;
             _preview.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "render",
+                protocolVersion = BridgeSession.ProtocolVersion,
                 sessionId = _session.SessionId,
                 version = snapshot.Version,
-                html
+                html = rendered.Html,
+                outline = rendered.Outline.Select(heading => new { id = heading.Id, text = heading.Text, level = heading.Level, offset = heading.Offset })
             }));
         }
         catch (Exception exception)
@@ -294,7 +353,10 @@ public sealed partial class MainWindow : UserControl
     }
 
     private void EditorFocusButton_Click(object sender, RoutedEventArgs e)
-        => TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Next);
+    {
+        if (_viewMode == "read" && !_operationBusy) ViewModeCombo.SelectedIndex = 1;
+        TryMoveFocus(_editor, _editorWindow, CoreWebView2MoveFocusReason.Next);
+    }
 
     private bool TryMoveFocus(CoreWebView2Controller? controller, nint childWindow, CoreWebView2MoveFocusReason reason)
     {
@@ -324,6 +386,7 @@ public sealed partial class MainWindow : UserControl
         _editor.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {
             type = "requestSnapshot",
+            protocolVersion = BridgeSession.ProtocolVersion,
             sessionId = _session.SessionId
         }));
         SetStatus("已请求编辑器发送完整快照。");
@@ -336,13 +399,18 @@ public sealed partial class MainWindow : UserControl
         if (_closed) return;
         Native.GetClientRect(_window, out var rect);
         var scale = Native.GetDpiForWindow(_window) / 96d;
-        var header = (int)Math.Round(152 * scale);
+        var header = (int)Math.Round(ToolbarHeightDip * scale);
         var gap = (int)Math.Round(12 * scale);
         var width = Math.Max(1, (rect.Right - gap * 3) / 2);
         var height = Math.Max(1, rect.Bottom - header - gap);
         _toolbar.SiteBridge.MoveAndResize(new RectInt32(0, 0, Math.Max(1, rect.Right), header));
-        ResizeView(_editorWindow, _editor, gap, header, width, height);
-        ResizeView(_previewWindow, _preview, width + gap * 2, header, width, height);
+        var fullWidth = Math.Max(1, rect.Right - gap * 2);
+        ResizeView(_editorWindow, _editor, gap, header, _viewMode == "split" ? width : fullWidth, height);
+        ResizeView(_previewWindow, _preview, _viewMode == "split" ? width + gap * 2 : gap, header, _viewMode == "split" ? width : fullWidth, height);
+        Native.ShowWindow(_editorWindow, _viewMode == "read" ? 0 : 5);
+        Native.ShowWindow(_previewWindow, _viewMode == "source" ? 0 : 5);
+        if (_editor is not null) _editor.IsVisible = _viewMode != "read";
+        if (_preview is not null) _preview.IsVisible = _viewMode != "source";
     }
 
     private static void ResizeView(nint window, CoreWebView2Controller? controller, int x, int y, int width, int height)

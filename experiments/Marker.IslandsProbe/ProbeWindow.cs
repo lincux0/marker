@@ -51,7 +51,7 @@ internal sealed class ProbeWindow
         var focus = new Button { Content = "进入编辑器" };
         focus.Click += (_, _) => _editor?.MoveFocus(CoreWebView2MoveFocusReason.Next);
         var resync = new Button { Content = "重新同步" };
-        resync.Click += (_, _) => _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "requestSnapshot", sessionId = _session.SessionId }));
+        resync.Click += (_, _) => _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "requestSnapshot", sessionId = _session.SessionId }));
         var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Padding = new Thickness(12) };
         header.Children.Add(focus);
         header.Children.Add(resync);
@@ -161,16 +161,16 @@ internal sealed class ProbeWindow
                 if (editor)
                 {
                     _editorReady = true;
-                    core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "initialize", sessionId = _session.SessionId, text = "# Islands 输入验收\n\n请点击左侧编辑区输入中文。\n\nCtrl+Enter 新建段落。" }));
+                    core.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "initialize", sessionId = _session.SessionId, text = "# Islands 输入验收\n\n请点击左侧编辑区输入中文。\n\nCtrl+Enter 新建段落。" }));
                 }
                 else
                 {
                     _previewReady = true;
-                    core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "initialize", sessionId = _session.SessionId }));
+                    core.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "initialize", sessionId = _session.SessionId }));
                     if (_latest is { } latest) Render(latest);
                 }
             }
-            else if (editor && _session.TryAcceptSnapshot(args.Source, url, args.WebMessageAsJson, out var snapshot, out _))
+            else if (editor && (_session.TryAcceptChanges(args.Source, url, args.WebMessageAsJson, out var snapshot, out _) || _session.TryAcceptSnapshot(args.Source, url, args.WebMessageAsJson, out snapshot, out _)))
             {
                 _latest = snapshot;
                 Render(snapshot);
@@ -185,9 +185,9 @@ internal sealed class ProbeWindow
         try
         {
             if (!_previewReady) return;
-            var html = await Task.Run(() => MarkdownRenderer.Render(snapshot.Text));
+            var rendered = await Task.Run(() => MarkdownRenderer.RenderDocument(snapshot.Text));
             if (_closed || snapshot.Version != _session.Version || _preview is null) return;
-            _preview.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "render", sessionId = _session.SessionId, version = snapshot.Version, html }));
+            _preview.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "render", sessionId = _session.SessionId, version = snapshot.Version, html = rendered.Html, outline = rendered.Outline.Select(h => new { id = h.Id, text = h.Text, level = h.Level, offset = h.Offset }) }));
         }
         catch (Exception error) { if (!_closed) _status.Text = error.Message; }
     }

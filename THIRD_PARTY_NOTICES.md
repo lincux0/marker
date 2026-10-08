@@ -19,18 +19,20 @@
 | 包 | 版本 | 用途 | 许可证 |
 |---|---:|---|---|
 | @codemirror/commands | 6.11.1 | 编辑命令 | MIT |
+| @codemirror/lang-javascript | 6.2.5 | JavaScript / TypeScript 代码块解析 | MIT（[上游项目](https://github.com/codemirror/lang-javascript)） |
 | @codemirror/lang-markdown | 6.5.2 | Markdown 语言支持 | MIT |
 | @codemirror/language | 6.12.4 | 语言基础设施 | MIT |
 | @codemirror/search | 6.7.2 | 查找与替换能力 | MIT |
 | @codemirror/state | 6.7.6 | 编辑器状态 | MIT |
 | @codemirror/view | 6.43.13 | 编辑器视图 | MIT |
+| @lezer/highlight | 1.2.5 | 代码块 token 高亮 | MIT（[上游项目](https://code.haverbeke.berlin/lezer/highlight)） |
 | dompurify | 3.4.16 | 预览 HTML 净化 | npm 包 `package.json` 声明 `(MPL-2.0 OR Apache-2.0)`；随包包含 `LICENSE-MPL`。 |
 | typescript | 7.0.2 | 开发与类型检查 | Apache-2.0 |
 | vite | 8.3.3 | Web 资源构建 | MIT |
 
 ## 测试工程直接依赖
 
-以下许可证字段由本机 NuGet 缓存中对应版本的 nuspec 核实，均声明为 MIT。测试工程目前没有业务测试。
+以下许可证字段由本机 NuGet 缓存中对应版本的 nuspec 核实，均声明为 MIT。测试工程复用生产纯逻辑代码验证桥接、设置、Markdown 和文件安全行为。
 
 | 包 | 版本 | 用途 |
 |---|---:|---|

@@ -2,13 +2,91 @@ html,
 body {
   min-height: 100%;
   margin: 0;
+  scroll-behavior: smooth;
+}
+
+html {
+  --preview-font-size: 16px;
+  --preview-line-height: 1.65;
+  --foreground: #202124;
+  --background: #fff;
+  --surface: #f2f3f5;
+  --outline-surface: #f5f6f8ee;
+  --border: #d4d7dc;
+  --link: #075ec4;
+  --tok-keyword: #7b2cbf;
+  --tok-string: #087e3d;
+  --tok-comment: #687078;
+  --tok-number: #a33a13;
+  --tok-name: #005b99;
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  --foreground: #e6e6e6;
+  --background: #202020;
+  --surface: #2b2b2b;
+  --outline-surface: #292929ee;
+  --border: #555;
+  --link: #8bbdff;
+  --tok-keyword: #c792ea;
+  --tok-string: #c3e88d;
+  --tok-comment: #8b949e;
+  --tok-number: #f78c6c;
+  --tok-name: #82aaff;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --foreground: #e6e6e6;
+    --background: #202020;
+    --surface: #2b2b2b;
+    --outline-surface: #292929ee;
+    --border: #555;
+    --link: #8bbdff;
+    --tok-keyword: #c792ea;
+    --tok-string: #c3e88d;
+    --tok-comment: #8b949e;
+    --tok-number: #f78c6c;
+    --tok-name: #82aaff;
+    color-scheme: dark;
+  }
 }
 
 body {
-  color: #202124;
-  background: #fff;
-  font: 16px/1.65 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color: var(--foreground);
+  background: var(--background);
+  font: var(--preview-font-size)/var(--preview-line-height) "Segoe UI", "Microsoft YaHei UI", sans-serif;
 }
+
+.outline {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 8px 36px;
+  background: var(--outline-surface);
+  backdrop-filter: blur(12px);
+}
+
+.outline summary { cursor: pointer; font-weight: 600; }
+.outline nav { max-height: 32vh; overflow: auto; }
+.outline ol { margin: 6px 0; padding: 0; list-style: none; }
+.outline li { padding-left: calc((var(--heading-level) - 1) * 14px); }
+.outline button {
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.outline button:hover, .outline button:focus-visible { background: color-mix(in srgb, var(--foreground) 12%, var(--background)); }
 
 #preview {
   max-width: 860px;
@@ -17,6 +95,7 @@ body {
   overflow-wrap: anywhere;
 }
 
+#preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 { scroll-margin-top: 16px; }
 pre,
 code {
   font-family: Consolas, "Microsoft YaHei UI", monospace;
@@ -26,36 +105,23 @@ pre {
   overflow: auto;
   padding: 14px;
   border-radius: 8px;
-  background: #f2f3f5;
+  background: var(--surface);
 }
 
-table {
-  border-collapse: collapse;
-}
-
-img {
-  max-width: 100%;
-  height: auto;
-}
-
+code { white-space: pre; }
+html[data-line-wrapping="true"] #preview pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tok-keyword, .tok-operator { color: var(--tok-keyword); }
+.tok-string, .tok-string2 { color: var(--tok-string); }
+.tok-comment { color: var(--tok-comment); font-style: italic; }
+.tok-number, .tok-bool, .tok-atom { color: var(--tok-number); }
+.tok-variableName, .tok-variableName2, .tok-propertyName, .tok-typeName, .tok-className, .tok-namespace, .tok-labelName { color: var(--tok-name); }
+table { border-collapse: collapse; }
+img { max-width: 100%; height: auto; }
 th,
-td {
-  padding: 6px 10px;
-  border: 1px solid #d4d7dc;
-}
+td { padding: 6px 10px; border: 1px solid var(--border); }
+a[data-marker-fragment], a[data-marker-url] { color: var(--link); text-decoration: underline; cursor: pointer; }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    color: #e6e6e6;
-    background: #202020;
-  }
-
-  pre {
-    background: #2b2b2b;
-  }
-
-  th,
-  td {
-    border-color: #555;
-  }
+@media (max-width: 600px) {
+  #preview { padding: 20px 18px 48px; }
+  .outline { padding-inline: 18px; }
 }

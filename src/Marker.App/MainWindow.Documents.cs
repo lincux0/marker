@@ -52,7 +52,7 @@ public sealed partial class MainWindow
         try
         {
             _editor.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
-            { type = "requestSnapshot", sessionId = session.SessionId, requestId = _snapshotRequestId }));
+            { protocolVersion = BridgeSession.ProtocolVersion, type = "requestSnapshot", sessionId = session.SessionId, requestId = _snapshotRequestId }));
             var snapshot = await _snapshotCompletion.Task.WaitAsync(TimeSpan.FromSeconds(5));
             if (!ReferenceEquals(session, _session) || _closed) throw new IOException("文档已切换，操作已取消。");
             return snapshot;
@@ -128,7 +128,7 @@ public sealed partial class MainWindow
 
     private static void ValidateEditorText(string text)
     {
-        var envelope = JsonSerializer.Serialize(new { type = "snapshot", sessionId = new string('s', 32), version = long.MaxValue, text, requestId = new string('r', 32) });
+        var envelope = JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "snapshot", sessionId = new string('s', 32), version = long.MaxValue, text, requestId = new string('r', 32) });
         if (text.Length > BridgeSession.MaxTextLength || System.Text.Encoding.UTF8.GetByteCount(envelope) > BridgeSession.MaxMessageBytes)
             throw new IOException("该文档超过当前编辑/保存快照容量，未替换当前文档。请使用其他编辑器处理。");
     }
@@ -160,8 +160,9 @@ public sealed partial class MainWindow
         _diskChanged = false;
         _session = new BridgeSession(Guid.NewGuid().ToString("N"));
         _images.SetRoot(Path.GetDirectoryName(data.Path ?? originalPath), _session.SessionId);
-        if (_previewReady) _preview?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "initialize", sessionId = _session.SessionId }));
-        _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "initialize", sessionId = _session.SessionId, text = data.Text }));
+        if (_previewReady) _preview?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "initialize", sessionId = _session.SessionId }));
+        _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "initialize", sessionId = _session.SessionId, text = data.Text }));
+        ApplyWebSettings();
         StartFileWatcher();
         UpdateDocumentStatus();
         if (data.Newline == "Mixed") SetStatus("检测到混合换行；保存时须明确选择统一为 CRLF 或 LF。");

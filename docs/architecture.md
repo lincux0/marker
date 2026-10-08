@@ -1,9 +1,9 @@
 # 项目结构与架构基线
 
-本文描述仓库当前真实结构。生产应用由 Win32 主窗口承载 WinUI 3 XAML Islands 工具栏与两个原生子窗口式 WebView2。M1 微信输入法与安全门槛已通过；M2 核心文件工作流和本机闭环验证完成，发布与兼容验收仍待执行。
+本文描述仓库当前真实结构。生产应用由 Win32 主窗口承载 WinUI 3 XAML Islands 工具栏与两个原生子窗口式 WebView2。M3 在 M2 文件闭环之上加入增量同步、视图模式、编辑阅读工具和版本化设置；具体已验与待验范围见建设历程。
 
 - 当前状态：Win32 + WinUI 3 XAML Islands 工具栏 + 双原生 windowed WebView2；单文档打开/保存/另存为、恢复草稿、外部变化检查及受控本地图片已实现并完成本机核心流程验证。
-- 多标签、文件树、设置持久化和 SQLite 尚未实现。
+- 多标签、文件树和 SQLite 尚未实现。
 - 阶段计划见[开发方案](开发方案.md)；版本与构建操作见[工程开发指南](工程开发指南.md)。
 - 稳定技术取舍见[技术决策](decision.md)，阶段记录见[项目历程](progress.md)。
 
@@ -31,7 +31,9 @@
 ### `src/Marker.App/`
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`。
-- `MainWindow.xaml`：定义 WinUI 工具栏，包括新建、打开、保存、另存为、恢复草稿、文档状态、焦点进入与重新同步按钮。
+- `MainWindow.xaml`：定义文档工具、视图/主题选择、撤销重做、查找替换、字号/行高/折行设置和状态栏。
+- `MainWindow.Views.cs`：加载设置、路由视图与排版控件；切换时仅调整两个原生子窗口的大小与可见性，保留 WebView2、编辑历史和页面状态。源码模式暂停预览解析并使在途解析结果过期；返回分栏/阅读时按最新快照重绘。
+- `AppSettings.cs`：LocalAppData/Marker/settings.json 的 schemaVersion 1 与 applicationVersion；字段缺失或类型/范围无效时回退该字段默认值并提示，损坏/未知版本保留且禁写，合法设置通过同目录临时文件与覆盖式移动落盘。仅记视图模式，不存文档文本或自动打开文件。
 - `MainWindow.xaml.cs`：`MainWindow` 创建并管理 Win32 根 HWND、编辑器/预览子 HWND 和工具栏 XAML Island；负责客户区布局、焦点、DPI/窗口消息、WebView2 安全配置、桥接路由、异步 Markdown 解析及关闭流程。`TryMoveFocus` 在文档模态操作期间、窗口/子窗口禁用、controller 不可见或已关闭时统一拒绝焦点迁移，保护文件选择器异步返回后的焦点恢复路径。应用启动后使用未命名空文档，不再加载内置样例。
 - `MainWindow.Documents.cs`：管理当前单文档会话、脏状态、原生文件选择器、命令/快照 requestId 往返、原生消息框确认、打开/保存/另存为/关闭/恢复流程、外部文件监控和每秒节流的草稿写入。保存前向 CodeMirror 请求最新完整快照；输入法组合尚未提交时拒绝保存。恢复草稿成为未命名副本，不自动覆盖来源文件。
 - `DocumentFile.cs`：按严格 UTF-8（含/不含 BOM）或带 BOM 的 UTF-16 LE/BE 读取；解码失败由界面明确询问 GB18030。磁盘编码与换行保持为元数据，编辑快照统一 LF；混合换行须用户选择策略后保存。文件读取/保存限制 8 MiB，以 SHA-256 指纹检测变更，并通过同目录临时文件、flush-to-disk、原子替换和替换前后校验保存；并发替换的外部内容保留为 `.external` 副本。拒绝路径重解析点。
@@ -49,8 +51,8 @@
 
 - `package.json`、`package-lock.json`：Web 工程脚本、CodeMirror 6、DOMPurify 及锁定版本。
 - `index.html`、`preview.html`：编辑器与预览独立页面入口，分别声明内容安全策略 CSP。
-- `src/main.ts`：创建 CodeMirror 6 Markdown 编辑器，维护编辑历史与会话版本，发送全量文本快照并响应重同步请求；通过 `requestId` 回传操作快照并在输入法组合未完成时返回 `snapshotError`；Ctrl+N/O/S、Ctrl+Shift+S 分别触发新建、打开、保存和另存为，Ctrl+Enter 在当前行后插入新段落。
-- `src/preview.ts`：检查会话、版本和 HTML 大小，以 DOMPurify 标签/属性白名单净化后更新预览；图片只能使用当前会话的不透明资源 URL，并回报已渲染版本。
+- `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。快捷键见工程指南。
+- `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用已安装 JavaScript/Lezer 解析器，以 DOM 文本节点实现 JS/TS 围栏高亮；其他语言或超长代码保留纯文本。更新正文保留页面滚动，设置不重建 DOM。
 - `src/style.css`、`src/preview.css`：编辑器和预览的基础布局及明暗配色。
 - `vite.config.ts`：构建编辑器和预览两个本地页面入口。
 - `tsconfig.json`：TypeScript 编译器设置。
@@ -58,15 +60,16 @@
 
 桌面端分别将 `editor.marker.example` 与 `preview.marker.example` 映射到包内 `Web/` 目录，使用两个 HTTPS 来源隔离页面。两个 WebView2 共享同一个环境，分别由原生子 HWND 承载。Win32 负责窗口和 WebView2 客户区布局；`DesktopWindowXamlSource` 仅承载顶部工具栏，不覆盖编辑区或预览区。宿主只允许对应页面和 `/assets/` 路径，关闭开发者工具、默认菜单和宿主对象，拦截其他导航、子框架及新窗口。
 
-此宿主把 WinUI/XAML 与 windowed WebView2 放在不同 HWND，具备原生窗口的输入和 DPI 路径，但引入 HWND 空间约束：XAML Island 与 WebView2 子窗口之间需手动协调尺寸、Z 顺序、焦点、DPI 和关闭生命周期；原生子窗口也限制跨区域 XAML 裁剪、Composition 动画及覆盖式浮层。Mica、主题跟随和系统视觉仍未实现。
+此宿主把 WinUI/XAML 与 windowed WebView2 放在不同 HWND，具备原生窗口的输入和 DPI 路径，但引入 HWND 空间约束：XAML Island 与 WebView2 子窗口之间需手动协调尺寸、Z 顺序、焦点、DPI 和关闭生命周期；原生子窗口也限制跨区域 XAML 裁剪、Composition 动画及覆盖式浮层。基础主题已实现；Mica 和系统视觉仍待 M4。
 
 ### `tests/Marker.Tests/`
 
 - `Marker.Tests.csproj` 与 `packages.lock.json`：MSTest 项目及锁定依赖。
 - `BridgeSessionTests.cs`：覆盖可信来源、命令、快照 requestId / snapshotError、会话、字段、版本与尺寸校验。
 - `MarkdownRendererTests.cs`：覆盖常见 Markdown、选定扩展、自动链接、原始 HTML 禁用、图片解析和受控长文完整性。
-- `DocumentFileTests.cs`、`RecoveryStoreTests.cs`、`LocalImageResourcesTests.cs`：使用真实临时文件覆盖编码/换行、文件冲突与恢复、图片路径与内容边界；符号链接检查因测试环境权限跳过。当前整套结果为 21 通过、1 跳过。
-- 测试工程通过 Compile Link 直接复用桌面端五个纯逻辑源文件；目前无需额外抽取 `CoreLib`。
+- `DocumentFileTests.cs`、`RecoveryStoreTests.cs`、`LocalImageResourcesTests.cs`：使用真实临时文件覆盖编码/换行、文件冲突与恢复、图片路径与内容边界；符号链接检查因测试环境权限跳过。测试结果以[项目历程](progress.md)中的最新实际记录为准。
+- `AppSettingsTests.cs`：设置 roundtrip、字段类型/缺失回退、损坏与未来版本保留。
+- 测试工程通过 Compile Link 直接复用桌面端六个纯逻辑源文件；目前无需额外抽取 `CoreLib`。
 
 ## 独立 Islands 宿主实验
 
@@ -78,13 +81,13 @@
 
 1. 桌面端启动时创建 Win32 根窗口、两个原生内容子窗口和工具栏 XAML Island；确认包内 `Web/index.html` 与 `Web/preview.html` 存在，再创建共享 WebView2 环境并为两个子窗口创建 controller。
 2. 编辑器与预览发送 `ready` 后，桌面端建立文档会话并向 CodeMirror 初始化当前文档文本。文件命令经过来源、会话、字段和消息大小验证后交由原生侧执行。
-3. CodeMirror 是编辑期唯一文本权威。常规更新发送全量快照；保存/切换文档会带 `requestId` 请求最新快照，未结束的输入法组合通过 `snapshotError` 阻止文件操作。桥接 JSON 上限 2 MiB，文本上限 1 Mi UTF-16 单元。
+3. CodeMirror 是编辑期唯一文本权威。所有消息声明 protocolVersion 1；常规编辑发送 baseVersion/version 连续的增量，原生缓存仅在来源、会话、范围、容量均合法后原子更新。拒绝增量时请求完整重同步；保存/切换仍带 requestId 请求最新完整快照，未结束的输入法组合通过 snapshotError 阻止文件操作。桥接 JSON 上限 2 MiB，文本上限 1 Mi UTF-16 单元。
 4. 原生文档服务读取/保存本地文件、维护 SHA-256 指纹，并监控磁盘变化。保存前确认冲突并原子替换；恢复草稿独立存放，不自动写回原始路径。
 5. 桌面端在后台使用 Markdig 解析最新快照；本地图片先经根目录、扩展名、大小、重解析点和最终文件句柄校验，再替换为会话随机 URL。WebView2 不接收任意文件路径或通用文件 API。
 6. 预览检查会话、版本与 HTML 长度，通过 DOMPurify 白名单净化，再用 `innerHTML` 更新页面并回报已渲染版本。图片源仅允许当前会话资源 URL，CSP 只开放本地图片来源。
 7. 窗口尺寸/位置变化时按客户区和当前 DPI 更新 Island 与两个子窗口，并通知 WebView2 宿主窗口位置变化；关闭前进行未保存确认，之后关闭两个 controller、释放 XAML Island 并销毁根窗口。
 
-当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。恢复写入的秒级节流及编辑器 100 ms 快照防抖意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入；本机强制退出重启场景已测通过，但断电、磁盘耗尽和更广泛的崩溃时序未验证。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览不支持超链接、SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。多标签、文件树、SQLite、设置持久化、Mica、主题跟随和动效尚未实现。
+当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。恢复写入的秒级节流及草稿写入节流意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入；本机强制退出重启场景已测通过，但断电、磁盘耗尽和更广泛的崩溃时序未验证。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览仅支持受控 HTTP(S) 链接；不支持 SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。多标签、文件树、SQLite、Mica 和动效尚未实现。
 
 ## 构建与打包管线
 
@@ -103,9 +106,9 @@
 ## 未完成验收与后续边界
 
 - 用户已确认生产 EXE 中微信输入法正常；M1 输入法与 Web 安全核心门槛已通过。M2 核心功能与本机闭环验证完成；生产 MSIX 安装仍未执行，作为独立包验收待办。
-- 最新 MSTest 为 21 通过、1 跳过（符号链接用例因权限限制）；真实 WebView 安全检查的 9 类样例通过；Release 构建 0 warning、0 error。本机原生文件操作和恢复闭环见[项目历程](progress.md)。
+- M3 单元、Web、桌面和性能检查结果及未覆盖边界见[项目历程](progress.md)；文档中的阶段结果不替代最新一次构建记录。
 - 独立原型仅使用内置样例，没有打开、保存、恢复、文件树、多标签或真实图片工作流。
-- 当前生产版提供已通过本机核心闭环验证的单文档文件工作流与受控本地图片；M2 核心功能完成，发布/兼容验收待完成。目录树、多标签、JSON 设置、SQLite、Mica/主题动效和文件激活仍未实现。迁移后 MSIX 安装验收待单独执行。
+- 当前生产版提供单文档文件工作流、受控本地图片和 M3 编辑阅读功能；发布/兼容验收待完成。目录树、多标签、SQLite、Mica/精细动效和文件激活仍未实现。迁移后 MSIX 安装验收待单独执行。
 - 运行、测试与打包证据及其限制见[项目历程](progress.md)。
 
 ## 文档维护

@@ -112,7 +112,7 @@ public static class MarkerFileWorkflowWin32 {
     }
     public static bool SendUnicodeText(IntPtr edit, string text) {
         if (edit == IntPtr.Zero || String.IsNullOrEmpty(text)) return false;
-        for (int i = 0; i < text.Length; i++) SendMessage(edit, 0x0102, (IntPtr)(int)text[i], (IntPtr)1);
+        for (int i = 0; i < text.Length; i++) { SendMessage(edit, 0x0102, (IntPtr)(int)text[i], (IntPtr)1); System.Threading.Thread.Sleep(5); }
         return true;
     }
     public static bool ClickDialogButton(IntPtr hwnd, IntPtr ownerRoot, uint expectedProcessId, string title, int id, string text) {
@@ -254,22 +254,49 @@ public static class MarkerFileWorkflowWin32 {
         } while ([DateTime]::UtcNow -lt $until)
         throw "Timed out waiting for Marker-owned #32770 picker with filename Edit and '$buttonCaption' button."
     }
-    function Assert-PickerInputTarget($picker) {
+    function Assert-PickerInputTarget($picker, [string]$stage = 'input') {
         $dialogPid = [uint32]0; $fieldPid = [uint32]0
         [void][MarkerFileWorkflowWin32]::GetWindowThreadProcessId($picker.Handle, [ref]$dialogPid)
         [void][MarkerFileWorkflowWin32]::GetWindowThreadProcessId($picker.FieldHandle, [ref]$fieldPid)
-        if ([MarkerFileWorkflowWin32]::GetForegroundWindow() -ne $picker.Handle -or
-            -not [MarkerFileWorkflowWin32]::IsOwnedPicker($picker.Handle, $mainWindow, [uint32]$process.Id) -or
+        $foreground = [MarkerFileWorkflowWin32]::GetForegroundWindow()
+        $foregroundPid = [uint32]0
+        if ($foreground -ne [IntPtr]::Zero) { [void][MarkerFileWorkflowWin32]::GetWindowThreadProcessId($foreground, [ref]$foregroundPid) }
+        $owned = [MarkerFileWorkflowWin32]::IsOwnedPicker($picker.Handle, $mainWindow, [uint32]$process.Id)
+        $isChild = [MarkerFileWorkflowWin32]::IsChild($picker.Handle, $picker.FieldHandle)
+        $fieldRoot = [MarkerFileWorkflowWin32]::GetAncestor($picker.FieldHandle, 2)
+        $controlId = [MarkerFileWorkflowWin32]::GetDlgCtrlID($picker.FieldHandle)
+        $automationId = $picker.Field.Current.AutomationId
+        if ($foreground -ne $picker.Handle -or -not $owned -or
             $dialogPid -ne $picker.ProcessId -or $fieldPid -ne $picker.ProcessId -or
+            -not $isChild -or $fieldRoot -ne $picker.Handle -or
+            $controlId -ne $picker.FieldId -or $automationId -ne [string]$picker.FieldId) {
+            $foregroundTitle = if ($foreground -eq [IntPtr]::Zero) { '<none>' } else { [MarkerFileWorkflowWin32]::Title($foreground) }
+            throw ("Picker target invalid at {0}: foreground=0x{1:X} pid={2} title='{3}', picker=0x{4:X} pid={5} owned={6}, dialogPid={7}, fieldPid={8}, child={9}, fieldRoot=0x{10:X}, controlId={11}, automationId='{12}'." -f
+                $stage, $foreground.ToInt64(), $foregroundPid, $foregroundTitle, $picker.Handle.ToInt64(), $picker.ProcessId, $owned, $dialogPid, $fieldPid, $isChild, $fieldRoot.ToInt64(), $controlId, $automationId)
+        }
+    }
+    function Focus-ValidatedPicker($picker) {
+        if (-not [MarkerFileWorkflowWin32]::IsOwnedPicker($picker.Handle, $mainWindow, [uint32]$process.Id) -or
             -not [MarkerFileWorkflowWin32]::IsChild($picker.Handle, $picker.FieldHandle) -or
             [MarkerFileWorkflowWin32]::GetAncestor($picker.FieldHandle, 2) -ne $picker.Handle -or
             [MarkerFileWorkflowWin32]::GetDlgCtrlID($picker.FieldHandle) -ne $picker.FieldId -or
             $picker.Field.Current.AutomationId -ne [string]$picker.FieldId) {
-            throw 'The picker lost foreground or the validated filename Edit identity changed during input.'
+            throw 'Refusing to focus a picker or filename Edit that no longer matches the validated Marker-owned controls.'
         }
+        if ([MarkerFileWorkflowWin32]::GetForegroundWindow() -ne $picker.Handle) {
+            # Windows can reject SetForegroundWindow for a modal WinRT picker. UIA SetFocus targets
+            # the already-validated filename Edit and lets its owning picker activate normally.
+            try { $picker.Field.SetFocus() } catch { }
+            Start-Sleep -Milliseconds 100
+        }
+        if ([MarkerFileWorkflowWin32]::GetForegroundWindow() -ne $picker.Handle) {
+            [void][MarkerFileWorkflowWin32]::SetForegroundWindow($picker.Handle)
+            Start-Sleep -Milliseconds 100
+        }
+        Assert-PickerInputTarget $picker 'after activation'
     }
     function Click-PickerControl($picker, [IntPtr]$control, [bool]$mayClosePicker = $false) {
-        Assert-PickerInputTarget $picker
+        Assert-PickerInputTarget $picker 'before control click'
         if ($control -ne $picker.FieldHandle -and $control -ne $picker.Button) { throw 'Refused to click a control outside the validated picker Edit and action button.' }
         if ($control -eq $picker.Button -and -not [MarkerFileWorkflowWin32]::IsPickerButton($picker.Handle, $control, $picker.ButtonCaption)) {
             throw 'The picker action button changed before the mouse click.'
@@ -278,10 +305,10 @@ public static class MarkerFileWorkflowWin32 {
         if (-not [MarkerFileWorkflowWin32]::GetWindowRect($control, [ref]$rect)) { throw 'Could not read the validated picker control bounds.' }
         $x = [int](($rect.Left + $rect.Right) / 2); $y = [int](($rect.Top + $rect.Bottom) / 2)
         if (-not [MarkerFileWorkflowWin32]::SetCursorPos($x, $y)) { throw 'Could not move the pointer to the validated picker control.' }
-        Assert-PickerInputTarget $picker
+        Assert-PickerInputTarget $picker 'after pointer positioning'
         [MarkerFileWorkflowWin32]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
         [MarkerFileWorkflowWin32]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
-        if (-not $mayClosePicker) { Assert-PickerInputTarget $picker }
+        if (-not $mayClosePicker) { Assert-PickerInputTarget $picker 'after control click' }
     }
     function Set-PickerPath($picker, [string]$path) {
         if (-not [MarkerFileWorkflowWin32]::IsOwnedPicker($picker.Handle, $mainWindow, [uint32]$process.Id) -or
@@ -291,19 +318,19 @@ public static class MarkerFileWorkflowWin32 {
             $picker.Field.Current.AutomationId -ne [string]$picker.FieldId) {
             throw 'The filename Edit is no longer the validated child of this Marker-owned picker.'
         }
-        if (-not [MarkerFileWorkflowWin32]::SetForegroundWindow($picker.Handle) -and
-            [MarkerFileWorkflowWin32]::GetForegroundWindow() -ne $picker.Handle) { throw 'Could not activate the validated file picker.' }
-        Assert-PickerInputTarget $picker
+        Focus-ValidatedPicker $picker
         Click-PickerControl $picker $picker.FieldHandle
-        Assert-PickerInputTarget $picker
+        Start-Sleep -Milliseconds 100
+        Assert-PickerInputTarget $picker 'after filename control click'
         [System.Windows.Forms.SendKeys]::SendWait('^a')
-        Assert-PickerInputTarget $picker
+        Start-Sleep -Milliseconds 100
+        Assert-PickerInputTarget $picker 'before Unicode path input'
         if (-not [MarkerFileWorkflowWin32]::SendUnicodeText($picker.FieldHandle, $path)) { throw 'Could not send the path characters to the validated filename Edit.' }
         Start-Sleep -Milliseconds 200
-        Assert-PickerInputTarget $picker
+        Assert-PickerInputTarget $picker 'after Unicode path input'
         [System.Windows.Forms.SendKeys]::SendWait('{TAB}')
         Start-Sleep -Milliseconds 100
-        Assert-PickerInputTarget $picker
+        Assert-PickerInputTarget $picker 'after focus tab to action button'
         # GetWindowText only reads captions across processes; ask the verified Edit directly for WM_GETTEXT.
         $fieldText = [Text.StringBuilder]::new([Math]::Max(512, $path.Length + 1))
         $readLengthResult = [MarkerFileWorkflowWin32]::ReadWindowTextMessage($picker.FieldHandle, 0x000D, [IntPtr]$fieldText.Capacity, $fieldText)
