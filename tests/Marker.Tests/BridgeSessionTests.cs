@@ -103,6 +103,24 @@ public sealed class BridgeSessionTests
     }
 
     [TestMethod]
+    public void SourceModeAcceptsOnlyCurrentTrustedBooleanState()
+    {
+        var session = new BridgeSession("session-1");
+        const string message = """{"type":"sourceMode","protocolVersion":1,"sessionId":"session-1","version":0,"sourceMode":true}""";
+        Assert.IsFalse(session.TryReadSourceMode(EditorUrl, EditorUrl, message, out _, out _));
+        Assert.IsTrue(session.TryAcceptSnapshot(EditorUrl, EditorUrl, Snapshot("session-1", 0, "text"), out _, out _));
+        Assert.IsTrue(session.TryReadSourceMode(EditorUrl, EditorUrl, message, out var mode, out _));
+        Assert.IsTrue(mode);
+        Assert.IsTrue(session.TryReadSourceMode(EditorUrl, EditorUrl, message.Replace("true", "false"), out mode, out _));
+        Assert.IsFalse(mode);
+        Assert.IsFalse(session.TryReadSourceMode("https://attacker.example/", EditorUrl, message, out _, out _));
+        Assert.IsFalse(session.TryReadSourceMode(EditorUrl, EditorUrl, message.Replace("session-1", "session-2"), out _, out _));
+        Assert.IsFalse(session.TryReadSourceMode(EditorUrl, EditorUrl, message.Replace("\"version\":0", "\"version\":1"), out _, out _));
+        Assert.IsFalse(session.TryReadSourceMode(EditorUrl, EditorUrl, message.Replace("true", "\"true\""), out _, out _));
+        Assert.IsFalse(session.TryReadSourceMode(EditorUrl, EditorUrl, message.Replace("true}", "true,\"extra\":1}"), out _, out _));
+    }
+
+    [TestMethod]
     public void RejectsUntrustedSourcesMalformedMessagesAndOversizedText()
     {
         var session = new BridgeSession("session-1");

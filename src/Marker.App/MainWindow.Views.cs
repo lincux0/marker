@@ -56,7 +56,7 @@ public sealed partial class MainWindow
 
     internal void SendEditorCommand(string command)
     {
-        if (_closed || _operationBusy || !_editorReady || command is not ("undo" or "redo" or "find" or "replace"))
+        if (_closed || _operationBusy || !_editorReady || command is not ("undo" or "redo" or "find" or "replace" or "toggleSource"))
             return;
         _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {

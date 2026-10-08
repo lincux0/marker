@@ -172,6 +172,18 @@ internal sealed class BridgeSession(string sessionId)
         return true;
     }
 
+    public bool TryReadSourceMode(string source, string expectedSource, string json, out bool sourceMode, out string error)
+    {
+        sourceMode = false;
+        if (!TryRead(source, expectedSource, json, "sourceMode", ["type", "protocolVersion", "sessionId", "version", "sourceMode"], out var root, out error)) return false;
+        if (!HasMatchingSession(root, out error)) return false;
+        if (_text is null || !TryReadInt64(root, "version", out var version) || version != Version ||
+            !root.TryGetProperty("sourceMode", out var mode) || mode.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            return Fail("代码模式状态与当前文档不匹配。", out error);
+        sourceMode = mode.GetBoolean();
+        return true;
+    }
+
     public bool TryReadPreviewAction(string source, string expectedSource, string json, out string action, out int offset, out string? url, out string error)
     {
         action = string.Empty;

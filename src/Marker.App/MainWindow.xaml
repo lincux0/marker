@@ -43,26 +43,27 @@
                 </Border>
                 <TextBlock Text="Marker" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                <Button x:Name="NewButton" Style="{StaticResource QuietButton}" AutomationProperties.Name="新建文档" AutomationProperties.AutomationId="NewDocument" ToolTipService.ToolTip="新建文档 · Ctrl+N" Click="NewDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE8A5;" FontSize="16"/><TextBlock Text="新建"/></StackPanel></Button>
-                <Button x:Name="OpenButton" Style="{StaticResource QuietButton}" AutomationProperties.AutomationId="OpenDocument" ToolTipService.ToolTip="打开 · Ctrl+O" Click="OpenDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE8E5;" FontSize="16"/><TextBlock Text="打开"/></StackPanel></Button>
-                <Button x:Name="SaveButton" Style="{StaticResource QuietButton}" AutomationProperties.AutomationId="SaveDocument" ToolTipService.ToolTip="保存 · Ctrl+S" Click="SaveDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE74E;" FontSize="16"/><TextBlock Text="保存"/></StackPanel></Button>
-                <Button Style="{StaticResource QuietButton}" AutomationProperties.Name="另存为" AutomationProperties.AutomationId="SaveAsDocument" ToolTipService.ToolTip="另存为 · Ctrl+Shift+S" Click="SaveAsDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE792;" FontSize="16"/><TextBlock Text="另存为"/></StackPanel></Button>
-                <Button Style="{StaticResource QuietButton}" AutomationProperties.Name="恢复草稿" AutomationProperties.AutomationId="RecoverDocument" ToolTipService.ToolTip="恢复草稿" Click="RecoverDocument_Click"><StackPanel Orientation="Horizontal" Spacing="7"><FontIcon Glyph="&#xE81C;" FontSize="16"/><TextBlock Text="恢复"/></StackPanel></Button>
-            </StackPanel>
+            <CommandBar x:Name="DocumentCommandBar" Grid.Column="1" Height="40" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" DefaultLabelPosition="Right" IsDynamicOverflowEnabled="True">
+                <CommandBar.PrimaryCommands>
+                    <AppBarButton x:Name="NewButton" Label="新建" LabelPosition="Collapsed" AutomationProperties.Name="新建文档" AutomationProperties.AutomationId="NewDocument" ToolTipService.ToolTip="新建文档 · Ctrl+N" Click="NewDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE8A5;"/></AppBarButton.Icon></AppBarButton>
+                    <AppBarButton x:Name="OpenButton" Label="打开" LabelPosition="Collapsed" AutomationProperties.Name="打开" AutomationProperties.AutomationId="OpenDocument" ToolTipService.ToolTip="打开 · Ctrl+O" Click="OpenDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE8E5;"/></AppBarButton.Icon></AppBarButton>
+                    <AppBarButton x:Name="SaveButton" Label="保存" LabelPosition="Collapsed" AutomationProperties.Name="保存" AutomationProperties.AutomationId="SaveDocument" ToolTipService.ToolTip="保存 · Ctrl+S" Click="SaveDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE74E;"/></AppBarButton.Icon></AppBarButton>
+                    <AppBarToggleButton x:Name="SourceModeButton" Label="代码模式" AutomationProperties.Name="代码模式" AutomationProperties.AutomationId="SourceMode" ToolTipService.ToolTip="代码模式 · Ctrl+Alt+M" Click="SourceMode_Click"><AppBarToggleButton.Icon><FontIcon Glyph="&#xE943;"/></AppBarToggleButton.Icon></AppBarToggleButton>
+                    <AppBarButton x:Name="SaveAsButton" Label="另存为" LabelPosition="Collapsed" AutomationProperties.Name="另存为" AutomationProperties.AutomationId="SaveAsDocument" ToolTipService.ToolTip="另存为 · Ctrl+Shift+S" Click="SaveAsDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE792;"/></AppBarButton.Icon></AppBarButton>
+                    <AppBarButton x:Name="RecoverButton" Label="恢复草稿" LabelPosition="Collapsed" AutomationProperties.Name="恢复草稿" AutomationProperties.AutomationId="RecoverDocument" ToolTipService.ToolTip="恢复草稿" Click="RecoverDocument_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE81C;"/></AppBarButton.Icon></AppBarButton>
+                    <AppBarButton x:Name="UndoButton" Label="撤销" LabelPosition="Collapsed" AutomationProperties.Name="撤销" AutomationProperties.AutomationId="Undo" ToolTipService.ToolTip="撤销 · Ctrl+Z" Click="Undo_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE7A7;"/></AppBarButton.Icon></AppBarButton>
+                    <AppBarButton x:Name="RedoButton" Label="重做" LabelPosition="Collapsed" AutomationProperties.Name="重做" AutomationProperties.AutomationId="Redo" ToolTipService.ToolTip="重做 · Ctrl+Y" Click="Redo_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE7A6;"/></AppBarButton.Icon></AppBarButton>
+                    <AppBarButton x:Name="FindButton" Label="查找" LabelPosition="Collapsed" AutomationProperties.Name="查找" AutomationProperties.AutomationId="Find" ToolTipService.ToolTip="查找 · Ctrl+F" Click="Find_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE721;"/></AppBarButton.Icon></AppBarButton>
+                    <AppBarButton x:Name="ReplaceButton" Label="替换" LabelPosition="Collapsed" AutomationProperties.Name="替换" AutomationProperties.AutomationId="Replace" ToolTipService.ToolTip="替换 · Ctrl+H" Click="Replace_Click"><AppBarButton.Icon><FontIcon Glyph="&#xE8AC;"/></AppBarButton.Icon></AppBarButton>
+                </CommandBar.PrimaryCommands>
+            </CommandBar>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <ToggleButton x:Name="AppearanceButton" Style="{StaticResource QuietToggle}" AutomationProperties.Name="外观与排版" AutomationProperties.AutomationId="Appearance" ToolTipService.ToolTip="外观与排版" Click="Appearance_Click"><FontIcon Glyph="&#xE713;" FontSize="16"/></ToggleButton>
             </StackPanel>
         </Grid>
         <Grid Grid.Row="1" x:Name="DocumentRow">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <TextBlock x:Name="DocumentStatus" VerticalAlignment="Center" FontSize="13" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DocumentStatus"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
-                <Button x:Name="UndoButton" Style="{StaticResource QuietButton}" AutomationProperties.Name="撤销" AutomationProperties.AutomationId="Undo" ToolTipService.ToolTip="撤销 · Ctrl+Z" Click="Undo_Click"><FontIcon Glyph="&#xE7A7;" FontSize="15"/></Button>
-                <Button x:Name="RedoButton" Style="{StaticResource QuietButton}" AutomationProperties.Name="重做" AutomationProperties.AutomationId="Redo" ToolTipService.ToolTip="重做 · Ctrl+Y" Click="Redo_Click"><FontIcon Glyph="&#xE7A6;" FontSize="15"/></Button>
-                <Button x:Name="FindButton" Style="{StaticResource QuietButton}" AutomationProperties.Name="查找" AutomationProperties.AutomationId="Find" ToolTipService.ToolTip="查找 · Ctrl+F" Click="Find_Click"><FontIcon Glyph="&#xE721;" FontSize="15"/></Button>
-                <Button x:Name="ReplaceButton" Style="{StaticResource QuietButton}" AutomationProperties.Name="替换" AutomationProperties.AutomationId="Replace" ToolTipService.ToolTip="替换 · Ctrl+H" Click="Replace_Click"><FontIcon Glyph="&#xE8AC;" FontSize="15"/></Button>
-            </StackPanel>
+            <TextBlock x:Name="DocumentStatus" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="DocumentStatus"/>
         </Grid>
         <Border x:Name="AppearancePanel" Grid.Row="2" Visibility="Collapsed" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="9" Padding="12,8">
             <StackPanel Spacing="6">

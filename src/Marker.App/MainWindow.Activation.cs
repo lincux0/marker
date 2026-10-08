@@ -81,19 +81,13 @@ public sealed partial class MainWindow
             Interlocked.Exchange(ref _fileActivationReceived, 1);
         if (!DispatcherQueue.TryEnqueue(() =>
         {
-            var rejected = 0;
             foreach (var candidate in candidates)
             {
                 if (!MarkdownActivation.TryNormalizePath(candidate, out var path))
-                {
-                    rejected++;
                     continue;
-                }
                 if (_queuedFileOpenPaths.Add(path)) _pendingFileOpenPaths.Enqueue(path);
             }
 
-            if (rejected > 0)
-                SetStatus("已忽略不支持的启动参数；仅接受 .md 和 .markdown 文件。 ");
             Native.ShowWindow(_window, IsIconic(_window) ? 9 : 5);
             SetForegroundWindow(_window);
             ConsumePendingFileActivations();

@@ -7,7 +7,7 @@ import { closeSearchPanel, findNext, findPrevious, getSearchQuery, openSearchPan
 import { EditorView, keymap, type Panel } from "@codemirror/view";
 import { enableFileDrop } from "./file-drop";
 import { markdownLinkActions } from "./links";
-import { imageResources, liveMarkdown } from "./live-markdown";
+import { imageResources, liveMarkdown, markdownFormattingKeymap, toggleSourceMode } from "./live-markdown";
 import "./style.css";
 
 declare global {
@@ -122,6 +122,12 @@ function sendSnapshot(requestId?: string): void {
 
 function sendCommand(command: "new" | "open" | "save" | "saveAs"): boolean {
   return sessionId ? post({ type: "command", sessionId, command }) : false;
+}
+
+function toggleSource(editor: EditorView): boolean {
+  if (!toggleSourceMode(editor)) return false;
+  post({ type: "sourceMode", sessionId, version, sourceMode: editor.dom.dataset.sourceMode === "true" });
+  return true;
 }
 
 editorParent.addEventListener("keydown", (event: KeyboardEvent) => {
@@ -270,6 +276,7 @@ function applyHostMessage(value: unknown): void {
   }
   if (message.type === "editorCommand" && exact("type", "protocolVersion", "sessionId", "command") && message.sessionId === sessionId && view) {
     if (view.compositionStarted) {
+      if (message.command === "toggleSource") post({ type: "sourceMode", sessionId, version, sourceMode: view.dom.dataset.sourceMode === "true" });
       setStatus("请先完成输入法候选输入，再执行编辑器命令。");
       return;
     }
@@ -278,6 +285,7 @@ function applyHostMessage(value: unknown): void {
       case "redo": redo(view); break;
       case "find": openSearchPanel(view); break;
       case "replace": openReplacePanel(view); break;
+      case "toggleSource": toggleSource(view); break;
     }
     return;
   }
@@ -318,6 +326,7 @@ function initialize(nextSessionId: string, text: string): void {
       extensions: [
         markdown({ base: markdownLanguage }),
         liveMarkdown,
+        markdownFormattingKeymap,
         markdownLinkActions(
           url => { if (sessionId) post({ type: "openLink", sessionId, version, url }); },
           () => setStatus("当前仅支持打开 HTTP(S) 绝对链接；相对链接和页内锚点可按 Ctrl+Alt+M 编辑。"),
@@ -326,6 +335,7 @@ function initialize(nextSessionId: string, text: string): void {
         search({ top: true, createPanel: createSearchPanel }),
         settingsCompartment.of([]),
         keymap.of([
+          { key: "Ctrl-Alt-m", run: toggleSource, preventDefault: true },
           { key: "Ctrl-Enter", run: insertParagraph },
           { key: "Ctrl-n", run: () => sendCommand("new") },
           { key: "Ctrl-o", run: () => sendCommand("open") },
@@ -371,6 +381,7 @@ function initialize(nextSessionId: string, text: string): void {
   styleSettings(settings);
   sendSnapshot();
   sendStatus(view);
+  post({ type: "sourceMode", sessionId, version, sourceMode: false });
 }
 
 bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {

@@ -1,6 +1,6 @@
 import { syntaxTree } from "@codemirror/language";
-import { deleteCharBackward } from "@codemirror/commands";
-import { EditorSelection, Prec, StateEffect, StateField, type EditorState, type Range } from "@codemirror/state";
+import { deleteCharBackward, isolateHistory } from "@codemirror/commands";
+import { EditorSelection, Prec, StateEffect, StateField, type EditorState, type SelectionRange, type Range } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, keymap, type DecorationSet } from "@codemirror/view";
 
 export const imageResources = StateEffect.define<ReadonlyMap<string, string>>();
@@ -205,6 +205,98 @@ const presentation = StateField.define<Presentation>({
   provide: field => [EditorView.decorations.from(field, value => value.decorations), EditorView.atomicRanges.of(view => view.state.field(field).atoms)],
 });
 
+export function toggleSourceMode(view: EditorView): boolean {
+  if (view.compositionStarted || view.state.readOnly) return false;
+  const source = !view.state.field(presentation).source;
+  view.dispatch({ effects: toggleSource.of(source) });
+  view.dom.dataset.sourceMode = String(source);
+  return true;
+}
+
+type TextReplacement = { from: number; to: number; insert: string };
+
+function editRanges(view: EditorView, transform: (range: SelectionRange, state: EditorState) => { changes?: TextReplacement | TextReplacement[]; range: SelectionRange }): boolean {
+  if (view.compositionStarted || view.state.readOnly) return false;
+  const spec = view.state.changeByRange(range => transform(range, view.state));
+  view.dispatch({ ...spec, userEvent: "input", annotations: isolateHistory.of("full") });
+  return true;
+}
+
+function wrapSelection(before: string, after = before, placeholder = "文本"): (view: EditorView) => boolean {
+  return view => editRanges(view, (range, state) => {
+    const { from, to } = range;
+    const selected = state.sliceDoc(from, to);
+    const hasOuterMarks = from >= before.length && to + after.length <= state.doc.length &&
+      state.sliceDoc(from - before.length, from) === before && state.sliceDoc(to, to + after.length) === after;
+    if (hasOuterMarks && selected) {
+      const unwrappedFrom = from - before.length;
+      const selectionTo = unwrappedFrom + selected.length;
+      const changeTo = to + after.length;
+      const anchor = range.anchor <= range.head ? unwrappedFrom : selectionTo;
+      const head = range.anchor <= range.head ? selectionTo : unwrappedFrom;
+      return { changes: { from: unwrappedFrom, to: changeTo, insert: selected }, range: EditorSelection.range(anchor, head) };
+    }
+    const content = selected || placeholder;
+    const insert = `${before}${content}${after}`;
+    const contentFrom = from + before.length;
+    const anchor = selected ? (range.anchor <= range.head ? contentFrom : contentFrom + selected.length) : contentFrom;
+    const head = selected ? (range.anchor <= range.head ? contentFrom + selected.length : contentFrom) : contentFrom + placeholder.length;
+    return { changes: { from, to, insert }, range: EditorSelection.range(anchor, head) };
+  });
+}
+
+function setHeading(level: number): (view: EditorView) => boolean {
+  return view => {
+    if (view.compositionStarted || view.state.readOnly) return false;
+    const { state } = view;
+    const requestedPrefix = level ? `${"#".repeat(level)} ` : "";
+    const lineStarts = new Set<number>();
+    for (const range of state.selection.ranges) {
+      const first = state.doc.lineAt(range.from);
+      const last = state.doc.lineAt(range.to > range.from ? range.to - 1 : range.to);
+      for (let number = first.number; number <= last.number; number++) lineStarts.add(state.doc.line(number).from);
+    }
+    const changes: TextReplacement[] = [];
+    for (const from of [...lineStarts].sort((a, b) => a - b)) {
+      const line = state.doc.lineAt(from);
+      const oldPrefix = /^(#{1,6})[ \t]+/.exec(line.text)?.[0] ?? "";
+      const newPrefix = oldPrefix === requestedPrefix ? "" : requestedPrefix;
+      if (oldPrefix !== newPrefix) changes.push({ from, to: from + oldPrefix.length, insert: newPrefix });
+    }
+    const mapPosition = (position: number): number => {
+      let delta = 0;
+      for (const change of changes) {
+        if (position < change.from) break;
+        if (position <= change.to) return change.from + delta + change.insert.length;
+        delta += change.insert.length - (change.to - change.from);
+      }
+      return position + delta;
+    };
+    view.dispatch({
+      changes,
+      selection: EditorSelection.create(state.selection.ranges.map(range => EditorSelection.range(mapPosition(range.anchor), mapPosition(range.head))), state.selection.mainIndex),
+      userEvent: "input",
+      annotations: isolateHistory.of("full"),
+    });
+    return true;
+  };
+}
+
+export const markdownFormattingKeymap = keymap.of([
+  { key: "Ctrl-b", run: wrapSelection("**"), preventDefault: true },
+  { key: "Ctrl-i", run: wrapSelection("*"), preventDefault: true },
+  { key: "Ctrl-Shift-`", run: wrapSelection("`"), preventDefault: true },
+  { key: "Alt-Shift-5", run: wrapSelection("~~"), preventDefault: true },
+  { key: "Ctrl-k", run: wrapSelection("[", "](url)", "链接文本"), preventDefault: true },
+  { key: "Ctrl-1", run: setHeading(1), preventDefault: true },
+  { key: "Ctrl-2", run: setHeading(2), preventDefault: true },
+  { key: "Ctrl-3", run: setHeading(3), preventDefault: true },
+  { key: "Ctrl-4", run: setHeading(4), preventDefault: true },
+  { key: "Ctrl-5", run: setHeading(5), preventDefault: true },
+  { key: "Ctrl-6", run: setHeading(6), preventDefault: true },
+  { key: "Ctrl-0", run: setHeading(0), preventDefault: true },
+]);
+
 function toggleTask(view: EditorView, checkbox: Element, keepCheckboxFocus = false): boolean {
   if (view.compositionStarted || view.state.readOnly) return false;
   const position = view.posAtDOM(checkbox);
@@ -241,13 +333,6 @@ export const liveMarkdown = [
     view.dispatch({ selection: EditorSelection.cursor(anchor) });
     return deleteCharBackward(view);
   }, preventDefault: true }])),
-  keymap.of([{ key: "Ctrl-Alt-m", run(view: EditorView) {
-    if (view.compositionStarted) return false;
-    const source = !view.state.field(presentation).source;
-    view.dispatch({ effects: toggleSource.of(source) });
-    view.dom.dataset.sourceMode = String(source);
-    return true;
-  }, preventDefault: true }]),
   EditorView.domEventHandlers({
     compositionstart(_event, view) { view.dispatch({ effects: composition.of(true) }); return false; },
     compositionend(_event, view) {

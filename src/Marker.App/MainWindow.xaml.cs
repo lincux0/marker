@@ -42,6 +42,7 @@ public sealed partial class MainWindow : UserControl
     private long _renderRequest;
     private bool _editorReady;
     private bool _previewReady;
+    private bool _sourceMode;
     private bool _closed;
     private nint _lastFocus;
 
@@ -254,6 +255,13 @@ public sealed partial class MainWindow : UserControl
             return;
         }
 
+        if (_session.TryReadSourceMode(source, EditorUrl, json, out var sourceMode, out _))
+        {
+            _sourceMode = sourceMode;
+            SourceModeButton.IsChecked = sourceMode;
+            return;
+        }
+
         if (_session.TryReadEditorStatus(source, EditorUrl, json, out var editorStatus, out _))
         {
             return;
@@ -416,6 +424,16 @@ public sealed partial class MainWindow : UserControl
         NotificationStatus.Text = message;
         NotificationStatus.Visibility = Visibility.Visible;
         Layout();
+    }
+
+    private void SourceMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closed || _operationBusy || !_editorReady || _editor is null)
+        {
+            SourceModeButton.IsChecked = _sourceMode;
+            return;
+        }
+        SendEditorCommand("toggleSource");
     }
 
     private void Layout()
