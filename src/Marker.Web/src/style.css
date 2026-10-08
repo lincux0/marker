@@ -347,18 +347,10 @@ html[data-theme="dark"] .cm-search-panel button[data-action="replace-all"] {
   outline-offset: 2px;
 }
 
-#editor[data-empty="true"]::after {
-  position: absolute;
-  top: clamp(106px, 18vh, 170px);
-  left: 50%;
-  width: min(78ch, calc(100% - 52px));
+#editor .cm-placeholder {
   color: var(--editor-muted);
-  content: "写下新的想法…";
-  font: 14px/1.8 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
-  white-space: pre-wrap;
-  pointer-events: none;
-  transform: translateX(-50%);
-  opacity: 0.76;
+  font: inherit;
+  opacity: .76;
 }
 
 #status {

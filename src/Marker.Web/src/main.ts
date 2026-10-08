@@ -4,7 +4,7 @@ import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from "@code
 import { tags } from "@lezer/highlight";
 import { Compartment, EditorState } from "@codemirror/state";
 import { closeSearchPanel, findNext, findPrevious, getSearchQuery, openSearchPanel, replaceAll, replaceNext, search, searchKeymap, SearchQuery, setSearchQuery } from "@codemirror/search";
-import { EditorView, keymap, type Panel } from "@codemirror/view";
+import { EditorView, keymap, placeholder, type Panel } from "@codemirror/view";
 import { enableFileDrop } from "./file-drop";
 import { markdownLinkActions } from "./links";
 import { imageResources, liveMarkdown, markdownFormattingKeymap, toggleSourceMode } from "./live-markdown";
@@ -369,6 +369,7 @@ function initialize(nextSessionId: string, text: string): void {
       doc: text,
       extensions: [
         markdown({ base: markdownLanguage }),
+        placeholder("写下新的想法…"),
         liveMarkdown,
         markdownFormattingKeymap,
         markdownLinkActions(
@@ -391,7 +392,6 @@ function initialize(nextSessionId: string, text: string): void {
         EditorView.contentAttributes.of({ "aria-label": "Markdown 呈现编辑器", "aria-description": "点击文档直接编辑。Ctrl+Enter 新建段落，Ctrl+Alt+M 临时查看或隐藏 Markdown 源码" }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
-            editorParent!.dataset.empty = String(update.state.doc.length === 0);
             if (version >= Number.MAX_SAFE_INTEGER) {
               fullSnapshotPending = true;
               setStatus("编辑器版本已达上限；内容保留在本地编辑器中。");
@@ -421,7 +421,6 @@ function initialize(nextSessionId: string, text: string): void {
       ],
     }),
   });
-  editorParent!.dataset.empty = String(view.state.doc.length === 0);
   styleSettings(settings);
   sendSnapshot();
   sendStatus(view);
