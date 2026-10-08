@@ -1,6 +1,9 @@
 ﻿param(
     [string]$SourcePath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'asserts/icon.png'),
-    [string]$AssetsPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'src/Marker.App/Assets')
+    [string]$AssetsPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'src/Marker.App/Assets'),
+    # The source uses a full-canvas gradient, so background-color detection cannot
+    # identify the document mark. Rectangle is x, y, width, height in source pixels.
+    [int[]]$CropRectangle = @(393, 388, 470, 470)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,40 +17,18 @@ if (-not (Test-Path -LiteralPath $assetsPath -PathType Container)) {
 
 $source = [System.Drawing.Bitmap]::FromFile($sourcePath)
 try {
-    $background = $source.GetPixel(0, 0)
-    $threshold = 8
-    $left = $source.Width
-    $top = $source.Height
-    $right = -1
-    $bottom = -1
-
-    for ($y = 0; $y -lt $source.Height; $y++) {
-        for ($x = 0; $x -lt $source.Width; $x++) {
-            $pixel = $source.GetPixel($x, $y)
-            $distance = [Math]::Abs($pixel.R - $background.R) +
-                [Math]::Abs($pixel.G - $background.G) +
-                [Math]::Abs($pixel.B - $background.B)
-            if ($distance -gt $threshold) {
-                if ($x -lt $left) { $left = $x }
-                if ($x -gt $right) { $right = $x }
-                if ($y -lt $top) { $top = $y }
-                if ($y -gt $bottom) { $bottom = $y }
-            }
-        }
+    if ($CropRectangle.Count -ne 4) { throw 'CropRectangle must contain x, y, width, height.' }
+    $cropX, $cropY, $cropWidth, $cropHeight = $CropRectangle
+    if ($cropX -lt 0 -or $cropY -lt 0 -or $cropWidth -le 0 -or $cropHeight -le 0) {
+        throw 'CropRectangle coordinates must be non-negative and dimensions must be positive.'
     }
-
-    if ($right -lt $left -or $bottom -lt $top) { throw 'No icon content found.' }
-    $contentWidth = $right - $left + 1
-    $contentHeight = $bottom - $top + 1
-    $cropSize = [Math]::Max($contentWidth, $contentHeight)
-    $cropX = [Math]::Max(0, $left - [Math]::Floor(($cropSize - $contentWidth) / 2))
-    $cropY = [Math]::Max(0, $top - [Math]::Floor(($cropSize - $contentHeight) / 2))
-    if ($cropX + $cropSize -gt $source.Width -or $cropY + $cropSize -gt $source.Height) {
-        throw 'A square crop around the detected icon does not fit inside the source.'
+    if ($cropWidth -ne $cropHeight) { throw 'CropRectangle must be square to generate the app icon assets.' }
+    if ($cropX + $cropWidth -gt $source.Width -or $cropY + $cropHeight -gt $source.Height) {
+        throw "CropRectangle ($($CropRectangle -join ', ')) exceeds source bounds $($source.Width)x$($source.Height)."
     }
 
     $crop = $source.Clone(
-        [System.Drawing.Rectangle]::new($cropX, $cropY, $cropSize, $cropSize),
+        [System.Drawing.Rectangle]::new($cropX, $cropY, $cropWidth, $cropHeight),
         [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     try {
         function Save-PngSize([System.Drawing.Bitmap]$Image, [string]$Path, [int]$Width, [int]$Height) {
@@ -145,8 +126,8 @@ try {
     Copy-Item -LiteralPath (Join-Path $assetsPath 'AppLogo.png') -Destination (Join-Path $webPublicPath 'app-logo.png')
 
     Write-Output "Source: $sourcePath ($($source.Width)x$($source.Height))"
-    Write-Output "Detected content: x=$left..$right, y=$top..$bottom ($contentWidth x $contentHeight), threshold=$threshold from top-left background RGB"
-    Write-Output "Square crop: x=$cropX..$($cropX + $cropSize - 1), y=$cropY..$($cropY + $cropSize - 1), $cropSize x $cropSize"
+    Write-Output "CropRectangle: x=$cropX..$($cropX + $cropWidth - 1), y=$cropY..$($cropY + $cropHeight - 1), $cropWidth x $cropHeight"
+    Write-Output 'Estimated document-mark occupancy: 68.1% width x 85.1% height (source bounds x=468..788, y=423..823).'
     Write-Output "Generated AppLogo.png, Store/Square/Wide MSIX PNGs and Marker.ico (16, 24, 32, 48, 64, 128, 256 px)."
 }
 finally { $source.Dispose() }

@@ -169,7 +169,7 @@
 - 实现位置：`src/Marker.App/SettingsWindow.xaml`、`SettingsWindow.xaml.cs`、`AppSettings.cs`、`MainWindow.Views.cs`、`MainWindow.Windows.cs`、`App.xaml.cs`、`src/Marker.Web/src/main.ts`、`style.css`、`preview.css`。
 - Win32 主窗口不计入 XAML Window 数量，应用采用 `DispatcherShutdownMode.OnExplicitShutdown`，关闭设置子窗不会退出；主窗口复用现有未保存确认与显式退出流程。依据：[DispatcherShutdownMode](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.dispatchershutdownmode)。
 
-- 图标变更：根据用户指定的 `asserts/icon.png` 裁剪生成 ICO 与 PNG，应用/设置窗口图标和顶栏右侧 logo 同源；logo 保留原图色彩，不再根据配色替换为通用文档图形。
+- 图标变更：根据用户指定的 `asserts/icon.png` 裁剪生成 ICO 与 PNG，应用/设置窗口图标和顶栏 logo 同源；logo 保留原图色彩，不再根据配色替换为通用文档图形。当前原图为全画布渐变背景，边缘颜色识别无法区分内部留白，因此改用可复现的显式方形裁剪，使文档主体约占高度的 85%。
 
 ## D018 WebView 内浮动工具栏
 

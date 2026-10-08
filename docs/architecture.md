@@ -32,7 +32,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 ### `src/Marker.App/`
 
-- `Assets/`：应用 ICO、顶栏 `AppLogo.png` 与 MSIX 标识素材由用户原图 `asserts/icon.png` 生成；`scripts/build-icon-assets.ps1` 精确裁掉外侧近白留白、等比缩放并封装七尺寸 ICO，保留原图。PNG/ICO 随 EXE 输出复制；原生主窗口与设置窗口从输出 ICO 加载，顶栏右侧使用同源 PNG。
+- `Assets/`：应用 ICO、顶栏 `AppLogo.png` 与 MSIX 标识素材由用户原图 `asserts/icon.png` 生成；`scripts/build-icon-assets.ps1` 按当前素材的显式 `CropRectangle` 裁剪主体、等比缩放并封装七尺寸 ICO，保留原图。PNG/ICO 随 EXE 输出复制；原生主窗口与设置窗口从输出 ICO 加载，顶栏使用同源 PNG。
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
 - `MainWindow.xaml`：XAML Island 工具栏缩为 1×1 隐藏，保留原生控件字段及兼容 handler；主编辑器 WebView 从客户区原点 `(0,0)` 填满整个客户区。可见浮动工具栏放在编辑器 WebView 的 HTML/CSS 层内，覆盖随正文滚动的内容，不跨 HWND。
