@@ -116,7 +116,7 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
       hide(node.from, followingSpace(node.to), new SymbolWidget(label, "cm-md-list-marker"));
     } else if (name === "TaskMarker") {
       const checked = /x/i.test(state.doc.sliceString(node.from, node.to));
-      hide(node.from, followingSpace(node.to), new SymbolWidget(checked ? "✓" : "", `cm-md-task${checked ? " cm-md-task-checked" : ""}`));
+      hide(node.from, followingSpace(node.to), new SymbolWidget("", `cm-md-task${checked ? " cm-md-task-checked" : ""}`));
     } else if (name === "FencedCode" || name === "CodeBlock") {
       const start = state.doc.lineAt(node.from).number;
       const end = state.doc.lineAt(node.to).number;
@@ -165,7 +165,8 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
     } else if (name === "TableHeader" || name === "TableRow") {
       const cells = syntax.getChildren("TableCell");
       if (!cells.length) return;
-      line(node.from, `cm-md-table-row${name === "TableHeader" ? " cm-md-table-header" : ""}`, { style: `--table-columns:${cells.length}` });
+      const lastRow = name === "TableRow" && !syntax.nextSibling;
+      line(node.from, `cm-md-table-row${name === "TableHeader" ? " cm-md-table-header" : ""}${lastRow ? " cm-md-table-last" : ""}`, { style: `--table-columns:${cells.length}` });
       let position = node.from;
       for (const cell of cells) {
         hide(position, cell.from);

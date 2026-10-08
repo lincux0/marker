@@ -121,10 +121,11 @@ body {
 }
 
 #editor .cm-md-h1 { font-size: 2.25em; padding-top: .15em; padding-bottom: .65em; font-weight: 700; }
-#editor .cm-md-h2 { font-size: 1.65em; }
-#editor .cm-md-h3 { font-size: 1.3em; }
-#editor .cm-md-h4 { font-size: 1.12em; }
-#editor .cm-md-h5, #editor .cm-md-h6 { font-size: 1em; }
+#editor .cm-md-h2 { font-size: 1.8em; font-weight: 700; }
+#editor .cm-md-h3 { font-size: 1.5em; }
+#editor .cm-md-h4 { font-size: 1.28em; }
+#editor .cm-md-h5 { font-size: 1.12em; }
+#editor .cm-md-h6 { font-size: 1em; color: var(--editor-muted); }
 #editor .cm-md-heading span:not(.cm-md-link),
 #editor .cm-md-table-header span:not(.cm-md-link),
 #editor .cm-md-image-caption,
@@ -157,21 +158,32 @@ body {
 #editor .cm-md-list-marker { display: inline-block; min-width: 1.35em; color: var(--editor-accent); font-weight: 600; }
 #editor .cm-md-list-marker:empty { min-width: 0; }
 .cm-md-task {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: .85em;
-  height: .85em;
+  display: inline-block;
+  position: relative;
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
   margin-right: .65em;
   border: 1.5px solid var(--editor-muted);
-  border-radius: 4px;
-  vertical-align: -.05em;
+  border-radius: 3px;
+  vertical-align: -.12em;
   cursor: pointer;
   transition: background-color 200ms ease, border-color 200ms ease;
 }
 .cm-md-task:hover { border-color: var(--editor-accent); background: var(--editor-accent-soft); }
 .cm-md-task:focus-visible { outline: 2px solid var(--editor-focus); outline-offset: 3px; }
 .cm-md-task-checked { color: var(--editor-paper); border-color: var(--editor-accent); background: var(--editor-accent); }
+.cm-md-task-checked::after {
+  content: "";
+  position: absolute;
+  width: .28em;
+  height: .5em;
+  top: 50%;
+  left: 50%;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -60%) rotate(45deg);
+}
 
 #editor .cm-md-code-header,
 #editor .cm-md-code-line {
@@ -192,10 +204,21 @@ body {
 .cm-md-image-placeholder { color: var(--editor-muted); margin-right: .5em; }
 .cm-md-rule { display: inline-block; width: 100%; height: 1px; margin-block: .9em; background: var(--editor-border); vertical-align: middle; }
 
-#editor .cm-md-table-row { padding: 0; border: 1px solid var(--editor-border); border-top: 0; border-radius: 0; white-space: normal; }
-#editor .cm-md-table-header { background: var(--editor-accent-soft); border-top: 1px solid var(--editor-border); border-radius: 8px 8px 0 0; font-weight: 650; }
-#editor .cm-md-table-cell { display: inline-block; box-sizing: border-box; width: calc(100% / var(--table-columns, 1)); min-height: 2.5em; padding: .55em .75em; border-right: 1px solid var(--editor-border); overflow-wrap: anywhere; vertical-align: top; }
-#editor .cm-md-table-cell:last-child { border-right: 0; }
+/* Draw column rules on the whole row, so wrapped cells cannot leave gaps. */
+#editor .cm-md-table-row {
+  padding: 0;
+  border: 1px solid var(--editor-border);
+  border-top: 0;
+  border-radius: 0;
+  white-space: normal;
+  background-image: linear-gradient(to right, transparent calc(100% - 1px), var(--editor-border) 0);
+  background-size: calc(100% / var(--table-columns, 1)) 100%;
+  background-clip: padding-box;
+}
+#editor .cm-md-table-header { background-color: var(--editor-accent-soft); border-top: 1px solid var(--editor-border); border-radius: 8px 8px 0 0; font-weight: 650; }
+#editor .cm-md-table-last { border-radius: 0 0 8px 8px; }
+#editor .cm-md-table-header.cm-md-table-last { border-radius: 8px; }
+#editor .cm-md-table-cell { display: inline-block; box-sizing: border-box; width: calc(100% / var(--table-columns, 1)); min-height: 2.5em; padding: .55em .75em; overflow-wrap: anywhere; vertical-align: top; }
 #editor .cm-md-reference { color: var(--editor-muted); font-size: .85em; }
 #editor .cm-editor[data-source-mode="true"] .cm-scroller { font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace; }
 
