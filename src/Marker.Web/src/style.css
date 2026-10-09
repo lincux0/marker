@@ -194,9 +194,10 @@ body {
 #editor .cm-content {
   box-sizing: border-box;
   width: min(100%, var(--editor-paper-width));
+  min-width: min(100%, var(--editor-paper-width));
   max-width: var(--editor-paper-width);
   min-height: calc(100% - 64px);
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   margin: 32px auto;
   padding: clamp(36px, 6vh, 72px) clamp(24px, 6vw, 76px) 160px;
   border: 1px solid color-mix(in srgb, var(--editor-border) 80%, transparent);
