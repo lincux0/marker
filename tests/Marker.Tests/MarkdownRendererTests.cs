@@ -40,7 +40,7 @@ public sealed class MarkdownRendererTests
     }
 
     [TestMethod]
-    public void RewritesOnlyImagesThroughTheResolverAndRemovesRejectedImages()
+    public void RewritesControlledImagesAndKeepsRejectedImagesAsSafeText()
     {
         var html = MarkdownRenderer.Render("[link](https://example.com) ![allowed](photo.png) ![rejected](https://evil.example/x.png)",
             url => url == "photo.png" ? "https://document.marker.example/0123456789abcdef0123456789abcdef/image/0123456789abcdef0123456789abcdef0123456789abcdef" : null);
@@ -48,7 +48,21 @@ public sealed class MarkdownRendererTests
         StringAssert.Contains(html, "href=\"https://example.com\"");
         StringAssert.Contains(html, "src=\"https://document.marker.example/0123456789abcdef0123456789abcdef/image/0123456789abcdef0123456789abcdef0123456789abcdef\"");
         Assert.IsFalse(html.Contains("evil.example", StringComparison.Ordinal));
+        StringAssert.Contains(html, "[图片不可用：rejected]");
         Assert.AreEqual(1, html.Split("<img", StringSplitOptions.None).Length - 1);
+    }
+
+    [TestMethod]
+    public void ShowsUnavailableImageAltWithoutExposingRejectedSource()
+    {
+        const string privatePath = "C:/Users/alice/private/photo.png";
+        var html = MarkdownRenderer.Render($"![诊断图]({privatePath}) ![]({privatePath}) ![诊断 **粗体** `代码`](missing.png)");
+
+        StringAssert.Contains(html, "[图片不可用：诊断图]");
+        StringAssert.Contains(html, "[图片不可用]");
+        StringAssert.Contains(html, "[图片不可用：诊断 粗体 代码]");
+        Assert.IsFalse(html.Contains(privatePath, StringComparison.Ordinal));
+        Assert.IsFalse(html.Contains("<img", StringComparison.Ordinal));
     }
 
     [TestMethod]

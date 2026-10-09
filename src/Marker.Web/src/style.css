@@ -238,9 +238,7 @@ body {
 #editor .cm-md-h6 { font-size: 1em; padding-top: 0; padding-bottom: .12em; }
 #editor .cm-md-paragraph { padding-bottom: var(--editor-paragraph-spacing, .5em); }
 #editor .cm-md-heading span:not(.cm-md-link),
-#editor .cm-md-table-header span:not(.cm-md-link),
-#editor .cm-md-image-caption,
-#editor .cm-md-image-caption span { text-decoration: none; }
+#editor .cm-md-table-header span:not(.cm-md-link) { text-decoration: none; }
 
 .cm-md-strong { font-weight: 650; }
 .cm-md-emphasis { font-style: italic; }
@@ -298,21 +296,26 @@ body {
 
 #editor .cm-md-code-header,
 #editor .cm-md-code-line {
-  padding-inline: 20px;
+  padding-inline: 16px;
+  border-inline: 1px solid var(--editor-border);
   background: color-mix(in srgb, var(--editor-accent-soft) 56%, var(--editor-paper));
   font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace;
-  font-size: .9em;
-  line-height: 1.8;
+  font-size: .875em;
+  line-height: 1.6;
 }
-#editor .cm-md-code-header { border-radius: 10px 10px 0 0; padding-block: 10px 6px; }
-#editor .cm-md-code-language { color: var(--editor-muted); font: 600 .82em/1.6 "Segoe UI", sans-serif; letter-spacing: .04em; }
-#editor .cm-md-code-last { border-radius: 0 0 10px 10px; padding-bottom: 14px; }
+#editor .cm-md-code-header { border-top: 1px solid var(--editor-border); border-radius: 10px 10px 0 0; padding-block: 4px; }
+#editor .cm-md-code-language { color: var(--editor-foreground); font: 600 .875em/1.6 "Segoe UI", sans-serif; }
+#editor .cm-md-code-tools { display: inline-flex; width: 100%; min-height: 32px; align-items: center; justify-content: space-between; gap: 12px; vertical-align: middle; }
+#editor .cm-md-code-copy { flex: none; min-height: 32px; padding: 3px 10px; border: 1px solid var(--editor-border); border-radius: 6px; color: var(--editor-foreground); background: var(--editor-paper); font: 12px/1.4 "Segoe UI", "Microsoft YaHei UI", sans-serif; cursor: pointer; }
+#editor .cm-md-code-copy:hover { background: var(--editor-accent-soft); }
+#editor .cm-md-code-copy:focus-visible { outline: 2px solid var(--editor-focus); outline-offset: 2px; }
+#editor .cm-md-code-last { border-bottom: 1px solid var(--editor-border); border-radius: 0 0 10px 10px; padding-bottom: 12px; }
+#editor .cm-md-code-header.cm-md-code-empty { border-bottom: 1px solid var(--editor-border); border-radius: 10px; }
 .cm-md-link { color: var(--editor-accent); text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: .2em; overflow-wrap: anywhere; }
 .cm-md-image { display: inline-block; width: 100%; margin-block: 1em .35em; vertical-align: middle; }
-.cm-md-image img { display: block; max-width: 100%; max-height: 640px; height: auto; margin-inline: auto; border-radius: 12px; box-shadow: 0 8px 30px rgb(36 27 59 / 9%); }
-.cm-md-image-unavailable img { min-height: 2em; box-shadow: none; }
-.cm-md-image-caption { color: var(--editor-muted); font-size: .87em; }
-.cm-md-image-placeholder { color: var(--editor-muted); margin-right: .5em; }
+.cm-md-image img { display: block; max-width: 100%; max-height: 75vh; width: auto; height: auto; margin-inline: auto; object-fit: contain; }
+.cm-md-image-unavailable { box-sizing: border-box; padding: .65em .8em; border: 1px dashed var(--editor-border); border-radius: 6px; color: var(--editor-foreground); background: var(--editor-paper); overflow-wrap: anywhere; }
+.cm-md-image-placeholder { color: var(--editor-foreground); }
 .cm-md-rule { display: inline-block; width: 100%; height: 1px; margin-block: .9em; background: var(--editor-border); vertical-align: middle; }
 
 /* Draw column rules on the whole row, so wrapped cells cannot leave gaps. */
@@ -322,14 +325,17 @@ body {
   border-top: 0;
   border-radius: 0;
   white-space: normal;
-  background-image: linear-gradient(to right, transparent calc(100% - 1px), var(--editor-border) 0);
+  background-image: linear-gradient(to right, transparent calc(100% - 1px), color-mix(in srgb, var(--editor-border) 45%, transparent) 0);
   background-size: calc(100% / var(--table-columns, 1)) 100%;
   background-clip: padding-box;
 }
-#editor .cm-md-table-header { background-color: var(--editor-accent-soft); border-top: 1px solid var(--editor-border); border-radius: 8px 8px 0 0; font-weight: 650; }
+#editor .cm-md-table-header { background-color: color-mix(in srgb, var(--editor-accent-soft) 40%, var(--editor-paper)); border-top: 1px solid var(--editor-border); border-radius: 8px 8px 0 0; font-weight: 650; }
 #editor .cm-md-table-last { border-radius: 0 0 8px 8px; }
 #editor .cm-md-table-header.cm-md-table-last { border-radius: 8px; }
-#editor .cm-md-table-cell { display: inline-block; box-sizing: border-box; width: calc(100% / var(--table-columns, 1)); min-height: 2.5em; padding: .55em .75em; overflow-wrap: anywhere; vertical-align: top; }
+#editor .cm-md-table-cell { display: inline-block; box-sizing: border-box; width: calc(100% / var(--table-columns, 1)); min-height: 2.5em; padding: .55em .6em; overflow-wrap: anywhere; vertical-align: top; }
+#editor .cm-md-table-align-left { text-align: left; }
+#editor .cm-md-table-align-center { text-align: center; }
+#editor .cm-md-table-align-right { text-align: right; }
 #editor .cm-md-reference { color: var(--editor-muted); font-size: .85em; }
 #editor .cm-editor[data-source-mode="true"] .cm-scroller { font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace; }
 
@@ -555,6 +561,11 @@ html[data-high-contrast="true"][data-color-palette] {
   --editor-focus: Highlight;
   color-scheme: light dark;
 }
+
+html[data-high-contrast="true"] #editor .cm-md-code-header,
+html[data-high-contrast="true"] #editor .cm-md-code-line,
+html[data-high-contrast="true"] #editor .cm-md-table-header { color: CanvasText; background-color: Canvas; }
+html[data-high-contrast="true"] #editor .cm-md-code-copy:hover { color: ButtonText; background: ButtonFace; }
 
 html[data-high-contrast="true"] .marker-toolbar,
 html[data-high-contrast="true"][data-color-palette] .marker-toolbar,

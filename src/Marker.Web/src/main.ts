@@ -82,6 +82,11 @@ function setStatus(message: string): void {
   status.hidden = message.length === 0;
 }
 
+editorParent.addEventListener("marker-code-copy", event => {
+  const copied = (event as CustomEvent<{ copied?: boolean }>).detail?.copied === true;
+  setStatus(copied ? "代码已复制。" : "复制代码失败。");
+});
+
 function post(message: Record<string, unknown>): boolean {
   if (!bridge) return false;
   const packet = { protocolVersion, ...message };

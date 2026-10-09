@@ -250,6 +250,12 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
   });
   const template = document.createElement("template");
   template.innerHTML = clean;
+  const showUnavailable = (image: HTMLImageElement): void => {
+    const placeholder = document.createElement("span");
+    placeholder.className = "image-unavailable";
+    placeholder.textContent = image.alt ? `图片不可用（${image.alt}）` : "图片不可用";
+    image.replaceWith(placeholder);
+  };
   for (const input of template.content.querySelectorAll<HTMLInputElement>("input")) {
     if (input.getAttribute("type")?.toLowerCase() === "checkbox" && input.hasAttribute("disabled")) {
       input.replaceWith(document.createTextNode(input.hasAttribute("checked") ? "☑ " : "☐ "));
@@ -261,7 +267,8 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
   for (const image of template.content.querySelectorAll("img")) {
     const src = image.getAttribute("src") ?? "";
     const match = /^https:\/\/document\.marker\.example\/([0-9a-f]{32})\/image\/[0-9a-f]{48}$/.exec(src);
-    if (!match || match[1] !== sessionId) image.remove();
+    if (!match || match[1] !== sessionId) showUnavailable(image);
+    else image.addEventListener("error", () => showUnavailable(image), { once: true });
   }
   const renderedHeadings = [...template.content.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6")];
   const idSet = new Set<string>();

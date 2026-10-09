@@ -31,7 +31,7 @@ internal static class MarkdownRenderer
         foreach (var image in document.Descendants<LinkInline>().Where(inline => inline.IsImage).ToArray())
         {
             var resolved = image.Url is null ? null : resolveImage?.Invoke(image.Url);
-            if (string.IsNullOrWhiteSpace(resolved)) image.Remove();
+            if (string.IsNullOrWhiteSpace(resolved)) image.ReplaceBy(new LiteralInline(GetImageUnavailableText(image)));
             else image.Url = resolved;
         }
 
@@ -104,6 +104,37 @@ internal static class MarkdownRenderer
             }
         }
         return text.ToString().Trim();
+    }
+
+    private static string GetImageUnavailableText(LinkInline image)
+    {
+        var alt = new StringBuilder();
+        AppendInlineText(image.FirstChild, alt);
+        return alt.Length == 0 ? "[图片不可用]" : $"[图片不可用：{alt}]";
+    }
+
+    private static void AppendInlineText(Inline? inline, StringBuilder text)
+    {
+        for (var child = inline; child is not null; child = child.NextSibling)
+        {
+            switch (child)
+            {
+                case LiteralInline literal:
+                    text.Append(literal.Content.ToString());
+                    break;
+                case CodeInline code:
+                    text.Append(code.Content);
+                    break;
+                case HtmlEntityInline entity:
+                    text.Append(entity.Transcoded.ToString());
+                    break;
+                case LineBreakInline:
+                    text.Append(' ');
+                    break;
+            }
+            if (child is ContainerInline nested)
+                AppendInlineText(nested.FirstChild, text);
+        }
     }
 
     private static string Slug(string text)

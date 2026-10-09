@@ -31,19 +31,71 @@ class SymbolWidget extends WidgetType {
   ignoreEvent(): boolean { return false; }
 }
 
+class CodeBlockWidget extends WidgetType {
+  constructor(readonly language: string, readonly codeRanges: readonly (readonly [number, number])[], readonly trailingNewline: boolean) { super(); }
+  eq(other: CodeBlockWidget): boolean {
+    return other.language === this.language && other.trailingNewline === this.trailingNewline &&
+      other.codeRanges.length === this.codeRanges.length && this.codeRanges.every((range, index) => range[0] === other.codeRanges[index][0] && range[1] === other.codeRanges[index][1]);
+  }
+  toDOM(view: EditorView): HTMLElement {
+    const tools = document.createElement("span");
+    tools.className = "cm-md-code-tools";
+    const language = document.createElement("span");
+    language.className = "cm-md-code-language";
+    language.textContent = this.language;
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "cm-md-code-copy";
+    copy.setAttribute("aria-label", "复制代码");
+    copy.textContent = "复制";
+    copy.addEventListener("click", async () => {
+      const doc = view.state.doc;
+      let copied = false;
+      if (view.compositionStarted) {
+        view.dom.dispatchEvent(new CustomEvent("marker-code-copy", { bubbles: true, detail: { copied } }));
+        return;
+      }
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+        const code = this.codeRanges.map(([from, to]) => doc.sliceString(from, to)).join("");
+        await navigator.clipboard.writeText(code + (this.trailingNewline ? "\n" : ""));
+        copied = true;
+      } catch { /* The status event reports clipboard permission and platform failures. */ }
+      if (view.compositionStarted) return;
+      if (!view.dom.contains(tools) || view.state.doc !== doc) return;
+      view.dom.dispatchEvent(new CustomEvent("marker-code-copy", { bubbles: true, detail: { copied } }));
+    });
+    tools.append(language, copy);
+    return tools;
+  }
+  ignoreEvent(event: Event): boolean { return event.target instanceof Element && !!event.target.closest(".cm-md-code-copy"); }
+}
+
 class ImageWidget extends WidgetType {
-  constructor(readonly url: string, readonly alt: string) { super(); }
+  constructor(readonly url: string | null, readonly alt: string) { super(); }
   eq(other: ImageWidget): boolean { return other.url === this.url && other.alt === this.alt; }
   toDOM(view: EditorView): HTMLElement {
     const wrapper = document.createElement("span");
     wrapper.className = "cm-md-image";
+    const showUnavailable = (): void => {
+      wrapper.classList.add("cm-md-image-unavailable");
+      const placeholder = document.createElement("span");
+      placeholder.className = "cm-md-image-placeholder";
+      placeholder.textContent = this.alt ? `图片不可用（${this.alt}）` : "图片不可用";
+      wrapper.replaceChildren(placeholder);
+      if (wrapper.isConnected) view.requestMeasure();
+    };
+    if (!this.url) {
+      showUnavailable();
+      return wrapper;
+    }
     const image = document.createElement("img");
-    image.src = this.url;
     image.alt = this.alt;
     image.loading = "lazy";
     image.draggable = false;
-    image.addEventListener("load", () => view.requestMeasure());
-    image.addEventListener("error", () => { wrapper.classList.add("cm-md-image-unavailable"); view.requestMeasure(); });
+    image.addEventListener("load", () => { if (wrapper.isConnected) view.requestMeasure(); });
+    image.addEventListener("error", () => { if (wrapper.isConnected) showUnavailable(); });
+    image.src = this.url;
     wrapper.append(image);
     return wrapper;
   }
@@ -123,15 +175,26 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
       const start = state.doc.lineAt(node.from).number;
       const end = state.doc.lineAt(node.to).number;
       const fenceMarks = name === "FencedCode" ? syntax.getChildren("CodeMark") : [];
+      const closingFence = fenceMarks.length > 1 ? fenceMarks.at(-1) : undefined;
+      const closingLine = closingFence ? state.doc.lineAt(closingFence.from).number : -1;
+      if (name === "FencedCode") {
+        for (const marker of syntax.getChildren("QuoteMark")) {
+          if (state.doc.lineAt(marker.from).number !== closingLine) hide(marker.from, followingSpace(marker.to));
+        }
+      }
       for (let number = start; number <= end; number++) {
         const current = state.doc.line(number);
         const fence = fenceMarks.find(mark => state.doc.lineAt(mark.from).number === number);
         if (fence) {
           const info = syntax.getChild("CodeInfo");
           if (number === start) {
-            hide(fence.from, current.to, new SymbolWidget(info ? state.doc.sliceString(info.from, info.to) : "代码", "cm-md-code-language"));
-            line(current.from, "cm-md-code-header");
-          } else if (current.from === fence.from) hide(current.from, Math.min(state.doc.length, current.to + 1), undefined, true);
+            const codeTexts = syntax.getChildren("CodeText");
+            const codeRanges = codeTexts.map(({ from, to }) => [from, to] as const);
+            const trailingNewline = !!codeTexts.length && !!closingFence && codeTexts.at(-1)!.to < state.doc.lineAt(closingFence.from).from;
+            const label = info ? state.doc.sliceString(info.from, info.to).trim() || "代码" : "代码";
+            hide(fence.from, current.to, new CodeBlockWidget(label, codeRanges, trailingNewline));
+            line(current.from, `cm-md-code-header${codeTexts.some(code => code.to > code.from) ? "" : " cm-md-code-empty"}`);
+          } else if (closingFence?.from === fence.from) hide(current.from, Math.min(state.doc.length, current.to + 1), undefined, true);
           else hide(fence.from, current.to);
         } else line(current.from, `cm-md-code-line${number === end - (fenceMarks.length > 1 ? 1 : 0) ? " cm-md-code-last" : ""}`);
       }
@@ -142,12 +205,8 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
       // A reference link still renders its label; the definition remains available in source mode.
       let close = opening?.nextSibling;
       while (close && !(close.name === "LinkMark" && state.doc.sliceString(close.from, close.to) === "]")) close = close.nextSibling;
-      if (opening && close) {
-        hide(opening.from, opening.to);
-        hide(close.from, node.to, undefined, false, true);
-        style(opening.to, close.from, name === "Image" ? "cm-md-image-caption" : "cm-md-link",
-          name === "Link" ? { title: "按ctrl并点击以访问" } : undefined);
-        if (name === "Image") {
+      if (name === "Image") {
+        if (opening && close) {
           const rawSource = url ? state.doc.sliceString(url.from, url.to).replace(/^<|>$/g, "") : "";
           const unescaped = rawSource.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, "$1");
           const decoded = unescaped.replace(/&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);/gi, entity => {
@@ -157,8 +216,14 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
           });
           const imageUrl = resources.get(rawSource) ?? resources.get(unescaped) ?? resources.get(decoded);
           const alt = state.doc.sliceString(opening.to, close.from);
-          marks.push(Decoration.widget({ widget: imageUrl ? new ImageWidget(imageUrl, alt) : new SymbolWidget("▧", "cm-md-image-placeholder"), side: -1 }).range(node.from));
+          hide(node.from, node.to, new ImageWidget(imageUrl ?? null, alt));
         }
+        return false;
+      }
+      if (opening && close) {
+        hide(opening.from, opening.to);
+        hide(close.from, node.to, undefined, false, true);
+        style(opening.to, close.from, "cm-md-link", { title: "按ctrl并点击以访问" });
       }
     } else if (name === "Autolink") {
       style(node.from, node.to, "cm-md-link", { title: "按ctrl并点击以访问" });
@@ -170,10 +235,16 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
       if (!cells.length) return;
       const lastRow = name === "TableRow" && !syntax.nextSibling;
       line(node.from, `cm-md-table-row${name === "TableHeader" ? " cm-md-table-header" : ""}${lastRow ? " cm-md-table-last" : ""}`, { style: `--table-columns:${cells.length}` });
+      const delimiter = syntax.parent?.getChild("TableDelimiter");
+      const segments = delimiter ? state.doc.sliceString(delimiter.from, delimiter.to).trim().split("|") : [];
+      if (segments[0]?.trim() === "") segments.shift();
+      if (segments.at(-1)?.trim() === "") segments.pop();
       let position = node.from;
-      for (const cell of cells) {
+      for (const [index, cell] of cells.entries()) {
         hide(position, cell.from);
-        style(cell.from, cell.to, "cm-md-table-cell");
+        const separator = segments[index]?.trim() ?? "";
+        const alignment = separator.startsWith(":") && separator.endsWith(":") ? "center" : separator.endsWith(":") ? "right" : "left";
+        style(cell.from, cell.to, `cm-md-table-cell cm-md-table-align-${alignment}`);
         position = cell.to;
       }
       hide(position, node.to);
