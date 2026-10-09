@@ -1,9 +1,9 @@
 ﻿param(
     [string]$SourcePath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'asserts/icon.png'),
     [string]$AssetsPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'src/Marker.App/Assets'),
-    # The source uses a full-canvas gradient, so background-color detection cannot
-    # identify the document mark. Rectangle is x, y, width, height in source pixels.
-    [int[]]$CropRectangle = @(361, 355, 534, 534)
+    # Keep the replacement icon's full square canvas and its generous margins.
+    # Rectangle is x, y, width, height in source pixels.
+    [int[]]$CropRectangle = @(0, 0, 1254, 1254)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,7 +36,7 @@ try {
         $mask = [System.Drawing.Bitmap]::new($cropWidth, $cropHeight, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
         $roundedCrop = [System.Drawing.Bitmap]::new($cropWidth, $cropHeight, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
         try {
-            $radius = [Math]::Round($cropWidth * 0.18)
+            $radius = [Math]::Round($cropWidth * 0.25)
             $diameter = $radius * 2
             $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
             try {
@@ -197,8 +197,8 @@ try {
 
     Write-Output "Source: $sourcePath ($($source.Width)x$($source.Height))"
     Write-Output "CropRectangle: x=$cropX..$($cropX + $cropWidth - 1), y=$cropY..$($cropY + $cropHeight - 1), $cropWidth x $cropHeight"
-    Write-Output 'Estimated document-mark occupancy: 60.0% width x 74.9% height (source bounds x=468..788, y=423..823).'
-    Write-Output "Rounded-corner alpha mask: radius=$([Math]::Round($cropWidth * 0.18)) source px (18% of crop edge)."
+    Write-Output 'The full square source canvas and its original background margins are preserved.'
+    Write-Output "Rounded-corner alpha mask: radius=$([Math]::Round($cropWidth * 0.25)) source px (25% of crop edge)."
     Write-Output "Generated AppLogo.png, Store/Square/Wide MSIX PNGs and Marker.ico (16, 24, 32, 48, 64, 128, 256 px)."
 }
 finally { $source.Dispose() }

@@ -169,7 +169,7 @@
 - 实现位置：`src/Marker.App/SettingsWindow.xaml`、`SettingsWindow.xaml.cs`、`AppSettings.cs`、`MainWindow.Views.cs`、`MainWindow.Windows.cs`、`App.xaml.cs`、`src/Marker.Web/src/main.ts`、`style.css`、`preview.css`。
 - Win32 主窗口不计入 XAML Window 数量，应用采用 `DispatcherShutdownMode.OnExplicitShutdown`，关闭设置子窗不会退出；主窗口复用现有未保存确认与显式退出流程。依据：[DispatcherShutdownMode](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.dispatchershutdownmode)。
 
-- 图标变更：根据用户指定的 `asserts/icon.png` 裁剪生成 ICO 与 PNG，应用/设置窗口图标和顶栏 logo 同源；logo 保留原图色彩，不再根据配色替换为通用文档图形。当前原图为全画布渐变背景，边缘颜色识别无法区分内部留白，因此改用可复现的显式方形裁剪，首版将文档主体放大至约 85%，随后按用户反馈缩至约 75%，PNG 与 ICO 各尺寸帧均使用同一抗锯齿透明圆角遮罩。
+- 图标变更历史：根据用户指定的旧版 `asserts/icon.png` 裁剪生成 ICO 与 PNG，应用/设置窗口图标和顶栏 logo 同源；logo 保留原图色彩，不再根据配色替换为通用文档图形。旧图采用显式方形裁剪，主体从约 85% 缩至约 75%，各尺寸资源共用抗锯齿透明圆角遮罩；此裁剪记录由 D019 的新图标方案取代。
 
 ## D018 WebView 内浮动工具栏
 
@@ -182,6 +182,15 @@
 - 理由：让正文、工具栏和浮动模糊层共用一个 WebView 的合成表面，绕过 HWND airspace 对跨窗口覆盖的限制，同时保持现有原生编辑/IME 宿主。
 - 代价：浮动层样式与键盘/无障碍行为由 Web 内容负责；高对比模式关闭 backdrop blur/透明效果并使用系统色。该选择不宣称已通过本轮桌面辅助功能验收。
 - 实现位置：`src/Marker.Web/src/toolbar.ts`、`src/Marker.Web/src/main.ts`、`src/Marker.Web/src/style.css`、`src/Marker.App/MainWindow.xaml.cs`、`src/Marker.App/BridgeSession.cs`。
+
+## D019 保留新图标完整画布
+
+- 状态：已采纳；新图标 PNG/ICO 资源已生成，桌面应用重建待完成。
+- 对当前 1254×1254 的 `asserts/icon.png` 使用完整方形裁框 `(0,0,1254,1254)`，保留蓝色圆角背景及 M+向下箭头周围的原始留白；继续生成应用、设置、Web 与 MSIX 图标资源。
+- PNG 与 ICO 帧使用 25% 边长半径的抗锯齿透明圆角遮罩，使透明边界贴合素材自带的圆角背景。脚本仍允许调用方指定其他方形裁框，以适配未来素材。
+- 理由：新图标主体刻意留有较宽边距，裁切放大会改变既定比例；保留整张画布可让桌面图标保持完整背景与合适留白。
+- 代价：图形主体相对图标画布较小；未来若更换为不同圆角或边距的素材，需要重新确认裁框和遮罩半径。
+- 实现位置：`scripts/build-icon-assets.ps1`、`src/Marker.App/Assets/`、`src/Marker.Web/public/app-logo.png`。
 
 ## D015 启动激活与窗口恢复
 
