@@ -5,7 +5,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $exe = Join-Path $root 'src\Marker.App\bin\x64\Release\net10.0-windows10.0.26100.0\win-x64\Marker.App.exe'
 $artifacts = Join-Path $root 'artifacts'
 $fixture = Join-Path $artifacts ('m4-activation-' + [guid]::NewGuid().ToString('N'))
-$settings = Join-Path $env:LOCALAPPDATA 'Marker\settings.json'
+$settings = Join-Path $env:LOCALAPPDATA 'Marker\settings.db'
 $settingsBackup = Join-Path $artifacts ('m4-settings-before-test-' + [guid]::NewGuid().ToString('N') + '.bin')
 $hadSettings = Test-Path -LiteralPath $settings -PathType Leaf
 $process = $null
@@ -23,6 +23,9 @@ try {
     $exePath = [IO.Path]::GetFullPath($exe)
     $running = Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and [IO.Path]::GetFullPath($_.ExecutablePath) -eq $exePath }
     if ($running) { throw "Refusing to redirect into an existing Marker process ($($running.ProcessId)); close it before running this isolated activation test." }
+    foreach ($suffix in '-journal', '-wal', '-shm') {
+        if (Test-Path -LiteralPath ($settings + $suffix)) { throw 'Settings database has pending journal files; open and normally close Marker before testing.' }
+    }
     New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
     New-Item -ItemType Directory -Path $fixture -Force | Out-Null
 
@@ -331,10 +334,15 @@ finally {
             } while ([DateTime]::UtcNow -lt $until)
         }
         $process.Refresh()
-        if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+        if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; $process.WaitForExit() }
     }
     if ($secondary -and -not $secondary.HasExited) { Stop-Process -Id $secondary.Id -Force -ErrorAction SilentlyContinue }
     if ($sourceForm) { $sourceForm.Dispose() }
+    if ($settingsBackedUp -or $process) {
+        foreach ($suffix in '-journal', '-wal', '-shm') {
+            if (Test-Path -LiteralPath ($settings + $suffix)) { Remove-Item -LiteralPath ($settings + $suffix) -Force }
+        }
+    }
     if ($settingsBackedUp) { [IO.File]::Copy($settingsBackup, $settings, $true); Remove-Item -LiteralPath $settingsBackup -Force }
     elseif (-not $hadSettings -and (Test-Path -LiteralPath $settings -PathType Leaf)) { Remove-Item -LiteralPath $settings -Force }
     if (Test-Path -LiteralPath $fixture -PathType Container) {

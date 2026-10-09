@@ -17,6 +17,8 @@
 
 本地 NuGet nuspec 核实 `SQLitePCLRaw.bundle_e_sqlite3`、`SQLitePCLRaw.core`、`SQLitePCLRaw.lib.e_sqlite3`、`SQLitePCLRaw.provider.e_sqlite3` 2.1.12 均声明 `Apache-2.0`，作者 Eric Sink；来源：[SQLitePCL.raw](https://github.com/ericsink/SQLitePCL.raw)。安装包包含解析后的 .NET 库及 Windows x64 原生 SQLite 库。SQLite 自身采用公有领域授权，包装库仍按各自许可证交付。
 
+新增 SQLite 依赖的完整 [MIT](installer/licenses/MIT.txt) 与 [Apache-2.0](installer/licenses/Apache-2.0.txt) 文本来自官方上游，Setup 随附于 `licenses` 目录。Inno Setup 6.7.3 仅为安装器构建工具，来源为 [jrsoftware/issrc](https://github.com/jrsoftware/issrc)，按其分发许可使用；不作为应用运行时依赖。
+
 ## Web 工程直接依赖
 
 以下许可证已对照安装包的 `package.json` 核实；版本以 `src/Marker.Web/package.json` 固定的直接依赖为准。

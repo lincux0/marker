@@ -16,6 +16,7 @@
 | `src/` | 应用源代码，包含桌面端与独立 Web 工程。 |
 | `tests/` | 自动化测试工程，覆盖桥接、Markdown、文件恢复和受控图片逻辑。 |
 | `scripts/` | 本地 SDK 准备、构建、开发签名、MSIX 烟雾测试、Islands 生产宿主、M4 文件激活/网页回归和截图脚本。 |
+| `installer/` | Inno Setup 当前用户安装配置及 SQLite 依赖的完整许可证文本；`scripts/build-setup.ps1` 包装现有自包含 x64 Release 输出。 |
 | `experiments/Marker.IslandsProbe/` | 独立 Win32 + WinUI 3 XAML Islands + windowed WebView2 宿主实验，不属于解决方案或 MSIX。 |
 | `.github/workflows/` | Windows CI 构建工作流定义；远端是否执行需看 Actions 记录。 |
 | `docs/` | 产品方案、工程指南、架构、决策和历程文档。 |
@@ -120,6 +121,8 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 5. 构建 Release 解决方案并运行测试工程；具体测试结果以本次实际运行记录为准。
 6. 使用 `-Package` 时生成未签名 x64 MSIX 到 `artifacts/msix/`。
 7. `Marker.App.csproj` 将 `Marker.Web/dist/**/*` 以 `Web/` 前缀复制进应用输出/包。
+
+`scripts/build-setup.ps1` 默认复用上述 Release 构建/测试，再用固定并校验来源的 Inno Setup 编译器与 `installer/Marker.iss` 生成当前用户 Setup.exe 到 `artifacts/setup/`。它打包自包含应用、资源与许可证，不打包测试工程、PDB 或 MSIX 容器；WebView2 Runtime 仍须目标机预先安装。默认安装于 `%LOCALAPPDATA%/Programs/Marker`，卸载保留应用数据目录；不设置文件默认关联，当前产物未签名。
 
 `.github/workflows/build.yml` 在 Windows runner 安装固定 .NET、Node 和 npm 版本，调用打包构建并上传未签名产物。工作流文件存在不等于远端 CI 已成功运行。
 
