@@ -19,6 +19,7 @@ async (page) => {
     await editor.goto('http://127.0.0.1:5173/index.html');
     check(await editor.locator('.marker-toolbar-button').first().isDisabled(), 'Toolbar commands must start disabled');
     await send({ type: 'initialize', text: 'one' });
+    await editor.locator('.marker-toolbar-actions > [data-action="statistics"] span').filter({ hasText: '1 字 · 1 段' }).waitFor();
     await send({ type: 'toolbarState', title: '稿件.md', notification: '<img id="toolbar-injection">', busy: false });
     const surface = await editor.locator('.marker-toolbar').evaluate(element => {
       const style = getComputedStyle(element), rect = element.getBoundingClientRect();
@@ -45,15 +46,15 @@ async (page) => {
     check(await editor.locator('.marker-toolbar-title').textContent() === '稿件.md', 'Oversized toolbar state was accepted');
 
     await send({ type: 'toolbarState', title: '稿件.md', notification: '', busy: true });
-    check(await editor.locator('[data-action="save"]').isDisabled(), 'Busy state did not disable commands');
+    check(await editor.locator('.marker-toolbar-actions > [data-action="save"]').isDisabled(), 'Busy state did not disable commands');
     await send({ type: 'toolbarState', title: '稿件.md', notification: '', busy: false });
     await editor.locator('.cm-content').click();
     await editor.keyboard.insertText('!');
-    await editor.locator('[data-action="undo"]').click();
+    await editor.locator('.marker-toolbar-actions > [data-action="undo"]').click();
     check(await snapshot() === 'one', 'Toolbar undo did not preserve CodeMirror history');
     check(await editor.locator('.cm-content').evaluate(element => element === document.activeElement), 'Mouse toolbar command stole editor focus');
 
-    await editor.locator('[data-action="save"]').click();
+    await editor.locator('.marker-toolbar-actions > [data-action="save"]').click();
     await editor.locator('.marker-toolbar-actions > [data-action="recover"]').click();
     await editor.locator('[data-action="settings"]').click();
     const sent = await commands();
@@ -62,9 +63,9 @@ async (page) => {
       'Toolbar command included an unexpected field');
 
     await editor.keyboard.press('Control+Alt+m');
-    check(await editor.locator('[data-action="toggleSource"]').getAttribute('aria-pressed') === 'true', 'Keyboard source mode did not update toolbar state');
-    await editor.locator('[data-action="toggleSource"]').click();
-    check(await editor.locator('[data-action="toggleSource"]').getAttribute('aria-pressed') === 'false', 'Toolbar source mode did not return to rendered editing');
+    check(await editor.locator('.marker-toolbar-actions > [data-action="toggleSource"]').getAttribute('aria-pressed') === 'true', 'Keyboard source mode did not update toolbar state');
+    await editor.locator('.marker-toolbar-actions > [data-action="toggleSource"]').click();
+    check(await editor.locator('.marker-toolbar-actions > [data-action="toggleSource"]').getAttribute('aria-pressed') === 'false', 'Toolbar source mode did not return to rendered editing');
 
     await editor.setViewportSize({ width: 720, height: 720 });
     check(await editor.locator('.marker-toolbar-more').evaluate(element => getComputedStyle(element).display !== 'none'), 'Narrow toolbar did not expose overflow menu');
@@ -85,7 +86,7 @@ async (page) => {
       });
       const extraWidth = layout.bar.width - layout.paper.width;
       check(Math.abs((layout.bar.left + layout.bar.right) / 2 - width / 2) < 1, `Toolbar was not centered at ${width}px: ${JSON.stringify(layout)}`);
-      check(extraWidth > 0 && (width > 800 ? extraWidth >= 63 && extraWidth <= 65 : extraWidth >= 20 && extraWidth <= 64),
+      check(extraWidth > 0 && (width > 800 ? extraWidth >= 127 && extraWidth <= 129 : extraWidth >= 20 && extraWidth <= 64),
         `Toolbar should be slightly wider than the paper at ${width}px: ${JSON.stringify(layout)}`);
       check(layout.actions.every(button => button.left >= layout.bar.left && button.right <= layout.bar.right),
         `Visible toolbar actions overflowed at ${width}px: ${JSON.stringify(layout)}`);
@@ -100,8 +101,29 @@ async (page) => {
     }));
     check(titleLayout.text === longTitle && titleLayout.title === longTitle && titleLayout.overflow === 'ellipsis' && titleLayout.scroll > titleLayout.client,
       `Long document title was not safely truncated: ${JSON.stringify(titleLayout)}`);
-    await editor.locator('[data-action="save"]').click();
+    await editor.locator('.marker-toolbar-actions > [data-action="save"]').click();
     check((await commands()).at(-1)?.command === 'save', 'Toolbar save button was not usable with a long title');
-    return { passed: true, viewportLayouts, checks: ['centered-paper-width', 'long-title-ellipsis', 'buttons-fit-and-work', 'floating-glass-surface', 'initial-disabled', 'safe-toolbar-state', 'length-validation', 'busy-disabled', 'history-and-focus', 'native-command-packets', 'source-mode-sync', 'responsive-overflow'] };
+    await editor.setViewportSize({ width: 1400, height: 720 });
+    const appearance = { type: 'settings', theme: 'light', fontSize: 16, lineHeight: 1.5, lineWrapping: true };
+    await send({ ...appearance, hiddenToolbarActions: ['save', 'toggleSource', 'statistics'] });
+    check(await editor.locator('.marker-toolbar-actions > [data-action="save"]').isHidden(), 'Custom-hidden Save remained on toolbar');
+    check(await editor.locator('[data-action="settings"]').isVisible(), 'Settings became inaccessible');
+    await editor.locator('.marker-toolbar-more summary').click();
+    await editor.locator('.marker-toolbar-menu [data-action="save"]').click();
+    check((await commands()).at(-1)?.command === 'save', 'Custom-hidden Save was not usable in More');
+    await send({ ...appearance, hiddenToolbarActions: ['settings'] });
+    check(await editor.locator('.marker-toolbar-actions > [data-action="save"]').isHidden(), 'Invalid visibility settings were accepted');
+    await send({ ...appearance, hiddenToolbarActions: [] });
+    check(await editor.locator('.marker-toolbar-actions > [data-action="save"]').isVisible(), 'Resetting visibility did not restore Save');
+    check(await editor.locator('.marker-toolbar-more').isHidden(), 'Wide toolbar kept an empty More menu');
+    await editor.locator('.cm-content').click();
+    await editor.keyboard.press('Control+End');
+    await editor.keyboard.insertText('\n\n你好 hello');
+    await editor.locator('.marker-toolbar-actions > [data-action="statistics"] span').filter({ hasText: '4 字 · 2 段' }).waitFor();
+    await editor.keyboard.press('Control+Alt+m');
+    check(await editor.locator('.marker-toolbar-actions > [data-action="statistics"] span').textContent() === '4 字 · 2 段', 'Source mode changed document counts');
+    await editor.keyboard.press('Control+z');
+    await editor.locator('.marker-toolbar-actions > [data-action="statistics"] span').filter({ hasText: '1 字 · 1 段' }).waitFor();
+    return { passed: true, viewportLayouts, checks: ['centered-paper-width', 'long-title-ellipsis', 'buttons-fit-and-work', 'floating-glass-surface', 'initial-disabled', 'safe-toolbar-state', 'length-validation', 'busy-disabled', 'history-and-focus', 'native-command-packets', 'source-mode-sync', 'responsive-overflow', 'custom-visibility-and-menu', 'live-statistics-and-undo'] };
   } finally { await context.close(); }
 }

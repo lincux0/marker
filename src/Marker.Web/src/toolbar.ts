@@ -1,6 +1,12 @@
 export type NativeCommand = "new" | "open" | "save" | "saveAs" | "recover" | "settings";
 export type EditorCommand = "undo" | "redo" | "find" | "replace" | "toggleSource";
-type Action = NativeCommand | EditorCommand;
+export const configurableToolbarActions = ["new", "open", "save", "saveAs", "recover", "undo", "redo", "find", "replace", "toggleSource", "statistics"] as const;
+export type ConfigurableToolbarAction = (typeof configurableToolbarActions)[number];
+type Action = NativeCommand | EditorCommand | "statistics";
+export function isHiddenToolbarActions(value: unknown): value is ConfigurableToolbarAction[] {
+  return Array.isArray(value) && value.length <= configurableToolbarActions.length &&
+    value.every(item => configurableToolbarActions.includes(item as ConfigurableToolbarAction)) && new Set(value).size === value.length;
+}
 type ToolbarOptions = {
   runNative(command: NativeCommand): void;
   runEditor(command: EditorCommand): void;
@@ -18,6 +24,7 @@ const iconPaths: Record<Action | "more", string[]> = {
   replace: ["M4 7h13", "m14 4 3 3-3 3", "M20 17H7", "m10 14-3 3 3 3", "M5 13h.01", "M19 11h.01"],
   toggleSource: ["m8 5-6 7 6 7", "m16 5 6 7-6 7", "m14 4-4 16"],
   settings: ["M10 3h4l.6 2.4a7 7 0 0 1 1.8 1l2.3-.7 2 3.5-1.8 1.7a7 7 0 0 1 0 2.1l1.8 1.7-2 3.5-2.3-.7a7 7 0 0 1-1.8 1L14 21h-4l-.6-2.4a7 7 0 0 1-1.8-1l-2.3.7-2-3.5 1.8-1.7a7 7 0 0 1 0-2.1L3.3 9.2l2-3.5 2.3.7a7 7 0 0 1 1.8-1L10 3z", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"],
+  statistics: ["M5 18V12", "M12 18V6", "M19 18V3"],
   more: ["M5 12h.01", "M12 12h.01", "M19 12h.01"],
 };
 
@@ -50,6 +57,7 @@ const actions: Array<{ id: Action; label: string; shortcut?: string; overflow?: 
   { id: "find", label: "查找", shortcut: "Ctrl+F" },
   { id: "replace", label: "查找和替换", shortcut: "Ctrl+H", overflow: true },
   { id: "toggleSource", label: "代码模式", shortcut: "Ctrl+Alt+M" },
+  { id: "statistics", label: "字数统计", overflow: true },
   { id: "settings", label: "设置" },
 ];
 
@@ -58,6 +66,9 @@ export class FloatingToolbar {
   private readonly title: HTMLElement;
   private readonly notification: HTMLElement;
   private readonly buttons: HTMLButtonElement[] = [];
+  private readonly more: HTMLDetailsElement;
+  private readonly narrow = matchMedia("(max-width: 800px)");
+  private hiddenActions = new Set<ConfigurableToolbarAction>();
   private ready = false;
   private busy = false;
 
@@ -87,7 +98,7 @@ export class FloatingToolbar {
     buttonGroup.className = "marker-toolbar-actions";
     for (const action of actions) buttonGroup.append(this.makeButton(action));
 
-    const more = document.createElement("details");
+    const more = this.more = document.createElement("details");
     more.className = "marker-toolbar-more";
     const summary = document.createElement("summary");
     summary.title = "更多操作";
@@ -98,7 +109,7 @@ export class FloatingToolbar {
     });
     const menu = document.createElement("div");
     menu.className = "marker-toolbar-menu";
-    for (const action of actions.filter(item => item.overflow)) menu.append(this.makeButton(action, more));
+    for (const action of actions.filter(item => item.id !== "settings")) menu.append(this.makeButton(action, more));
     more.append(summary, menu);
 
     const trailing = document.createElement("div");
@@ -114,6 +125,9 @@ export class FloatingToolbar {
 
     root.append(documentGroup, buttonGroup);
     this.element = root;
+    this.narrow.addEventListener("change", () => this.syncVisibility());
+    this.syncVisibility();
+    this.updateStatistics(0, 0);
   }
 
   attach(parent: HTMLElement, before: Node | null = null): void {
@@ -139,12 +153,36 @@ export class FloatingToolbar {
   }
 
   setSourceMode(sourceMode: boolean): void {
-    const button = this.element.querySelector<HTMLButtonElement>('[data-action="toggleSource"]');
-    if (!button) return;
     const label = sourceMode ? "返回排版模式" : "代码模式";
-    button.title = this.withShortcut(label, "Ctrl+Alt+M");
-    button.setAttribute("aria-label", label);
-    button.setAttribute("aria-pressed", String(sourceMode));
+    for (const button of this.buttons.filter(item => item.dataset.action === "toggleSource")) {
+      button.title = this.withShortcut(label, "Ctrl+Alt+M");
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(sourceMode));
+    }
+  }
+
+  setHiddenActions(actions: readonly ConfigurableToolbarAction[]): void {
+    this.hiddenActions = new Set(actions);
+    this.more.open = false;
+    this.syncVisibility();
+  }
+
+  updateStatistics(words: number, paragraphs: number): void {
+    const counts = `${words.toLocaleString("zh-CN")} 字 · ${paragraphs.toLocaleString("zh-CN")} 段`;
+    for (const button of this.buttons.filter(item => item.dataset.action === "statistics")) {
+      button.querySelector("span")!.textContent = button.classList.contains("marker-toolbar-menu-button") ? `字数统计：${counts}` : counts;
+      button.setAttribute("aria-label", `字数统计：${counts}`);
+      button.title = `正文 ${counts}；中文逐字、英文按词，忽略 Markdown 标记。段数按非空正文段落统计，不含标题、表格及代码块。`;
+    }
+  }
+
+  private syncVisibility(): void {
+    for (const button of this.buttons) {
+      const hidden = this.hiddenActions.has(button.dataset.action as ConfigurableToolbarAction);
+      const overflow = this.narrow.matches && button.dataset.overflow === "true";
+      button.hidden = button.classList.contains("marker-toolbar-menu-button") ? !(hidden || overflow) : hidden || overflow;
+    }
+    this.more.hidden = !this.buttons.some(button => button.classList.contains("marker-toolbar-menu-button") && !button.hidden);
   }
 
   private makeButton(action: (typeof actions)[number], more?: HTMLDetailsElement): HTMLButtonElement {
@@ -158,8 +196,9 @@ export class FloatingToolbar {
     if (action.id === "toggleSource") button.setAttribute("aria-pressed", "false");
     if (action.overflow) button.dataset.overflow = "true";
     button.append(makeIcon(action.id));
-    if (more) {
-      button.classList.add("marker-toolbar-menu-button");
+    if (action.id === "statistics") button.classList.add("marker-toolbar-statistics");
+    if (more || action.id === "statistics") {
+      if (more) button.classList.add("marker-toolbar-menu-button");
       const label = document.createElement("span");
       label.textContent = action.label;
       button.append(label);
@@ -168,7 +207,7 @@ export class FloatingToolbar {
       if (event.pointerType === "mouse") event.preventDefault();
     });
     button.addEventListener("click", () => {
-      if (!this.ready || this.busy) return;
+      if (!this.ready || this.busy || action.id === "statistics") return;
       if (action.id === "undo" || action.id === "redo" || action.id === "find" || action.id === "replace" || action.id === "toggleSource") {
         this.options.runEditor(action.id);
       } else this.options.runNative(action.id);

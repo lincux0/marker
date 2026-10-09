@@ -8,7 +8,8 @@ import { EditorView, keymap, placeholder, type Panel } from "@codemirror/view";
 import { enableFileDrop } from "./file-drop";
 import { markdownLinkActions } from "./links";
 import { imageResources, liveMarkdown, markdownFormattingKeymap, toggleSourceMode } from "./live-markdown";
-import { FloatingToolbar, type EditorCommand, type NativeCommand } from "./toolbar";
+import { FloatingToolbar, isHiddenToolbarActions, type ConfigurableToolbarAction, type EditorCommand, type NativeCommand } from "./toolbar";
+import { countMarkdown } from "./statistics";
 import "./style.css";
 
 declare global {
@@ -38,6 +39,7 @@ type Settings = {
   colorPalette?: ColorPalette;
   reducedMotion?: boolean;
   highContrast?: boolean;
+  hiddenToolbarActions?: ConfigurableToolbarAction[];
 };
 
 const protocolVersion = 1 as const;
@@ -55,6 +57,7 @@ let sessionId: string | undefined;
 let version = 0;
 let fullSnapshotPending = false;
 let toolbar: FloatingToolbar | undefined;
+let statisticsTimer: ReturnType<typeof setTimeout> | undefined;
 let settings: Settings = {
   theme: "system",
   fontSize: 15,
@@ -94,6 +97,18 @@ function post(message: Record<string, unknown>): boolean {
     setStatus("桌面端连接暂不可用；编辑内容仍保留在编辑器中。");
     return false;
   }
+}
+
+function scheduleStatistics(): void {
+  clearTimeout(statisticsTimer);
+  const doc = view?.state.doc;
+  if (!doc) return;
+  // Count after a short typing pause so the complete Markdown parse stays out of each keystroke.
+  statisticsTimer = setTimeout(() => {
+    if (view?.state.doc !== doc) return;
+    const { words, paragraphs } = countMarkdown(doc.toString());
+    toolbar?.updateStatistics(words, paragraphs);
+  }, 180);
 }
 
 function sendStatus(editor: EditorView): void {
@@ -256,12 +271,13 @@ const fontStacks: Record<FontChoice, string> = {
 function normalizedSettings(value: Record<string, unknown>): Settings | null {
   const base = { theme: value.theme, fontSize: value.fontSize, lineHeight: value.lineHeight, lineWrapping: value.lineWrapping };
   if (!isSettings(base)) return null;
-  const optional = ["paragraphSpacing", "bodyFont", "h1Font", "h2Font", "colorPalette", "reducedMotion", "highContrast"];
+  const optional = ["paragraphSpacing", "bodyFont", "h1Font", "h2Font", "colorPalette", "reducedMotion", "highContrast", "hiddenToolbarActions"];
   if (Object.keys(value).some(key => !["theme", "fontSize", "lineHeight", "lineWrapping", ...optional].includes(key))) return null;
   if ("paragraphSpacing" in value && (typeof value.paragraphSpacing !== "number" || !Number.isFinite(value.paragraphSpacing) || value.paragraphSpacing < 0 || value.paragraphSpacing > 2)) return null;
   if (["bodyFont", "h1Font", "h2Font"].some(key => key in value && !isFontChoice(value[key]))) return null;
   if ("colorPalette" in value && !isColorPalette(value.colorPalette)) return null;
   if ("reducedMotion" in value && typeof value.reducedMotion !== "boolean") return null;
+  if ("hiddenToolbarActions" in value && !isHiddenToolbarActions(value.hiddenToolbarActions)) return null;
   if ("highContrast" in value && typeof value.highContrast !== "boolean") return null;
   return {
     ...base as Pick<Settings, "theme" | "fontSize" | "lineHeight" | "lineWrapping">,
@@ -270,6 +286,7 @@ function normalizedSettings(value: Record<string, unknown>): Settings | null {
     h1Font: (value.h1Font as FontChoice | undefined) ?? "song",
     h2Font: (value.h2Font as FontChoice | undefined) ?? "song",
     colorPalette: (value.colorPalette as ColorPalette | undefined) ?? "lavender",
+    hiddenToolbarActions: (value.hiddenToolbarActions as ConfigurableToolbarAction[] | undefined) ?? [],
     ...(typeof value.reducedMotion === "boolean" ? { reducedMotion: value.reducedMotion } : {}),
     ...(typeof value.highContrast === "boolean" ? { highContrast: value.highContrast } : {}),
   };
@@ -285,6 +302,7 @@ function isColorPalette(value: unknown): value is ColorPalette {
 
 function styleSettings(next: Settings): void {
   settings = next;
+  toolbar?.setHiddenActions(next.hiddenToolbarActions ?? []);
   if (!view) return;
   document.documentElement.dataset.theme = next.theme;
   if (next.reducedMotion === undefined) delete document.documentElement.dataset.reducedMotion;
@@ -416,6 +434,7 @@ function initialize(nextSessionId: string, text: string): void {
         EditorView.contentAttributes.of({ "aria-label": "Markdown 呈现编辑器", "aria-description": "点击文档直接编辑。Ctrl+Enter 新建段落，Ctrl+Alt+M 临时查看或隐藏 Markdown 源码" }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
+            scheduleStatistics();
             if (version >= Number.MAX_SAFE_INTEGER) {
               fullSnapshotPending = true;
               setStatus("编辑器版本已达上限；内容保留在本地编辑器中。");
@@ -446,6 +465,8 @@ function initialize(nextSessionId: string, text: string): void {
     }),
   });
   styleSettings(settings);
+  toolbar?.updateStatistics(0, 0);
+  scheduleStatistics();
   sendSnapshot();
   sendStatus(view);
   post({ type: "sourceMode", sessionId, version, sourceMode: false });

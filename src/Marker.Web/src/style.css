@@ -70,7 +70,7 @@ body {
   top: var(--marker-toolbar-top);
   left: 50%;
   right: auto;
-  width: min(calc(var(--editor-paper-width) + 64px), calc(100% - var(--editor-canvas-inset) - var(--editor-canvas-inset) + 64px), calc(100% - 32px));
+  width: min(calc(var(--editor-paper-width) + 128px), calc(100% - var(--editor-canvas-inset) - var(--editor-canvas-inset) + 128px), calc(100% - 32px));
   box-sizing: border-box;
   min-height: 50px;
   display: grid;
@@ -126,8 +126,11 @@ body {
 .marker-toolbar-more summary:focus-visible { outline: 2px solid var(--editor-focus); outline-offset: 2px; }
 .marker-toolbar-button:disabled { color: var(--editor-muted); opacity: .42; cursor: default; }
 .marker-toolbar-button[aria-pressed="true"] { color: var(--editor-accent); background: var(--editor-accent-soft); }
-.marker-toolbar-more { position: relative; display: none; }
+.marker-toolbar-more { position: relative; display: block; }
 .marker-toolbar-more summary::-webkit-details-marker { display: none; }
+.marker-toolbar [hidden] { display: none !important; }
+.marker-toolbar-statistics { width: auto; gap: 6px; padding-inline: 9px; font: inherit; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.marker-toolbar-statistics svg { flex-shrink: 0; }
 .marker-toolbar-trailing { display: flex; align-items: center; gap: 6px; }
 .marker-toolbar-logo { display: block; flex: 0 0 28px; width: 28px; height: 28px; object-fit: contain; }
 .marker-toolbar-menu {
@@ -576,8 +579,6 @@ html[data-high-contrast="true"][data-color-palette] .marker-toolbar-menu {
 @media (max-width: 800px) {
   :root { --marker-toolbar-top: 8px; }
   .marker-toolbar { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding-left: 12px; }
-  .marker-toolbar-actions > .marker-toolbar-button[data-overflow="true"] { display: none; }
-  .marker-toolbar-more { display: block; }
   .marker-toolbar-notification { max-width: calc(100vw - 64px); }
 }
 

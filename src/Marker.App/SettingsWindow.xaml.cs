@@ -29,6 +29,10 @@ public sealed partial class SettingsWindow : Window
         BodyFontCombo.SelectedIndex = IndexFor(BodyFontCombo, settings.BodyFont);
         H1FontCombo.SelectedIndex = IndexFor(H1FontCombo, settings.H1Font);
         H2FontCombo.SelectedIndex = IndexFor(H2FontCombo, settings.H2Font);
+        var hiddenActions = settings.HiddenToolbarActions ?? [];
+        foreach (var child in ToolbarActionsPanel.Children)
+            if (child is CheckBox checkBox)
+                checkBox.IsChecked = !hiddenActions.Contains(checkBox.Tag?.ToString(), StringComparer.Ordinal);
         FontSizeBox.Value = settings.FontSize;
         LineHeightBox.Value = settings.LineHeight;
         ParagraphSpacingBox.Value = settings.ParagraphSpacing;
@@ -127,6 +131,16 @@ public sealed partial class SettingsWindow : Window
 
     private void ReducedMotion_Toggled(object sender, RoutedEventArgs e) =>
         Update(settings => settings with { ReducedMotion = ReducedMotionToggle.IsOn });
+
+    private void ToolbarAction_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        var hiddenActions = ToolbarActionsPanel.Children.OfType<CheckBox>()
+            .Where(checkBox => checkBox.IsChecked != true)
+            .Select(checkBox => checkBox.Tag!.ToString()!)
+            .ToArray();
+        Update(settings => settings with { HiddenToolbarActions = hiddenActions });
+    }
 
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     private static extern nint SetWindowLongPtrW(nint window, int index, nint value);

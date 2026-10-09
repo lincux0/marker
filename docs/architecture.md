@@ -36,7 +36,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
 - `MainWindow.xaml`：XAML Island 工具栏缩为 1×1 隐藏，保留原生控件字段及兼容 handler；主编辑器 WebView 从客户区原点 `(0,0)` 填满整个客户区。可见浮动工具栏放在编辑器 WebView 的 HTML/CSS 层内，覆盖随正文滚动的内容，不跨 HWND。
-- `SettingsWindow.xaml`、`SettingsWindow.xaml.cs`：独立 WinUI 设置子窗口，由主窗口拥有并单例显示；提供外观、排版、字体卡片。设置即时应用并保存，包含主题、减少动画、字号、行高、段间距、自动换行、正文/H1/H2 字体和颜色组合。窗口边界按 owner DPI 换算为物理坐标并夹入显示器工作区；滚动内容由限宽居中容器承载，关闭设置后排队恢复 Win32 owner 的可见性、前台和编辑焦点。主窗口关闭或文件操作期间不执行此恢复；主窗口关闭时一并关闭。
+- `SettingsWindow.xaml`、`SettingsWindow.xaml.cs`：独立 WinUI 设置子窗口，由主窗口拥有并单例显示；提供外观、排版、字体卡片。设置即时应用并保存，包含主题、减少动画、字号、行高、段间距、自动换行、正文/H1/H2 字体、颜色组合和顶部栏功能显示选择。窗口边界按 owner DPI 换算为物理坐标并夹入显示器工作区；滚动内容由限宽居中容器承载，关闭设置后排队恢复 Win32 owner 的可见性、前台和编辑焦点。主窗口关闭或文件操作期间不执行此恢复；主窗口关闭时一并关闭。
 - `MainWindow.Views.cs`：加载外观设置并同步主题/动效偏好；旧 `viewMode` 设置仅为兼容读取，不启动写回迁移。损坏或未知设置以默认值运行并禁止保存；简短说明仅在设置窗口显示。
 - `AppSettings.cs`：LocalAppData/Marker/settings.json 的 schemaVersion 1 与 applicationVersion；保存主题、字体、段间距、排版、减少动画偏好、配色及窗口普通位置。不存文档文本或自动打开文件。新增字段对旧 schema 1 配置可缺省且不警告；无效字段各自回退默认值并提示，损坏或未知版本保留原文件并禁止保存。
 - `MainWindow.Windows.cs`、`WindowPlacement.cs`：管理系统主题/高对比/Windows 动画偏好、DWM Mica 与系统色回退、根窗口背景、减少动画即时停止以及多显示器普通位置恢复。新窗口为 960×700 DIP，最小尺寸 720×480 DIP；位置按目标显示器 DPI 换算、夹入工作区，并在 `WINDOWPLACEMENT` 工作区坐标与持久化屏幕坐标间换算，保留系统标题栏和 Snap 布局。
@@ -59,7 +59,8 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 - `package.json`、`package-lock.json`：Web 工程脚本、CodeMirror 6、DOMPurify 及锁定版本。
 - `index.html`、`preview.html`：编辑器与预览独立页面入口，分别声明内容安全策略 CSP。
-- `src/toolbar.ts`：在编辑 WebView 内创建固定定位的浮动工具栏、文档标题、常用命令和窄窗溢出菜单。原生操作发送既有文档命令；撤销、重做、查找、替换和代码模式由当前编辑器处理。接收经协议版本及 session 校验的 `toolbarState`，包含标题、通知和 busy 状态。
+- `src/toolbar.ts`：在编辑 WebView 内创建固定定位的浮动工具栏、文档标题、常用命令和窄窗溢出菜单。原生操作发送既有文档命令；撤销、重做、查找、替换和代码模式由当前编辑器处理。接收经协议版本及 session 校验的 `toolbarState`，包含标题、通知和 busy 状态。支持按设置将常用功能移入“更多”菜单（设置入口常驻），实时显示本地字数/段数；宽度在普通宽窗为 1108 px，正文为 980 px。
+- `src/statistics.ts`：使用现有 CodeMirror Markdown 完整语法树剔除标记、链接目标及图片，中文逐字、其余文本按词统计；非空 Paragraph/Task 节点作为正文段落。编辑短暂停顿 180 ms 后更新，不经原生桥接或上传文档。
 - `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配 `toolbar.ts`、`live-markdown.ts` 与 Markdown 快捷键；`toolbarState` 按当前来源及 session 校验，仅更新标题、通知与 busy 状态。
 - `src/live-markdown.ts`：复用 CodeMirror GFM 语法树以装饰并隐藏标题、引用、列表、强调、行内代码、链接、表格和围栏标记；任务项、列表标记及受控图片显示为可视元素。源文档与原生同步仍保留完整 Markdown 文本，顶部代码模式按钮或 Ctrl+Alt+M 暂时显示源码标记以调整复杂/暂不支持的语法；同一编辑器和历史不重建。格式化快捷键使用原有 CodeMirror 事务与 changeByRange，保留选区方向并隔离每次格式化的撤销步骤；无选区时插入选中的占位文本供直接输入。CodeMirror 语法解析和装饰不承诺与 Markdig HTML 完全一致，复杂嵌套语法仍需兼容样例实测。
 - `src/links.ts`：从正文链接装饰及语法树读取行内、引用式和自动链接，普通单击发送带当前会话/版本的 `openLink`；修饰键点击、拖选与源码模式保留编辑行为。宿主仅接受 HTTP(S) 且无 userinfo 的地址，经显示完整地址、默认“否”的确认后交系统浏览器；不允许页面直接导航。

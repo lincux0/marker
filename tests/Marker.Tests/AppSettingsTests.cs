@@ -15,7 +15,8 @@ public sealed class AppSettingsTests
         {
             Theme = "dark", FontSize = 20, LineHeight = 1.8, LineWrapping = false, ViewMode = "read",
             ReducedMotion = true, WindowPlacement = new WindowPlacement(-1200, 80, 1100, 760, true),
-            ParagraphSpacing = 0.8, BodyFont = "yahei", H1Font = "song", H2Font = "dengxian", ColorPalette = "ocean"
+            ParagraphSpacing = 0.8, BodyFont = "yahei", H1Font = "song", H2Font = "dengxian", ColorPalette = "ocean",
+            HiddenToolbarActions = ["saveAs", "statistics"]
         };
 
         settings.Save(temp.Path);
@@ -26,7 +27,8 @@ public sealed class AppSettingsTests
         var loaded = AppSettings.Load(temp.Path);
         Assert.IsNull(loaded.Warning);
         Assert.IsTrue(loaded.CanSave);
-        Assert.AreEqual(settings, loaded.Settings);
+        Assert.AreEqual(settings with { HiddenToolbarActions = loaded.Settings.HiddenToolbarActions }, loaded.Settings);
+        CollectionAssert.AreEqual(settings.HiddenToolbarActions, loaded.Settings.HiddenToolbarActions);
     }
 
     [TestMethod]
@@ -125,7 +127,44 @@ public sealed class AppSettingsTests
         Assert.AreEqual("ocean", loaded.Settings.ColorPalette);
 
         loaded.Settings.Save(temp.Path);
-        Assert.AreEqual(loaded.Settings, AppSettings.Load(temp.Path).Settings);
+        var reloaded = AppSettings.Load(temp.Path).Settings;
+        Assert.AreEqual(loaded.Settings with { HiddenToolbarActions = reloaded.HiddenToolbarActions }, reloaded);
+        CollectionAssert.AreEqual(loaded.Settings.HiddenToolbarActions, reloaded.HiddenToolbarActions);
+    }
+
+    [TestMethod]
+    public void HiddenToolbarActionsRoundTripAndOldSettingsDefaultToVisible()
+    {
+        using var temp = new TempDirectory();
+        AppSettings.Default.Save(temp.Path);
+        CollectionAssert.AreEqual(Array.Empty<string>(), AppSettings.Load(temp.Path).Settings.HiddenToolbarActions);
+
+        var settings = AppSettings.Default with { HiddenToolbarActions = ["statistics", "saveAs"] };
+        settings.Save(temp.Path);
+
+        var loaded = AppSettings.Load(temp.Path);
+        Assert.IsNull(loaded.Warning);
+        CollectionAssert.AreEqual(settings.HiddenToolbarActions, loaded.Settings.HiddenToolbarActions);
+
+        File.WriteAllText(Path.Combine(temp.Path, "settings.json"), "{\"schemaVersion\":1}");
+        CollectionAssert.AreEqual(Array.Empty<string>(), AppSettings.Load(temp.Path).Settings.HiddenToolbarActions);
+    }
+
+    [DataTestMethod]
+    [DataRow("[\"save\",\"save\"]")]
+    [DataRow("[\"unknown\"]")]
+    [DataRow("[1]")]
+    [DataRow("null")]
+    [DataRow("[\"new\",\"open\",\"save\",\"saveAs\",\"recover\",\"undo\",\"redo\",\"find\",\"replace\",\"toggleSource\",\"statistics\",\"settings\"]")]
+    public void InvalidHiddenToolbarActionsFallBackToAllVisible(string actions)
+    {
+        using var temp = new TempDirectory();
+        File.WriteAllText(Path.Combine(temp.Path, "settings.json"), $"{{\"schemaVersion\":1,\"hiddenToolbarActions\":{actions}}}");
+
+        var loaded = AppSettings.Load(temp.Path);
+        Assert.IsTrue(loaded.CanSave);
+        Assert.IsNotNull(loaded.Warning);
+        CollectionAssert.AreEqual(Array.Empty<string>(), loaded.Settings.HiddenToolbarActions);
     }
 
     [TestMethod]
@@ -136,6 +175,8 @@ public sealed class AppSettingsTests
         Assert.ThrowsException<ArgumentException>(() => (AppSettings.Default with { ParagraphSpacing = double.NaN }).Save(temp.Path));
         Assert.ThrowsException<ArgumentException>(() => (AppSettings.Default with { BodyFont = "unknown" }).Save(temp.Path));
         Assert.ThrowsException<ArgumentException>(() => (AppSettings.Default with { ColorPalette = "unknown" }).Save(temp.Path));
+        Assert.ThrowsException<ArgumentException>(() => (AppSettings.Default with { HiddenToolbarActions = ["save", "save"] }).Save(temp.Path));
+        Assert.ThrowsException<ArgumentException>(() => (AppSettings.Default with { HiddenToolbarActions = ["settings"] }).Save(temp.Path));
     }
 
     [TestMethod]

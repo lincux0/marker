@@ -41,7 +41,8 @@ public sealed partial class MainWindow
             bodyFont = _settings.BodyFont,
             h1Font = _settings.H1Font,
             h2Font = _settings.H2Font,
-            colorPalette = _settings.ColorPalette
+            colorPalette = _settings.ColorPalette,
+            hiddenToolbarActions = _settings.HiddenToolbarActions ?? []
         });
         if (_editorReady) _editor?.CoreWebView2.PostWebMessageAsJson(message);
         if (_previewReady) _preview?.CoreWebView2.PostWebMessageAsJson(message);

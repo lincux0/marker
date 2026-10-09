@@ -1,6 +1,6 @@
 // Visual regression: compare actual filtered pixels, not only computed CSS.
 async (page) => {
-  const context = await page.context().browser().newContext({ viewport: { width: 1100, height: 760 } });
+  const context = await page.context().browser().newContext({ viewport: { width: 1200, height: 760 } });
   await context.addInitScript(() => {
     const handlers = [];
     window.markerTest = { receive: data => handlers.forEach(handler => handler({ data })) };
@@ -14,6 +14,7 @@ async (page) => {
     await send({ type: 'initialize', text: Array.from({length: 100}, (_, i) => `## 标题 ${i}\n\n正文内容用于观察真实玻璃模糊。\n\n`).join('') });
     await send({ type: 'settings', theme: 'light', fontSize: 16, lineHeight: 1.5, lineWrapping: true, reducedMotion: true, highContrast: false });
     await send({ type: 'toolbarState', title: '玻璃效果检查.md', notification: '', busy: false });
+    await editor.locator('.marker-toolbar-actions > [data-action="statistics"] span').filter({ hasText: '100 段' }).waitFor();
     const layout = await editor.evaluate(() => {
       const bar=document.querySelector('.marker-toolbar'), content=document.querySelector('.cm-content');
       const logo=bar.querySelector('img'), title=bar.querySelector('.marker-toolbar-title');
@@ -23,7 +24,7 @@ async (page) => {
         logoLeft: logo.getBoundingClientRect().right < title.getBoundingClientRect().left,
         blur: getComputedStyle(bar).backdropFilter };
     });
-    if (layout.gap < 28 || layout.toolbarWidth-layout.paperWidth < 63 || layout.toolbarWidth-layout.paperWidth > 65 ||
+    if (layout.gap < 28 || layout.toolbarWidth-layout.paperWidth < 127 || layout.toolbarWidth-layout.paperWidth > 129 ||
       !layout.centered || !layout.logoLeft || !layout.blur.includes("blur(32px)")) throw Error(JSON.stringify(layout));
     const viewportLayouts=[];
     for (const width of [1400,2000,720]) {
@@ -36,7 +37,7 @@ async (page) => {
       });
       const delta=sizing.toolbar-sizing.paper;
       if (sizing.center>=1 || delta<=0 ||
-        (width>800 && (delta<63 || delta>65)) || (width<=800 && (delta<20 || delta>64))) throw Error(JSON.stringify(sizing));
+        (width>800 && (delta<127 || delta>129)) || (width<=800 && (delta<20 || delta>64))) throw Error(JSON.stringify(sizing));
       viewportLayouts.push(sizing);
     }
     await editor.setViewportSize({width:1100,height:760});

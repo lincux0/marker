@@ -159,6 +159,30 @@
                             </StackPanel>
                         </Border>
 
+                        <Border Style="{StaticResource SectionCard}">
+                            <StackPanel Spacing="8">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="顶部栏" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="选择要直接显示的功能；隐藏的功能仍可从“更多”菜单使用。设置入口始终保留。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <Grid x:Name="ToolbarActionsPanel" ColumnSpacing="12" RowSpacing="2">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <CheckBox Content="新建" Tag="new" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="打开" Tag="open" Grid.Column="1" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="保存" Tag="save" Grid.Row="1" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="另存为" Tag="saveAs" Grid.Row="1" Grid.Column="1" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="恢复草稿" Tag="recover" Grid.Row="2" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="撤销" Tag="undo" Grid.Row="2" Grid.Column="1" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="重做" Tag="redo" Grid.Row="3" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="查找" Tag="find" Grid.Row="3" Grid.Column="1" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="替换" Tag="replace" Grid.Row="4" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="代码模式" Tag="toggleSource" Grid.Row="4" Grid.Column="1" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                    <CheckBox Content="字数统计" Tag="statistics" Grid.Row="5" Checked="ToolbarAction_Toggled" Unchecked="ToolbarAction_Toggled" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
                         <Border x:Name="NoticePanel" Visibility="Collapsed" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10" Padding="14,12">
                             <Grid ColumnSpacing="10">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

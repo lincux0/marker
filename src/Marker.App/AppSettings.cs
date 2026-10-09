@@ -16,13 +16,16 @@ public sealed record AppSettings(
     string BodyFont = "system",
     string H1Font = "song",
     string H2Font = "song",
-    string ColorPalette = "lavender")
+    string ColorPalette = "lavender",
+    string[]? HiddenToolbarActions = null)
 {
     public const int CurrentSchemaVersion = 1;
+    private static readonly string[] DefaultHiddenToolbarActions = [];
+    private static readonly string[] ToolbarActionIds = ["new", "open", "save", "saveAs", "recover", "undo", "redo", "find", "replace", "toggleSource", "statistics"];
 
     public static AppSettings Default => new(CurrentSchemaVersion,
         typeof(AppSettings).Assembly.GetName().Version?.ToString() ?? "unknown",
-        "system", 16, 1.5, true, "split");
+        "system", 16, 1.5, true, "split", HiddenToolbarActions: DefaultHiddenToolbarActions);
 
     public static AppSettingsLoadResult Load(string directory)
     {
@@ -59,8 +62,9 @@ public sealed record AppSettings(
             var h1Font = ReadOptionalEnum(root, "h1Font", ["system", "song", "yahei", "dengxian", "serif"], defaults.H1Font, warnings);
             var h2Font = ReadOptionalEnum(root, "h2Font", ["system", "song", "yahei", "dengxian", "serif"], defaults.H2Font, warnings);
             var colorPalette = ReadOptionalEnum(root, "colorPalette", ["lavender", "forest", "ocean", "paper", "graphite"], defaults.ColorPalette, warnings);
+            var hiddenToolbarActions = ReadHiddenToolbarActions(root, defaults.HiddenToolbarActions!, warnings);
             return new(new AppSettings(CurrentSchemaVersion, appVersion, theme, fontSize, lineHeight, wrapping, viewMode,
-                    reducedMotion, windowPlacement, paragraphSpacing, bodyFont, h1Font, h2Font, colorPalette),
+                    reducedMotion, windowPlacement, paragraphSpacing, bodyFont, h1Font, h2Font, colorPalette, hiddenToolbarActions),
                 warnings.Count == 0 ? null : "部分设置无效，已使用默认值。", true);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -80,6 +84,7 @@ public sealed record AppSettings(
             || H1Font is not ("system" or "song" or "yahei" or "dengxian" or "serif")
             || H2Font is not ("system" or "song" or "yahei" or "dengxian" or "serif")
             || ColorPalette is not ("lavender" or "forest" or "ocean" or "paper" or "graphite")
+            || !IsValidHiddenToolbarActions(HiddenToolbarActions)
             || WindowPlacement is { IsValid: false })
             throw new ArgumentException("设置值无效，未保存。", nameof(directory));
 
@@ -92,7 +97,8 @@ public sealed record AppSettings(
         var temp = Path.Combine(fullDirectory, $".settings.{Guid.NewGuid():N}.tmp");
         try
         {
-            var bytes = JsonSerializer.SerializeToUtf8Bytes(this, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(this with { HiddenToolbarActions = HiddenToolbarActions ?? [] },
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
             {
                 stream.Write(bytes);
@@ -162,6 +168,33 @@ public sealed record AppSettings(
         warnings.Add(name);
         return fallback;
     }
+
+    private static string[]? ReadHiddenToolbarActions(JsonElement root, string[] fallback, List<string> warnings)
+    {
+        if (!root.TryGetProperty("hiddenToolbarActions", out var value)) return fallback;
+        if (value.ValueKind == JsonValueKind.Array && value.GetArrayLength() <= ToolbarActionIds.Length)
+        {
+            var actions = new List<string>(value.GetArrayLength());
+            foreach (var item in value.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String || !ToolbarActionIds.Contains(item.GetString(), StringComparer.Ordinal)
+                    || actions.Contains(item.GetString()!, StringComparer.Ordinal))
+                {
+                    warnings.Add("hiddenToolbarActions");
+                    return fallback;
+                }
+                actions.Add(item.GetString()!);
+            }
+            return actions.ToArray();
+        }
+        warnings.Add("hiddenToolbarActions");
+        return fallback;
+    }
+
+    private static bool IsValidHiddenToolbarActions(string[]? actions) => actions is null
+        || (actions.Length <= ToolbarActionIds.Length
+            && actions.All(action => ToolbarActionIds.Contains(action, StringComparer.Ordinal))
+            && actions.Distinct(StringComparer.Ordinal).Count() == actions.Length);
 
     private static WindowPlacement? ReadWindowPlacement(JsonElement root, List<string> warnings)
     {
