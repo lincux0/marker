@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.UI.Xaml;
+using Microsoft.Data.Sqlite;
 
 namespace Marker.App;
 
@@ -16,7 +17,7 @@ public sealed partial class MainWindow
 
     internal void InitializeViews()
     {
-        var loaded = AppSettings.Load(_settingsDirectory);
+        var loaded = SettingsDatabase.Load(_settingsDirectory);
         _settings = loaded.Settings with { ViewMode = "split" };
         _settingsCanSave = loaded.CanSave;
         _settingsNotice = loaded.Warning;
@@ -125,16 +126,16 @@ public sealed partial class MainWindow
     {
         if (!_settingsCanSave)
         {
-            SetSettingsNotice("设置文件无法安全覆盖；当前修改仅在本次运行中生效。修复或移走该文件后可恢复保存。");
+            SetSettingsNotice("设置数据库无法安全写入；当前修改仅在本次运行中生效。修复或移走数据库后可恢复保存。");
             return;
         }
         try
         {
             _settings = _settings with { ApplicationVersion = typeof(AppSettings).Assembly.GetName().Version?.ToString() ?? "unknown" };
-            _settings.Save(_settingsDirectory);
+            SettingsDatabase.Save(_settingsDirectory, _settings);
             SetSettingsNotice(null);
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or SqliteException or InvalidOperationException)
         {
             SetSettingsNotice("设置保存失败，请检查文件访问权限。");
         }

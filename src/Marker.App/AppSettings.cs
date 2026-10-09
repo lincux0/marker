@@ -20,6 +20,7 @@ public sealed record AppSettings(
     string[]? HiddenToolbarActions = null)
 {
     public const int CurrentSchemaVersion = 1;
+    internal const int MaxSerializedBytes = 64 * 1024;
     private static readonly string[] DefaultHiddenToolbarActions = [];
     private static readonly string[] ToolbarActionIds = ["new", "open", "save", "saveAs", "recover", "undo", "redo", "find", "replace", "toggleSource", "statistics"];
 
@@ -37,9 +38,26 @@ public sealed record AppSettings(
         {
             DocumentFile.RejectReparsePath(path, includeTarget: true);
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if (stream.Length > 64 * 1024)
+            if (stream.Length > MaxSerializedBytes)
                 return new(Default, "设置文件超过 64 KiB，已保留原文件并使用默认设置。", false);
-            using var json = JsonDocument.Parse(stream, new JsonDocumentOptions { MaxDepth = 8 });
+            var bytes = new byte[checked((int)stream.Length)];
+            stream.ReadExactly(bytes);
+            return ParseSerialized(bytes);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            return new(Default, "设置文件无法读取，已保留原文件并使用默认设置。", false);
+        }
+    }
+
+    internal static AppSettingsLoadResult ParseSerialized(ReadOnlyMemory<byte> bytes)
+    {
+        if (bytes.Length > MaxSerializedBytes)
+            return new(Default, "设置内容超过 64 KiB。", false);
+
+        try
+        {
+            using var json = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 8 });
             var root = json.RootElement;
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("schemaVersion", out var schema)
                 || schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out var version) || version != CurrentSchemaVersion)
@@ -67,26 +85,16 @@ public sealed record AppSettings(
                     reducedMotion, windowPlacement, paragraphSpacing, bodyFont, h1Font, h2Font, colorPalette, hiddenToolbarActions),
                 warnings.Count == 0 ? null : "部分设置无效，已使用默认值。", true);
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        catch (Exception error) when (error is JsonException or ArgumentException)
         {
-            return new(Default, "设置文件无法读取，已保留原文件并使用默认设置。", false);
+            return new(Default, "设置内容无法解析。", false);
         }
     }
 
     public void Save(string directory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-        if (SchemaVersion != CurrentSchemaVersion || Theme is not ("system" or "light" or "dark")
-            || FontSize is < 12 or > 24 || !double.IsFinite(LineHeight) || LineHeight is < 1.2 or > 2
-            || ViewMode is not ("source" or "split" or "read")
-            || !double.IsFinite(ParagraphSpacing) || ParagraphSpacing is < 0 or > 2
-            || BodyFont is not ("system" or "song" or "yahei" or "dengxian" or "serif")
-            || H1Font is not ("system" or "song" or "yahei" or "dengxian" or "serif")
-            || H2Font is not ("system" or "song" or "yahei" or "dengxian" or "serif")
-            || ColorPalette is not ("lavender" or "forest" or "ocean" or "paper" or "graphite")
-            || !IsValidHiddenToolbarActions(HiddenToolbarActions)
-            || WindowPlacement is { IsValid: false })
-            throw new ArgumentException("设置值无效，未保存。", nameof(directory));
+        ValidateForSave();
 
         var fullDirectory = Path.GetFullPath(directory);
         DocumentFile.RejectReparsePath(fullDirectory, includeTarget: false);
@@ -97,8 +105,7 @@ public sealed record AppSettings(
         var temp = Path.Combine(fullDirectory, $".settings.{Guid.NewGuid():N}.tmp");
         try
         {
-            var bytes = JsonSerializer.SerializeToUtf8Bytes(this with { HiddenToolbarActions = HiddenToolbarActions ?? [] },
-                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            var bytes = Serialize();
             using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
             {
                 stream.Write(bytes);
@@ -114,6 +121,25 @@ public sealed record AppSettings(
             catch (UnauthorizedAccessException) { }
         }
     }
+
+    internal void ValidateForSave()
+    {
+        if (SchemaVersion != CurrentSchemaVersion || Theme is not ("system" or "light" or "dark")
+            || FontSize is < 12 or > 24 || !double.IsFinite(LineHeight) || LineHeight is < 1.2 or > 2
+            || ViewMode is not ("source" or "split" or "read")
+            || !double.IsFinite(ParagraphSpacing) || ParagraphSpacing is < 0 or > 2
+            || BodyFont is not ("system" or "song" or "yahei" or "dengxian" or "serif")
+            || H1Font is not ("system" or "song" or "yahei" or "dengxian" or "serif")
+            || H2Font is not ("system" or "song" or "yahei" or "dengxian" or "serif")
+            || ColorPalette is not ("lavender" or "forest" or "ocean" or "paper" or "graphite")
+            || !IsValidHiddenToolbarActions(HiddenToolbarActions)
+            || WindowPlacement is { IsValid: false })
+            throw new ArgumentException("设置值无效，未保存。", nameof(AppSettings));
+    }
+
+    internal byte[] Serialize() => JsonSerializer.SerializeToUtf8Bytes(
+        this with { HiddenToolbarActions = HiddenToolbarActions ?? [] },
+        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
     private static string ReadString(JsonElement root, string name, string fallback, List<string> warnings)
     {

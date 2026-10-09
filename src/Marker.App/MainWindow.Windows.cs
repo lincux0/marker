@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Microsoft.Data.Sqlite;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.System;
@@ -138,9 +139,9 @@ public sealed partial class MainWindow
                 ApplicationVersion = typeof(AppSettings).Assembly.GetName().Version?.ToString() ?? "unknown",
                 WindowPlacement = placement
             };
-            _settings.Save(_settingsDirectory);
+            SettingsDatabase.Save(_settingsDirectory, _settings);
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or SqliteException or InvalidOperationException)
         {
             SetSettingsNotice("窗口位置保存失败；其他偏好仍可使用。");
         }

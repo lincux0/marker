@@ -13,6 +13,7 @@
     <PackageReference Include="MSTest.TestAdapter" Version="3.6.4" />
     <PackageReference Include="MSTest.TestFramework" Version="3.6.4" />
     <PackageReference Include="Markdig" Version="1.4.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\src\Marker.App\BridgeSession.cs" Link="BridgeSession.cs" />
@@ -21,6 +22,7 @@
     <Compile Include="..\..\src\Marker.App\LocalImageResources.cs" Link="LocalImageResources.cs" />
     <Compile Include="..\..\src\Marker.App\RecoveryStore.cs" Link="RecoveryStore.cs" />
     <Compile Include="..\..\src\Marker.App\AppSettings.cs" Link="AppSettings.cs" />
+    <Compile Include="..\..\src\Marker.App\SettingsDatabase.cs" Link="SettingsDatabase.cs" />
     <Compile Include="..\..\src\Marker.App\WindowPlacement.cs" Link="WindowPlacement.cs" />
     <Compile Include="..\..\src\Marker.App\MarkdownActivation.cs" Link="MarkdownActivation.cs" />
   </ItemGroup>
