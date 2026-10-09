@@ -30,13 +30,13 @@
                 <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="CornerRadius" Value="14" />
-                <Setter Property="Padding" Value="20,18" />
+                <Setter Property="Padding" Value="18,14" />
             </Style>
             <Style x:Key="RowSeparator" TargetType="Border">
                 <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
                 <Setter Property="BorderThickness" Value="0,0,0,1" />
-                <Setter Property="Padding" Value="0,0,0,10" />
-                <Setter Property="Margin" Value="0,0,0,10" />
+                <Setter Property="Padding" Value="0,0,0,6" />
+                <Setter Property="Margin" Value="0,0,0,6" />
             </Style>
         </Grid.Resources>
 
@@ -56,7 +56,7 @@
                         </Grid>
 
                         <Border Style="{StaticResource SectionCard}">
-                            <StackPanel Spacing="14">
+                            <StackPanel Spacing="10">
                                 <StackPanel Spacing="2">
                                     <TextBlock TextWrapping="Wrap" Text="外观与行为" FontSize="17" FontWeight="SemiBold" />
                                     <TextBlock TextWrapping="Wrap" Text="选择应用配色并设置编辑行为" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -98,7 +98,7 @@
                         </Border>
 
                         <Border Style="{StaticResource SectionCard}">
-                            <StackPanel Spacing="14">
+                            <StackPanel Spacing="10">
                                 <StackPanel Spacing="2">
                                     <TextBlock TextWrapping="Wrap" Text="阅读节奏" FontSize="17" FontWeight="SemiBold" />
                                     <TextBlock TextWrapping="Wrap" Text="微调正文字号与段落留白" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -126,7 +126,7 @@
                         </Border>
 
                         <Border Style="{StaticResource SectionCard}">
-                            <StackPanel Spacing="14">
+                            <StackPanel Spacing="10">
                                 <StackPanel Spacing="2">
                                     <TextBlock TextWrapping="Wrap" Text="字体" FontSize="17" FontWeight="SemiBold" />
                                     <TextBlock TextWrapping="Wrap" Text="选用系统已安装的常见中文字体" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
