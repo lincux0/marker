@@ -66,7 +66,8 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `src/statistics.ts`：使用现有 CodeMirror Markdown 完整语法树剔除标记、链接目标及图片，中文逐字、其余文本按词统计；非空 Paragraph/Task 节点作为正文段落。编辑短暂停顿 180 ms 后更新，不经原生桥接或上传文档。
 - `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配 `toolbar.ts`、`live-markdown.ts` 与 Markdown 快捷键；`toolbarState` 按当前来源及 session 校验，仅更新标题、通知与 busy 状态。
 - `src/live-markdown.ts`：复用 CodeMirror GFM 语法树以装饰并隐藏标题、引用、列表、强调、行内代码、链接、表格和围栏标记；任务项、列表标记及受控图片显示为可视元素。源文档与原生同步仍保留完整 Markdown 文本，顶部代码模式按钮或 Ctrl+Alt+M 暂时显示源码标记以调整复杂/暂不支持的语法；同一编辑器和历史不重建。格式化快捷键使用原有 CodeMirror 事务与 changeByRange，保留选区方向并隔离每次格式化的撤销步骤；无选区时插入选中的占位文本供直接输入。CodeMirror 语法解析和装饰不承诺与 Markdig HTML 完全一致，复杂嵌套语法仍需兼容样例实测。
-- `src/links.ts`：从正文链接装饰及语法树读取行内、引用式和自动链接，普通单击发送带当前会话/版本的 `openLink`；修饰键点击、拖选与源码模式保留编辑行为。宿主仅接受 HTTP(S) 且无 userinfo 的地址，经显示完整地址、默认“否”的确认后交系统浏览器；不允许页面直接导航。
+- `src/links.ts`：正文链接悬停显示“按ctrl并点击以访问”；只有 Ctrl+左键发送当前会话/版本的 `openLink`，普通点击、拖选与源码模式保持编辑。HTTP(S) 经宿主校验后直接交默认浏览器，页面不导航；本地 Markdown 复用文档打开与未保存保护，其他普通文件/目录由系统关联打开。
+- `MarkdownLinkResolver.cs`：本地链接解析与路径边界，共用纯逻辑测试；相对地址基于已保存文档目录，盘符或 file URI 规范化后检查本地根、重解析点、编码路径与 ADS，拒绝 UNC、设备路径和危险文件类型。
 - `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用已安装 JavaScript/Lezer 解析器，以 DOM 文本节点实现 JS/TS 围栏高亮；其他语言或超长代码保留纯文本。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。
 - `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、Web 浮动工具栏与减少动画样式。工具栏 fixed 并在视口内居中，与正文共享 980 px 纸面宽度及响应式边距变量；常规顶栏总宽 1012 px，比纸面宽 32 px，窄窗随纸面收缩且至少保留 16 px 外边距。文档名可收缩并以原生省略号截断，保留完整名称 Tooltip；玻璃表面使用 36% 画布底色、32 px backdrop blur 和 1.5 倍饱和度，模糊随正文滚动的内容；首屏纸面与工具栏下沿保持 32 px 距离（滚动内边距随顶栏顶部偏移计算）。高对比模式停用透明模糊效果并回退到系统色。

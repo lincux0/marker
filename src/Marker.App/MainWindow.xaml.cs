@@ -252,7 +252,7 @@ public sealed partial class MainWindow : UserControl
         }
         if (_session.TryReadEditorLink(source, EditorUrl, json, out var linkUrl, out _))
         {
-            if (!_operationBusy && linkUrl is not null) ConfirmOpenLink(linkUrl);
+            if (!_operationBusy && linkUrl is not null) OpenEditorLink(linkUrl);
             return;
         }
         if (_session.TryReadSnapshotError(source, EditorUrl, json, out var requestId, out var reason, out _))
@@ -350,6 +350,39 @@ public sealed partial class MainWindow : UserControl
         if (MessageBoxW(_window, $"使用默认浏览器打开以下地址？\n{url}", "Marker · 打开链接", 0x124) != 6) return;
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
         catch (Exception error) { SetStatus($"无法打开链接：{error.Message}"); }
+    }
+
+    private void OpenEditorLink(string target)
+    {
+        if (target.StartsWith('#'))
+        {
+            SetStatus("当前暂不支持文档内锚点链接。");
+            return;
+        }
+        if (Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true }); }
+            catch (Exception error) { SetStatus($"无法打开链接：{error.Message}"); }
+            return;
+        }
+
+        try
+        {
+            if (!MarkdownLinkResolver.TryResolveLocalPath(target, _document.Path ?? _recoveryOriginalPath, out var path))
+                throw new IOException("本地链接路径无效、不存在或不受支持。");
+            if (!File.Exists(path) && !Directory.Exists(path)) throw new FileNotFoundException("链接目标不存在。", path);
+            if (File.Exists(path) && MarkdownLinkResolver.IsDangerousExtension(path))
+                throw new IOException("为避免意外执行程序或脚本，Marker 不会直接打开此类链接。");
+
+            if (File.Exists(path) && Path.GetExtension(path) is var extension &&
+                (extension.Equals(".md", StringComparison.OrdinalIgnoreCase) || extension.Equals(".markdown", StringComparison.OrdinalIgnoreCase)))
+            {
+                _ = ExecuteDocumentCommandAsync("openPath", path);
+                return;
+            }
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception error) { SetStatus($"无法打开本地链接：{error.Message}"); }
     }
 
     private async Task RenderSnapshotAsync(MarkdownSnapshot snapshot)

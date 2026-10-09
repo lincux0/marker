@@ -239,10 +239,31 @@ internal sealed class BridgeSession(string sessionId)
     public bool TryReadEditorLink(string source, string expectedSource, string json, out string? url, out string error)
     {
         url = null;
-        if (!TryReadPreviewAction(source, expectedSource, json, out var action, out _, out var candidate, out error)) return false;
-        if (action != "openLink") return Fail("编辑器只允许打开外部链接。", out error);
+        if (!TryRead(source, expectedSource, json, "openLink", ["type", "protocolVersion", "sessionId", "version", "url"], out var root, out error) ||
+            !HasMatchingSession(root, out error)) return false;
+        if (!TryReadInt64(root, "version", out var version) || version != Version || _text is null ||
+            !root.TryGetProperty("url", out var urlElement) || urlElement.ValueKind != JsonValueKind.String ||
+            urlElement.GetString() is not string candidate || !IsSafeEditorLinkTarget(candidate))
+            return Fail("链接地址或文档版本无效。", out error);
         url = candidate;
+        error = string.Empty;
         return true;
+    }
+
+    private static bool IsSafeEditorLinkTarget(string candidate)
+    {
+        if (candidate.Length is 0 or > 2048 || candidate.Any(char.IsControl) || candidate.StartsWith("\\\\", StringComparison.Ordinal) || candidate.StartsWith("//", StringComparison.Ordinal))
+            return false;
+        if (candidate.Length >= 3 && char.IsAsciiLetter(candidate[0]) && candidate[1] == ':' && candidate[2] is '\\' or '/')
+            return true;
+        if (candidate.StartsWith('\\') || candidate.StartsWith('/')) return false;
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri)) return true;
+        return uri.Scheme switch
+        {
+            "http" or "https" => string.IsNullOrEmpty(uri.UserInfo),
+            "file" => !uri.IsUnc && (string.IsNullOrEmpty(uri.Host) || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)),
+            _ => false
+        };
     }
 
     public bool TryAcceptRendered(string source, string expectedSource, string json, out long version, out string error)

@@ -25,5 +25,6 @@
     <Compile Include="..\..\src\Marker.App\SettingsDatabase.cs" Link="SettingsDatabase.cs" />
     <Compile Include="..\..\src\Marker.App\WindowPlacement.cs" Link="WindowPlacement.cs" />
     <Compile Include="..\..\src\Marker.App\MarkdownActivation.cs" Link="MarkdownActivation.cs" />
+    <Compile Include="..\..\src\Marker.App\MarkdownLinkResolver.cs" Link="MarkdownLinkResolver.cs" />
   </ItemGroup>
 </Project>

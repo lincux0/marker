@@ -50,17 +50,7 @@ function linkTarget(view: EditorView, position: number): string | undefined {
   return undefined;
 }
 
-function isExternalWebUrl(value: string): boolean {
-  if (!value || value.length > 2048) return false;
-  try {
-    const url = new URL(value);
-    return (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password;
-  } catch {
-    return false;
-  }
-}
-
-export function markdownLinkActions(open: (url: string) => void, unsupported: () => void) {
+export function markdownLinkActions(open: (url: string) => void) {
   let pointerStart: { id: number; x: number; y: number } | undefined;
   let dragged = false;
   return EditorView.domEventHandlers({
@@ -78,7 +68,7 @@ export function markdownLinkActions(open: (url: string) => void, unsupported: ()
     click(event, view) {
       const target = event.target instanceof Element ? event.target : event.target instanceof Node ? event.target.parentElement : null;
       if (view.compositionStarted || view.dom.dataset.sourceMode === "true" ||
-          event.button !== 0 || event.detail !== 1 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
+          event.button !== 0 || event.detail !== 1 || !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
           dragged || !view.state.selection.main.empty || !target) return false;
       const link = target.closest<HTMLElement>(".cm-md-link");
       if (!link) return false;
@@ -87,10 +77,8 @@ export function markdownLinkActions(open: (url: string) => void, unsupported: ()
       try { raw = linkTarget(view, view.posAtDOM(link, 0) + 1); }
       catch { return false; }
       if (!raw) return false;
-      const url = decodeDestination(raw);
-      if (isExternalWebUrl(url)) open(url);
-      else unsupported();
-      return false;
+      open(decodeDestination(raw));
+      return true;
     },
   });
 }

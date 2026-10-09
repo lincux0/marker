@@ -108,6 +108,26 @@ public sealed class BridgeSessionTests
     }
 
     [TestMethod]
+    public void EditorLinksAcceptSafeLocalTargetsAndRejectProtocolsAndNetworkPaths()
+    {
+        var session = new BridgeSession("session-1");
+        Assert.IsTrue(session.TryAcceptSnapshot(EditorUrl, EditorUrl, Snapshot("session-1", 0, "[local](../notes/file.md)"), out _, out _));
+
+        foreach (var target in new[] { "../notes/file.md", "C:\\Notes\\file.md", "file:///C:/Notes/file.md", "https://example.com/a" })
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(new { type = "openLink", protocolVersion = 1, sessionId = "session-1", version = 0, url = target });
+            Assert.IsTrue(session.TryReadEditorLink(EditorUrl, EditorUrl, json, out var accepted, out _), target);
+            Assert.AreEqual(target, accepted);
+        }
+
+        foreach (var target in new[] { "javascript:alert(1)", "data:text/html,hi", "mailto:user@example.com", "//server/share/file.md", "/rooted/path.md", "\\\\server\\share\\file.md", "https://user@example.com/" })
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(new { type = "openLink", protocolVersion = 1, sessionId = "session-1", version = 0, url = target });
+            Assert.IsFalse(session.TryReadEditorLink(EditorUrl, EditorUrl, json, out _, out _), target);
+        }
+    }
+
+    [TestMethod]
     public void SourceModeAcceptsOnlyCurrentTrustedBooleanState()
     {
         var session = new BridgeSession("session-1");

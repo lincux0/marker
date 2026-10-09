@@ -145,7 +145,8 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
       if (opening && close) {
         hide(opening.from, opening.to);
         hide(close.from, node.to, undefined, false, true);
-        style(opening.to, close.from, name === "Image" ? "cm-md-image-caption" : "cm-md-link");
+        style(opening.to, close.from, name === "Image" ? "cm-md-image-caption" : "cm-md-link",
+          name === "Link" ? { title: "按ctrl并点击以访问" } : undefined);
         if (name === "Image") {
           const rawSource = url ? state.doc.sliceString(url.from, url.to).replace(/^<|>$/g, "") : "";
           const unescaped = rawSource.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, "$1");
@@ -160,7 +161,7 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
         }
       }
     } else if (name === "Autolink") {
-      style(node.from, node.to, "cm-md-link");
+      style(node.from, node.to, "cm-md-link", { title: "按ctrl并点击以访问" });
       if (state.doc.sliceString(node.from, node.from + 1) === "<") { hide(node.from, node.from + 1); hide(node.to - 1, node.to, undefined, false, true); }
     } else if (name === "HorizontalRule") {
       hide(node.from, node.to, new SymbolWidget("", "cm-md-rule"));

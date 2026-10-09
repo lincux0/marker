@@ -414,10 +414,7 @@ function initialize(nextSessionId: string, text: string): void {
         placeholder("写下新的想法…"),
         liveMarkdown,
         markdownFormattingKeymap,
-        markdownLinkActions(
-          url => { if (sessionId) post({ type: "openLink", sessionId, version, url }); },
-          () => setStatus("当前仅支持打开 HTTP(S) 绝对链接；相对链接和页内锚点可按 Ctrl+Alt+M 编辑。"),
-        ),
+        markdownLinkActions(url => { if (sessionId) post({ type: "openLink", sessionId, version, url }); }),
         history(),
         search({ top: true, createPanel: createSearchPanel }),
         settingsCompartment.of([]),
