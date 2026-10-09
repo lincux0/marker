@@ -201,23 +201,27 @@ body {
 }
 
 #preview h1 {
-  margin: 0 0 1.15em;
-  font-size: clamp(1.8em, 4vw, 2.25em);
+  margin: 1.4em 0 .65em;
+  font-size: 2em;
+  font-weight: 700;
   letter-spacing: -.035em;
   font-family: var(--preview-h1-font), "Noto Serif CJK SC", Georgia, serif;
 }
 
 #preview h2 {
-  margin-top: 2.15em;
-  padding-bottom: .38em;
+  margin: 1.4em 0 .55em;
+  padding-bottom: .3em;
   border-bottom: 1px solid var(--border);
-  font-size: 1.48em;
+  font-size: 1.7em;
+  font-weight: 700;
   letter-spacing: -.02em;
   font-family: var(--preview-h2-font), "Noto Serif CJK SC", Georgia, serif;
 }
 
-#preview h3 { margin-top: 1.8em; font-size: 1.2em; }
-#preview h4, #preview h5, #preview h6 { margin-top: 1.55em; font-size: 1.04em; }
+#preview h3 { margin: 1.25em 0 .5em; font-size: 1.45em; font-weight: 600; }
+#preview h4 { margin: 1.1em 0 .4em; font-size: 1.25em; font-weight: 600; }
+#preview h5 { margin: 1em 0 .4em; font-size: 1.1em; font-weight: 600; }
+#preview h6 { margin: 1em 0 .4em; font-size: 1em; font-weight: 600; }
 #preview p { margin: var(--preview-paragraph-spacing) 0; }
 #preview li { padding-left: .18em; margin-block: .3em; }
 #preview li::marker { color: var(--accent); }
@@ -250,9 +254,9 @@ html[data-theme="dark"][data-color-palette="graphite"] { --foreground:#e4e8eb; -
 #preview blockquote {
   margin: 1.45em 0;
   padding: .75em 1.15em;
-  border-left: 3px solid color-mix(in srgb, var(--accent) 62%, var(--border));
+  border-left: 3px solid color-mix(in srgb, var(--border) 72%, var(--muted));
   border-radius: 0 10px 10px 0;
-  color: color-mix(in srgb, var(--foreground) 86%, var(--muted));
+  color: var(--foreground);
   background: color-mix(in srgb, var(--accent) 5%, var(--paper));
 }
 
@@ -262,8 +266,9 @@ html[data-theme="dark"][data-color-palette="graphite"] { --foreground:#e4e8eb; -
 #preview a[data-marker-fragment],
 #preview a[data-marker-url] {
   color: var(--link);
-  text-decoration-color: color-mix(in srgb, var(--link) 48%, transparent);
+  text-decoration-color: currentColor;
   text-underline-offset: .18em;
+  overflow-wrap: anywhere;
   cursor: pointer;
   transition: color 140ms ease, text-decoration-color 140ms ease;
 }
@@ -272,12 +277,11 @@ html[data-theme="dark"][data-color-palette="graphite"] { --foreground:#e4e8eb; -
 #preview a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
 #preview :not(pre) > code {
-  padding: .14em .38em;
-  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  border-radius: 5px;
-  color: color-mix(in srgb, var(--foreground) 90%, var(--accent));
+  padding: .1em .3em;
+  border-radius: 4px;
+  color: var(--foreground);
   background: var(--surface);
-  font-size: .88em;
+  font-size: .9em;
 }
 
 pre,

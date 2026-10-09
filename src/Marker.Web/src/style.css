@@ -223,19 +223,19 @@ body {
   color: var(--editor-foreground);
   /* CodeMirror measures line boxes, not vertical margins, for pointer coordinates. */
   margin-block: 0;
-  padding-top: .85em;
-  padding-bottom: .4em;
-  font-weight: 650;
+  padding-top: .2em;
+  padding-bottom: .3em;
+  font-weight: 600;
   line-height: 1.4;
   letter-spacing: -.025em;
 }
 
-#editor .cm-md-h1 { font-family: var(--editor-h1-font, "SimSun"), "Noto Serif CJK SC", Georgia, serif; font-size: 2.25em; padding-top: .15em; padding-bottom: .65em; font-weight: 700; }
-#editor .cm-md-h2 { font-family: var(--editor-h2-font, "SimSun"), "Noto Serif CJK SC", Georgia, serif; font-size: 1.8em; font-weight: 700; }
-#editor .cm-md-h3 { font-size: 1.5em; }
-#editor .cm-md-h4 { font-size: 1.28em; }
-#editor .cm-md-h5 { font-size: 1.12em; }
-#editor .cm-md-h6 { font-size: 1em; color: var(--editor-muted); }
+#editor .cm-md-h1 { font-family: var(--editor-h1-font, "SimSun"), "Noto Serif CJK SC", Georgia, serif; font-size: 2em; padding-top: .15em; padding-bottom: .55em; font-weight: 700; }
+#editor .cm-md-h2 { font-family: var(--editor-h2-font, "SimSun"), "Noto Serif CJK SC", Georgia, serif; font-size: 1.7em; padding-top: .2em; padding-bottom: .3em; font-weight: 700; }
+#editor .cm-md-h3 { font-size: 1.45em; padding-top: .15em; padding-bottom: .25em; }
+#editor .cm-md-h4 { font-size: 1.25em; padding-top: .1em; padding-bottom: .2em; }
+#editor .cm-md-h5 { font-size: 1.1em; padding-top: .05em; padding-bottom: .15em; }
+#editor .cm-md-h6 { font-size: 1em; padding-top: 0; padding-bottom: .12em; }
 #editor .cm-md-paragraph { padding-bottom: var(--editor-paragraph-spacing, .5em); }
 #editor .cm-md-heading span:not(.cm-md-link),
 #editor .cm-md-table-header span:not(.cm-md-link),
@@ -244,24 +244,24 @@ body {
 
 .cm-md-strong { font-weight: 650; }
 .cm-md-emphasis { font-style: italic; }
-.cm-md-strike { text-decoration: line-through; color: var(--editor-muted); }
+.cm-md-strike { text-decoration: line-through; }
 .cm-md-subscript { vertical-align: sub; font-size: .78em; }
 .cm-md-superscript { vertical-align: super; font-size: .78em; }
 
 #editor .cm-md-inline-code {
-  padding: .13em .35em;
-  border-radius: 5px;
-  color: var(--editor-accent);
+  padding: .1em .3em;
+  border-radius: 4px;
+  color: var(--editor-foreground);
   background: var(--editor-accent-soft);
   font: .9em/1.5 "Cascadia Code", Consolas, monospace;
   box-decoration-break: clone;
 }
 
 #editor .cm-md-quote {
-  border-left: 3px solid color-mix(in srgb, var(--editor-accent) 55%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--editor-border) 72%, var(--editor-muted));
   border-radius: 0 6px 6px 0;
   padding-inline: 1em .75em;
-  color: var(--editor-muted);
+  color: var(--editor-foreground);
   background: color-mix(in srgb, var(--editor-accent) 5%, transparent);
 }
 
@@ -307,7 +307,7 @@ body {
 #editor .cm-md-code-header { border-radius: 10px 10px 0 0; padding-block: 10px 6px; }
 #editor .cm-md-code-language { color: var(--editor-muted); font: 600 .82em/1.6 "Segoe UI", sans-serif; letter-spacing: .04em; }
 #editor .cm-md-code-last { border-radius: 0 0 10px 10px; padding-bottom: 14px; }
-.cm-md-link { color: var(--editor-accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--editor-accent) 40%, transparent); text-underline-offset: .2em; }
+.cm-md-link { color: var(--editor-accent); text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: .2em; overflow-wrap: anywhere; }
 .cm-md-image { display: inline-block; width: 100%; margin-block: 1em .35em; vertical-align: middle; }
 .cm-md-image img { display: block; max-width: 100%; max-height: 640px; height: auto; margin-inline: auto; border-radius: 12px; box-shadow: 0 8px 30px rgb(36 27 59 / 9%); }
 .cm-md-image-unavailable img { min-height: 2em; box-shadow: none; }
