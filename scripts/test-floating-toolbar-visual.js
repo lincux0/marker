@@ -23,11 +23,12 @@ async (page) => {
         logoLeft: logo.getBoundingClientRect().right < title.getBoundingClientRect().left,
         blur: getComputedStyle(bar).backdropFilter };
     });
-    if (layout.gap < 28 || layout.toolbarWidth-layout.paperWidth < 31 || layout.toolbarWidth-layout.paperWidth > 33 ||
+    if (layout.gap < 28 || layout.toolbarWidth-layout.paperWidth < 63 || layout.toolbarWidth-layout.paperWidth > 65 ||
       !layout.centered || !layout.logoLeft || !layout.blur.includes("blur(32px)")) throw Error(JSON.stringify(layout));
     const viewportLayouts=[];
     for (const width of [1400,2000,720]) {
       await editor.setViewportSize({width,height:760});
+      await editor.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const sizing=await editor.evaluate(()=>{
         const bar=document.querySelector('.marker-toolbar').getBoundingClientRect();
         const paper=document.querySelector('.cm-content').getBoundingClientRect();
@@ -35,7 +36,7 @@ async (page) => {
       });
       const delta=sizing.toolbar-sizing.paper;
       if (sizing.center>=1 || delta<=0 ||
-        (width>800 && (delta<31 || delta>33)) || (width<=800 && (delta<20 || delta>44))) throw Error(JSON.stringify(sizing));
+        (width>800 && (delta<63 || delta>65)) || (width<=800 && (delta<20 || delta>64))) throw Error(JSON.stringify(sizing));
       viewportLayouts.push(sizing);
     }
     await editor.setViewportSize({width:1100,height:760});

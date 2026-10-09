@@ -70,7 +70,7 @@ body {
   top: var(--marker-toolbar-top);
   left: 50%;
   right: auto;
-  width: min(calc(var(--editor-paper-width) + 32px), calc(100% - var(--editor-canvas-inset) - var(--editor-canvas-inset) + 32px), calc(100% - 32px));
+  width: min(calc(var(--editor-paper-width) + 64px), calc(100% - var(--editor-canvas-inset) - var(--editor-canvas-inset) + 64px), calc(100% - 32px));
   box-sizing: border-box;
   min-height: 50px;
   display: grid;

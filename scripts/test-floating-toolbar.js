@@ -27,6 +27,17 @@ async (page) => {
     });
     check(surface.position === 'fixed' && surface.blur.includes('blur'), `Toolbar did not float with the glass surface: ${JSON.stringify(surface)}`);
     check(surface.logo === '/app-logo.png', 'Toolbar logo asset was not mounted');
+    const settingsIcon = await editor.locator('[data-action="settings"] svg').evaluate(svg => {
+      const { x, y, width, height } = [...svg.querySelectorAll('path')].map(path => path.getBBox()).reduce((box, next) => ({
+        x: Math.min(box.x, next.x), y: Math.min(box.y, next.y),
+        width: Math.max(box.x + box.width, next.x + next.width) - Math.min(box.x, next.x),
+        height: Math.max(box.y + box.height, next.y + next.height) - Math.min(box.y, next.y),
+      }));
+      return { viewBox: svg.getAttribute('viewBox'), x, y, width, height };
+    });
+    check(settingsIcon.viewBox === '0 0 24 24' && settingsIcon.x >= 3 && settingsIcon.x <= 3.5 && settingsIcon.y >= 3 && settingsIcon.y <= 3.5 &&
+      settingsIcon.x + settingsIcon.width >= 20.5 && settingsIcon.x + settingsIcon.width <= 21 && settingsIcon.y + settingsIcon.height >= 20.5 && settingsIcon.y + settingsIcon.height <= 21,
+      `Settings icon is incomplete or off-center: ${JSON.stringify(settingsIcon)}`);
     check(await editor.locator('.marker-toolbar-title').textContent() === '稿件.md', 'Document title did not update');
     check(await editor.locator('.marker-toolbar-notification').textContent() === '<img id="toolbar-injection">' && await editor.locator('#toolbar-injection').count() === 0,
       'Toolbar state was parsed as HTML');
@@ -74,7 +85,7 @@ async (page) => {
       });
       const extraWidth = layout.bar.width - layout.paper.width;
       check(Math.abs((layout.bar.left + layout.bar.right) / 2 - width / 2) < 1, `Toolbar was not centered at ${width}px: ${JSON.stringify(layout)}`);
-      check(extraWidth > 0 && (width > 800 ? extraWidth >= 31 && extraWidth <= 33 : extraWidth >= 20 && extraWidth <= 44),
+      check(extraWidth > 0 && (width > 800 ? extraWidth >= 63 && extraWidth <= 65 : extraWidth >= 20 && extraWidth <= 64),
         `Toolbar should be slightly wider than the paper at ${width}px: ${JSON.stringify(layout)}`);
       check(layout.actions.every(button => button.left >= layout.bar.left && button.right <= layout.bar.right),
         `Visible toolbar actions overflowed at ${width}px: ${JSON.stringify(layout)}`);
