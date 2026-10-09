@@ -37,7 +37,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
 - `MainWindow.xaml`：XAML Island 工具栏缩为 1×1 隐藏，保留原生控件字段及兼容 handler；主编辑器 WebView 从客户区原点 `(0,0)` 填满整个客户区。可见浮动工具栏放在编辑器 WebView 的 HTML/CSS 层内，覆盖随正文滚动的内容，不跨 HWND。
-- `SettingsWindow.xaml`、`SettingsWindow.xaml.cs`：独立 WinUI 设置子窗口，由主窗口拥有并单例显示；提供外观、排版、字体卡片。设置即时应用并保存，包含主题、减少动画、字号、行高、段间距、自动换行、正文/H1/H2 字体、颜色组合和顶部栏功能显示选择。窗口边界按 owner DPI 换算为物理坐标并夹入显示器工作区；滚动内容由限宽居中容器承载，关闭设置后排队恢复 Win32 owner 的可见性、前台和编辑焦点。主窗口关闭或文件操作期间不执行此恢复；主窗口关闭时一并关闭。
+- `SettingsWindow.xaml`、`SettingsWindow.xaml.cs`：独立 WinUI 设置子窗口，由主窗口拥有并单例显示；提供外观、排版、字体卡片；SettingsComboBox 在下拉展开后的 UI 回合调整真实 PopupBorder 圆角，菜单使用不透明系统主题背景。设置即时应用并保存，包含主题、减少动画、字号、行高、段间距、自动换行、正文/H1/H2 字体、颜色组合和顶部栏功能显示选择。窗口边界按 owner DPI 换算为物理坐标并夹入显示器工作区；滚动内容由限宽居中容器承载，关闭设置后排队恢复 Win32 owner 的可见性、前台和编辑焦点。主窗口关闭或文件操作期间不执行此恢复；主窗口关闭时一并关闭。
 - `MainWindow.Views.cs`：加载外观设置并同步主题/动效偏好；旧 `viewMode` 设置仅为兼容读取，不启动写回迁移。从 SettingsDatabase 读取持久化值；损坏或未知数据库以默认值运行并禁止保存，旧 JSON 损坏不会阻止首次建立新数据库；简短说明仅在设置窗口显示。
 - `AppSettings.cs`：schemaVersion 1 设置模型及共用 JSON 字段验证/序列化；保存主题、字体、段间距、排版、减少动画、配色、顶部栏显示与窗口位置。旧 JSON Load/Save 仅为兼容和测试保留，生产不再写设置 JSON。
 - `SettingsDatabase.cs`：`%LOCALAPPDATA%/Marker/settings.db` 的 SQLite 单行设置表；DB `user_version` 和记录版本均为 1。生产启动读取，设置更改与窗口位置更改事务保存；64 KiB payload 限制，共用设置校验。首次导入有效旧 `settings.json`，损坏/未来 JSON 保留并以默认设置初始化新 DB；已有损坏/未来 DB 保留且禁写。目录、DB 与 journal/WAL/SHM 重解析点检查继续执行，采用 DELETE 回滚日志、无连接池。

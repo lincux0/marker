@@ -145,3 +145,17 @@ public sealed partial class SettingsWindow : Window
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     private static extern nint SetWindowLongPtrW(nint window, int index, nint value);
 }
+
+public sealed class SettingsComboBox : ComboBox
+{
+    public SettingsComboBox()
+    {
+        DropDownOpened += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            // shortcut: this uses the pinned WinUI 2.3.9 template part names; recheck when upgrading Windows App SDK.
+            if (!IsDropDownOpen || GetTemplateChild("PopupBorder") is not Border popupBorder) return;
+            popupBorder.CornerRadius = new CornerRadius(10);
+            popupBorder.Margin = new Thickness(0);
+        });
+    }
+}

@@ -168,6 +168,7 @@
 - 变更依据：D017 初版只把 palette 应用于 Web 正文和隐藏预览；后续曾扩展到原生工具栏/宿主背景/标题栏，以统一窗口配色。D018 移除可见的原生工具栏，但保留宿主客户区和设置窗使用 `WritingPalette`，并让 Web 浮动工具栏与正文 CSS 同层配色；高对比仍由 Windows 系统颜色优先。
 - 实现位置：`src/Marker.App/SettingsWindow.xaml`、`SettingsWindow.xaml.cs`、`AppSettings.cs`、`MainWindow.Views.cs`、`MainWindow.Windows.cs`、`App.xaml.cs`、`src/Marker.Web/src/main.ts`、`style.css`、`preview.css`。
 - Win32 主窗口不计入 XAML Window 数量，应用采用 `DispatcherShutdownMode.OnExplicitShutdown`，关闭设置子窗不会退出；主窗口复用现有未保存确认与显式退出流程。依据：[DispatcherShutdownMode](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.dispatchershutdownmode)。
+- 设置下拉菜单关闭 `ComboBoxHelper.KeepInteriorCornersSquare`，并在展开后的 UI 回合直接调整 `PopupBorder` 的 10 DIP 圆角和零边距；当前运行时会用 Canvas 包装 Popup 内容，不能假定 `Popup.Child` 就是 Border。保持原生选择、键盘和无障碍行为，不复制整套控件模板。菜单使用不透明的系统主题背景，避免设置行透出；升级 WinUI 时需重新核对模板部件。依据：[WinUI 圆角选项](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.controls.primitives.comboboxhelper.keepinteriorcornerssquare)。
 
 - 图标变更历史：根据用户指定的旧版 `asserts/icon.png` 裁剪生成 ICO 与 PNG，应用/设置窗口图标和顶栏 logo 同源；logo 保留原图色彩，不再根据配色替换为通用文档图形。旧图采用显式方形裁剪，主体从约 85% 缩至约 75%，各尺寸资源共用抗锯齿透明圆角遮罩；此裁剪记录由 D019 的新图标方案取代。
 

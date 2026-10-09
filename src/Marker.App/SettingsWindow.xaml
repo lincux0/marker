@@ -2,42 +2,53 @@
     x:Class="Marker.App.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Marker.App"
+    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
     Title="Marker 设置">
     <Grid x:Name="SettingsRoot" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.Resources>
-            <Style x:Key="SettingsCombo" TargetType="ComboBox">
-                <Setter Property="Width" Value="244" />
-                <Setter Property="Height" Value="40" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="8" />
-                <Setter Property="Padding" Value="10,0" />
-            </Style>
-            <Style x:Key="SettingsNumber" TargetType="NumberBox">
-                <Setter Property="Width" Value="244" />
-                <Setter Property="Height" Value="40" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="8" />
-                <Setter Property="Padding" Value="10,8,10,8" />
-            </Style>
-            <Style x:Key="SectionCard" TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="14" />
-                <Setter Property="Padding" Value="18,14" />
-            </Style>
-            <Style x:Key="RowSeparator" TargetType="Border">
-                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
-                <Setter Property="BorderThickness" Value="0,0,0,1" />
-                <Setter Property="Padding" Value="0,0,0,6" />
-                <Setter Property="Margin" Value="0,0,0,6" />
-            </Style>
+            <ResourceDictionary>
+                <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Default"><StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" /></ResourceDictionary>
+                    <ResourceDictionary x:Key="Light"><StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" /></ResourceDictionary>
+                    <ResourceDictionary x:Key="Dark"><StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" /></ResourceDictionary>
+                    <ResourceDictionary x:Key="HighContrast"><StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" /></ResourceDictionary>
+                </ResourceDictionary.ThemeDictionaries>
+                <Style x:Key="SettingsCombo" TargetType="ComboBox">
+                    <Setter Property="Width" Value="244" />
+                    <Setter Property="Height" Value="40" />
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
+                    <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Setter Property="CornerRadius" Value="8" />
+                    <Setter Property="primitives:ComboBoxHelper.KeepInteriorCornersSquare" Value="False" />
+                    <Setter Property="Padding" Value="10,0" />
+                </Style>
+                <Style x:Key="SettingsNumber" TargetType="NumberBox">
+                    <Setter Property="Width" Value="244" />
+                    <Setter Property="Height" Value="40" />
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
+                    <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="CornerRadius" Value="8" />
+                    <Setter Property="Padding" Value="10,8,10,8" />
+                </Style>
+                <Style x:Key="SectionCard" TargetType="Border">
+                    <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                    <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Setter Property="CornerRadius" Value="14" />
+                    <Setter Property="Padding" Value="18,14" />
+                </Style>
+                <Style x:Key="RowSeparator" TargetType="Border">
+                    <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                    <Setter Property="Padding" Value="0,0,0,6" />
+                    <Setter Property="Margin" Value="0,0,0,6" />
+                </Style>
+            </ResourceDictionary>
         </Grid.Resources>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
@@ -65,22 +76,22 @@
                                     <Grid ColumnSpacing="14">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="244"/></Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="2"><TextBlock TextWrapping="Wrap" Text="主题"/><TextBlock TextWrapping="Wrap" Text="跟随 Windows 或固定明暗模式" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
-                                        <ComboBox x:Name="ThemeCombo" AutomationProperties.Name="主题" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="Theme" SelectionChanged="Theme_SelectionChanged">
+                                        <local:SettingsComboBox x:Name="ThemeCombo" AutomationProperties.Name="主题" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="Theme" SelectionChanged="Theme_SelectionChanged">
                                             <ComboBoxItem Content="跟随系统" Tag="system"/><ComboBoxItem Content="浅色" Tag="light"/><ComboBoxItem Content="深色" Tag="dark"/>
-                                        </ComboBox>
+                                        </local:SettingsComboBox>
                                     </Grid>
                                 </Border>
                                 <Border Style="{StaticResource RowSeparator}">
                                     <Grid ColumnSpacing="14">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="244"/></Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="2"><TextBlock TextWrapping="Wrap" Text="颜色组合"/><TextBlock TextWrapping="Wrap" Text="更改文档画布与强调色" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
-                                        <ComboBox x:Name="ColorPaletteCombo" AutomationProperties.Name="颜色组合" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="ColorPalette" SelectionChanged="ColorPalette_SelectionChanged">
+                                        <local:SettingsComboBox x:Name="ColorPaletteCombo" AutomationProperties.Name="颜色组合" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="ColorPalette" SelectionChanged="ColorPalette_SelectionChanged">
                                             <ComboBoxItem Tag="lavender"><StackPanel Orientation="Horizontal" Spacing="9"><Ellipse Width="14" Height="14" Fill="#7665A8"/><TextBlock TextWrapping="Wrap" Text="薰衣草" VerticalAlignment="Center"/></StackPanel></ComboBoxItem>
                                             <ComboBoxItem Tag="forest"><StackPanel Orientation="Horizontal" Spacing="9"><Ellipse Width="14" Height="14" Fill="#3D7656"/><TextBlock TextWrapping="Wrap" Text="森林" VerticalAlignment="Center"/></StackPanel></ComboBoxItem>
                                             <ComboBoxItem Tag="ocean"><StackPanel Orientation="Horizontal" Spacing="9"><Ellipse Width="14" Height="14" Fill="#347493"/><TextBlock TextWrapping="Wrap" Text="海洋" VerticalAlignment="Center"/></StackPanel></ComboBoxItem>
                                             <ComboBoxItem Tag="paper"><StackPanel Orientation="Horizontal" Spacing="9"><Ellipse Width="14" Height="14" Fill="#986D38"/><TextBlock TextWrapping="Wrap" Text="纸张" VerticalAlignment="Center"/></StackPanel></ComboBoxItem>
                                             <ComboBoxItem Tag="graphite"><StackPanel Orientation="Horizontal" Spacing="9"><Ellipse Width="14" Height="14" Fill="#596B79"/><TextBlock TextWrapping="Wrap" Text="石墨" VerticalAlignment="Center"/></StackPanel></ComboBoxItem>
-                                        </ComboBox>
+                                        </local:SettingsComboBox>
                                     </Grid>
                                 </Border>
                                 <Grid ColumnSpacing="14">
@@ -135,26 +146,26 @@
                                     <Grid ColumnSpacing="14">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="244"/></Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="2"><TextBlock TextWrapping="Wrap" Text="正文字体"/><TextBlock TextWrapping="Wrap" Text="用于段落、列表与表格" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
-                                        <ComboBox x:Name="BodyFontCombo" AutomationProperties.Name="正文字体" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="BodyFont" SelectionChanged="BodyFont_SelectionChanged">
+                                        <local:SettingsComboBox x:Name="BodyFontCombo" AutomationProperties.Name="正文字体" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="BodyFont" SelectionChanged="BodyFont_SelectionChanged">
                                             <ComboBoxItem Content="系统默认" Tag="system"/><ComboBoxItem Content="宋体" Tag="song"/><ComboBoxItem Content="微软雅黑" Tag="yahei"/><ComboBoxItem Content="等线" Tag="dengxian"/><ComboBoxItem Content="衬线字体" Tag="serif"/>
-                                        </ComboBox>
+                                        </local:SettingsComboBox>
                                     </Grid>
                                 </Border>
                                 <Border Style="{StaticResource RowSeparator}">
                                     <Grid ColumnSpacing="14">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="244"/></Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Spacing="2"><TextBlock TextWrapping="Wrap" Text="H1 字体"/><TextBlock TextWrapping="Wrap" Text="一级标题" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
-                                        <ComboBox x:Name="H1FontCombo" AutomationProperties.Name="H1 字体" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="H1Font" SelectionChanged="H1Font_SelectionChanged">
+                                        <local:SettingsComboBox x:Name="H1FontCombo" AutomationProperties.Name="H1 字体" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="H1Font" SelectionChanged="H1Font_SelectionChanged">
                                             <ComboBoxItem Content="系统默认" Tag="system"/><ComboBoxItem Content="宋体" Tag="song"/><ComboBoxItem Content="微软雅黑" Tag="yahei"/><ComboBoxItem Content="等线" Tag="dengxian"/><ComboBoxItem Content="衬线字体" Tag="serif"/>
-                                        </ComboBox>
+                                        </local:SettingsComboBox>
                                     </Grid>
                                 </Border>
                                 <Grid ColumnSpacing="14">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="244"/></Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center" Spacing="2"><TextBlock TextWrapping="Wrap" Text="H2 字体"/><TextBlock TextWrapping="Wrap" Text="二级标题" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
-                                    <ComboBox x:Name="H2FontCombo" AutomationProperties.Name="H2 字体" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="H2Font" SelectionChanged="H2Font_SelectionChanged">
+                                    <local:SettingsComboBox x:Name="H2FontCombo" AutomationProperties.Name="H2 字体" Grid.Column="1" Style="{StaticResource SettingsCombo}" AutomationProperties.AutomationId="H2Font" SelectionChanged="H2Font_SelectionChanged">
                                         <ComboBoxItem Content="系统默认" Tag="system"/><ComboBoxItem Content="宋体" Tag="song"/><ComboBoxItem Content="微软雅黑" Tag="yahei"/><ComboBoxItem Content="等线" Tag="dengxian"/><ComboBoxItem Content="衬线字体" Tag="serif"/>
-                                    </ComboBox>
+                                    </local:SettingsComboBox>
                                 </Grid>
                             </StackPanel>
                         </Border>
