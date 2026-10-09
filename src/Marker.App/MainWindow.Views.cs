@@ -96,7 +96,16 @@ public sealed partial class MainWindow
         _settingsWindow = window;
         window.Closed += (_, _) =>
         {
-            if (ReferenceEquals(_settingsWindow, window)) _settingsWindow = null;
+            if (!ReferenceEquals(_settingsWindow, window)) return;
+            _settingsWindow = null;
+            // Defer owner activation until the owned WinUI window has finished its close event.
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (_closed || _allowClose || _operationBusy || _settingsWindow is not null) return;
+                Native.ShowWindow(_window, IsIconic(_window) ? 9 : 5);
+                SetForegroundWindow(_window);
+                TryMoveFocus(_editor, _editorWindow, Microsoft.Web.WebView2.Core.CoreWebView2MoveFocusReason.Programmatic);
+            });
         };
         window.SetAppearance(RequestedTheme, IsHighContrast, EffectiveReducedMotion);
         window.ShowOwned(_window, GetSettingsWindowBounds(720, 780));
