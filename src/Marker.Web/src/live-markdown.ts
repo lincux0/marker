@@ -104,6 +104,7 @@ class ImageWidget extends WidgetType {
 
 type Presentation = {
   decorations: DecorationSet;
+  outer: DecorationSet;
   atoms: DecorationSet;
   closing: DecorationSet;
   resources: ReadonlyMap<string, string>;
@@ -111,11 +112,13 @@ type Presentation = {
   source: boolean;
 };
 
-function decorate(state: EditorState, resources: ReadonlyMap<string, string>, source: boolean): { decorations: DecorationSet; atoms: DecorationSet; closing: DecorationSet } {
-  if (source) return { decorations: Decoration.none, atoms: Decoration.none, closing: Decoration.none };
+function decorate(state: EditorState, resources: ReadonlyMap<string, string>, source: boolean): { decorations: DecorationSet; outer: DecorationSet; atoms: DecorationSet; closing: DecorationSet } {
+  if (source) return { decorations: Decoration.none, outer: Decoration.none, atoms: Decoration.none, closing: Decoration.none };
   const marks: Range<Decoration>[] = [];
+  const outer: Range<Decoration>[] = [];
   const atoms: Range<Decoration>[] = [];
   const closing: Range<Decoration>[] = [];
+  const quoteLines = new Map<number, { depth: number; start: boolean; end: boolean }>();
   const line = (from: number, className: string, attributes?: Record<string, string>): void => {
     marks.push(Decoration.line({ class: className, attributes }).range(state.doc.lineAt(from).from));
   };
@@ -128,6 +131,9 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
   };
   const style = (from: number, to: number, className: string, attributes?: Record<string, string>): void => {
     if (to > from) marks.push(Decoration.mark({ class: className, attributes }).range(from, to));
+  };
+  const outerStyle = (from: number, to: number, className: string, attributes?: Record<string, string>): void => {
+    if (to > from) outer.push(Decoration.mark({ class: className, attributes }).range(from, to));
   };
   const followingSpace = (to: number): number => {
     const end = state.doc.lineAt(to).to;
@@ -159,7 +165,18 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
     else if (name === "Superscript") style(node.from, node.to, "cm-md-superscript");
     else if (name === "CodeMark" && syntax.parent?.name === "InlineCode") hide(node.from, node.to, undefined, false, node.to === syntax.parent.to);
     else if (name === "Blockquote") {
-      for (let number = state.doc.lineAt(node.from).number; number <= state.doc.lineAt(node.to).number; number++) line(state.doc.line(number).from, "cm-md-quote");
+      let depth = 1;
+      for (let parent = syntax.parent; parent; parent = parent.parent) if (parent.name === "Blockquote") depth++;
+      depth = Math.min(depth, 5);
+      const start = state.doc.lineAt(node.from).number;
+      const end = state.doc.lineAt(node.to).number;
+      for (let number = start; number <= end; number++) {
+        const quote = quoteLines.get(number) ?? { depth: 0, start: false, end: false };
+        quote.depth = Math.max(quote.depth, depth);
+        quote.start ||= number === start;
+        quote.end ||= number === end;
+        quoteLines.set(number, quote);
+      }
     } else if (name === "QuoteMark") hide(node.from, followingSpace(node.to));
     else if (name === "ListItem") {
       const itemLine = state.doc.lineAt(node.from);
@@ -179,7 +196,10 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
       const closingLine = closingFence ? state.doc.lineAt(closingFence.from).number : -1;
       if (name === "FencedCode") {
         for (const marker of syntax.getChildren("QuoteMark")) {
-          if (state.doc.lineAt(marker.from).number !== closingLine) hide(marker.from, followingSpace(marker.to));
+          if (state.doc.lineAt(marker.from).number !== closingLine) {
+            const separator = state.doc.sliceString(marker.to, marker.to + 1) === " " ? 1 : 0;
+            hide(marker.from, marker.to + separator);
+          }
         }
       }
       for (let number = start; number <= end; number++) {
@@ -197,6 +217,21 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
           } else if (closingFence?.from === fence.from) hide(current.from, Math.min(state.doc.length, current.to + 1), undefined, true);
           else hide(fence.from, current.to);
         } else line(current.from, `cm-md-code-line${number === end - (fenceMarks.length > 1 ? 1 : 0) ? " cm-md-code-last" : ""}`);
+      }
+      if (name === "CodeBlock") {
+        line(state.doc.line(start).from, "cm-md-code-header");
+        const quoteMarks = syntax.getChildren("QuoteMark");
+        for (const marker of quoteMarks) {
+          const separator = state.doc.sliceString(marker.to, marker.to + 1) === " " ? 1 : 0;
+          hide(marker.from, marker.to + separator);
+        }
+        for (let number = start; number <= end; number++) {
+          const current = state.doc.line(number);
+          const lastQuoteMark = quoteMarks.filter(mark => state.doc.lineAt(mark.from).number === number).at(-1);
+          const from = lastQuoteMark ? lastQuoteMark.to + (state.doc.sliceString(lastQuoteMark.to, lastQuoteMark.to + 1) === " " ? 1 : 0) : current.from;
+          const indentation = /^(?: {1,4}|\t)/.exec(state.doc.sliceString(from, current.to))?.[0];
+          if (indentation) hide(from, from + indentation.length);
+        }
       }
       return false;
     } else if (name === "Link" || name === "Image") {
@@ -244,7 +279,7 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
         hide(position, cell.from);
         const separator = segments[index]?.trim() ?? "";
         const alignment = separator.startsWith(":") && separator.endsWith(":") ? "center" : separator.endsWith(":") ? "right" : "left";
-        style(cell.from, cell.to, `cm-md-table-cell cm-md-table-align-${alignment}`);
+        outerStyle(cell.from, cell.to, `cm-md-table-cell cm-md-table-align-${alignment}`);
         position = cell.to;
       }
       hide(position, node.to);
@@ -255,7 +290,10 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
       line(node.from, "cm-md-reference");
     }
   } });
-  return { decorations: Decoration.set(marks, true), atoms: Decoration.set(atoms, true), closing: Decoration.set(closing, true) };
+  for (const [number, quote] of quoteLines) {
+    line(state.doc.line(number).from, `cm-md-quote cm-md-quote-depth-${quote.depth}${quote.start ? " cm-md-quote-start" : ""}${quote.end ? " cm-md-quote-end" : ""}`);
+  }
+  return { decorations: Decoration.set(marks, true), outer: Decoration.set(outer, true), atoms: Decoration.set(atoms, true), closing: Decoration.set(closing, true) };
 }
 
 const presentation = StateField.define<Presentation>({
@@ -272,11 +310,11 @@ const presentation = StateField.define<Presentation>({
       if (effect.is(toggleSource)) { source = effect.value; refresh = true; }
     }
     const next = composing || !refresh
-      ? { decorations: value.decorations.map(transaction.changes), atoms: value.atoms.map(transaction.changes), closing: value.closing.map(transaction.changes) }
+      ? { decorations: value.decorations.map(transaction.changes), outer: value.outer.map(transaction.changes), atoms: value.atoms.map(transaction.changes), closing: value.closing.map(transaction.changes) }
       : decorate(transaction.state, resources, source);
     return { ...next, resources, composing, source };
   },
-  provide: field => [EditorView.decorations.from(field, value => value.decorations), EditorView.atomicRanges.of(view => view.state.field(field).atoms)],
+  provide: field => [EditorView.decorations.from(field, value => value.decorations), EditorView.outerDecorations.of(view => view.state.field(field).outer), EditorView.atomicRanges.of(view => view.state.field(field).atoms)],
 });
 
 export function toggleSourceMode(view: EditorView): boolean {

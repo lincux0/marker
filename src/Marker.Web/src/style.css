@@ -252,16 +252,29 @@ body {
   color: var(--editor-foreground);
   background: var(--editor-accent-soft);
   font: .9em/1.5 "Cascadia Code", Consolas, monospace;
+  vertical-align: .06em;
   box-decoration-break: clone;
 }
 
 #editor .cm-md-quote {
-  border-left: 3px solid color-mix(in srgb, var(--editor-border) 72%, var(--editor-muted));
+  --quote-line: color-mix(in srgb, var(--editor-border) 72%, var(--editor-muted));
+  --quote-indent: 1em;
+  border-left: 3px solid var(--quote-line);
   border-radius: 0 6px 6px 0;
-  padding-inline: 1em .75em;
+  padding-inline: var(--quote-indent) .75em;
   color: var(--editor-foreground);
-  background: color-mix(in srgb, var(--editor-accent) 5%, transparent);
+  background-color: color-mix(in srgb, var(--editor-accent) 5%, transparent);
+  background-image: repeating-linear-gradient(to right, var(--quote-line) 0 3px, transparent 3px 1em);
+  background-origin: border-box;
+  background-size: var(--quote-indent) 100%;
+  background-repeat: no-repeat;
 }
+#editor .cm-md-quote-depth-2 { --quote-indent: 2em; --quote-line: color-mix(in srgb, var(--editor-border) 82%, var(--editor-muted)); }
+#editor .cm-md-quote-depth-3 { --quote-indent: 3em; --quote-line: color-mix(in srgb, var(--editor-border) 88%, var(--editor-muted)); }
+#editor .cm-md-quote-depth-4 { --quote-indent: 4em; --quote-line: color-mix(in srgb, var(--editor-border) 88%, var(--editor-muted)); }
+#editor .cm-md-quote-depth-5 { --quote-indent: 5em; --quote-line: color-mix(in srgb, var(--editor-border) 88%, var(--editor-muted)); }
+#editor .cm-md-quote-start { padding-top: .5em; }
+#editor .cm-md-quote-end { padding-bottom: .5em; }
 
 #editor .cm-md-list { padding-left: .45em; }
 #editor .cm-md-list-marker { display: inline-block; min-width: 1.35em; color: var(--editor-accent); font-weight: 600; }
@@ -298,7 +311,7 @@ body {
 #editor .cm-md-code-line {
   padding-inline: 16px;
   border-inline: 1px solid var(--editor-border);
-  background: color-mix(in srgb, var(--editor-accent-soft) 56%, var(--editor-paper));
+  background-color: color-mix(in srgb, var(--editor-accent-soft) 56%, var(--editor-paper));
   font-family: "Cascadia Code", Consolas, "Microsoft YaHei UI", monospace;
   font-size: .875em;
   line-height: 1.6;
@@ -311,6 +324,9 @@ body {
 #editor .cm-md-code-copy:focus-visible { outline: 2px solid var(--editor-focus); outline-offset: 2px; }
 #editor .cm-md-code-last { border-bottom: 1px solid var(--editor-border); border-radius: 0 0 10px 10px; padding-bottom: 12px; }
 #editor .cm-md-code-header.cm-md-code-empty { border-bottom: 1px solid var(--editor-border); border-radius: 10px; }
+#editor .cm-md-code-header.cm-md-code-last { border-radius: 10px; padding-bottom: 12px; }
+#editor .cm-md-quote.cm-md-code-header,
+#editor .cm-md-quote.cm-md-code-line { padding-inline-start: calc(16px + var(--quote-indent)); }
 .cm-md-link { color: var(--editor-accent); text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: .2em; overflow-wrap: anywhere; }
 .cm-md-image { display: inline-block; width: 100%; margin-block: 1em .35em; vertical-align: middle; }
 .cm-md-image img { display: block; max-width: 100%; max-height: 75vh; width: auto; height: auto; margin-inline: auto; object-fit: contain; }
@@ -565,7 +581,12 @@ html[data-high-contrast="true"][data-color-palette] {
 html[data-high-contrast="true"] #editor .cm-md-code-header,
 html[data-high-contrast="true"] #editor .cm-md-code-line,
 html[data-high-contrast="true"] #editor .cm-md-table-header { color: CanvasText; background-color: Canvas; }
+html[data-high-contrast="true"] #editor .cm-md-quote { --quote-line: CanvasText; border-left-color: CanvasText; background-color: transparent; }
 html[data-high-contrast="true"] #editor .cm-md-code-copy:hover { color: ButtonText; background: ButtonFace; }
+
+@media (forced-colors: active) {
+  #editor .cm-md-quote { --quote-line: CanvasText; border-left-color: CanvasText; background-color: transparent; background-image: none; }
+}
 
 html[data-high-contrast="true"] .marker-toolbar,
 html[data-high-contrast="true"][data-color-palette] .marker-toolbar,

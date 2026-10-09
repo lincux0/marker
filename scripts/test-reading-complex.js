@@ -35,9 +35,9 @@ async (page) => {
       });
     });
     const send = message => editor.evaluate(packet => window.markerTest.receive(packet), { protocolVersion: 1, sessionId, ...message });
-    const snapshot = async () => {
+    const snapshot = async (targetSessionId = sessionId) => {
       const requestId = `u2-${++snapshotCounter}`;
-      await send({ type: 'requestSnapshot', requestId });
+      await send({ type: 'requestSnapshot', requestId, sessionId: targetSessionId });
       await editor.waitForFunction(id => window.markerTest.sent.some(message => message.type === 'snapshot' && message.requestId === id), requestId);
       return editor.evaluate(id => window.markerTest.sent.findLast(message => message.type === 'snapshot' && message.requestId === id)?.text, requestId);
     };
@@ -46,6 +46,102 @@ async (page) => {
     await frames();
     check(await snapshot() === fixture, 'Initial presentation changed the Markdown source.');
     checks.push('source-snapshot-initial');
+
+    const renderFixture = [
+      '# Render regression', '', '> Quote outer', '>', '> > Quote inner', '> >', '> > > Quote deepest', '>', '> ```text', '> quoted first', '>     quoted second', '> ```', '',
+      '```js', 'const fenced = 1;', 'console.log(fenced);', '```', '', '```text', '```', '', '    const indented = 2;', '    console.log(indented);', '',
+      '| text | inline |', '| --- | --- |', '| alpha | `code` |', '| beta | `code` omega |',
+    ].join('\n');
+    const renderSessionId = '33333333333333333333333333333333';
+    await send({ type: 'initialize', sessionId: renderSessionId, text: renderFixture });
+    await editor.locator('.cm-md-table-row').first().waitFor();
+    await frames();
+    check(await snapshot(renderSessionId) === renderFixture, 'Independent render fixture changed during initialization.');
+    const renderGeometry = await editor.evaluate(() => {
+      const textLeft = element => {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          if (!node.textContent?.trim()) continue;
+          const range = document.createRange();
+          range.setStart(node, 0);
+          range.setEnd(node, 1);
+          return range.getBoundingClientRect().left;
+        }
+        return element.getBoundingClientRect().left;
+      };
+      const outerQuote = [...document.querySelectorAll('.cm-md-quote-depth-1')].find(line => line.textContent.includes('Quote outer'));
+      const innerQuote = [...document.querySelectorAll('.cm-md-quote-depth-2')].find(line => line.textContent.includes('Quote inner'));
+      const deepestQuote = [...document.querySelectorAll('.cm-md-quote-depth-3')].find(line => line.textContent.includes('Quote deepest'));
+      const headers = [...document.querySelectorAll('.cm-md-code-header')];
+      const tableCells = [...document.querySelectorAll('.cm-md-table-cell')];
+      const pureCodeCell = tableCells.find(cell => cell.textContent === 'code');
+      const tableCode = pureCodeCell?.querySelector('.cm-md-inline-code');
+      const mixedCodeCell = tableCells.find(cell => cell.textContent.includes('omega'));
+      const mixedCode = mixedCodeCell?.querySelector('.cm-md-inline-code');
+      const textRange = (element, target) => {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode()) && !node.textContent.includes(target)) { }
+        if (!node) return null;
+        const start = node.textContent.indexOf(target);
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, start + target.length);
+        const rect = range.getBoundingClientRect();
+        return { top: rect.top, center: (rect.top + rect.bottom) / 2 };
+      };
+      const mixedCodeText = mixedCode && textRange(mixedCode, 'code');
+      const mixedPlainText = mixedCodeCell && textRange(mixedCodeCell, 'omega');
+      return {
+        quoteLeft: [outerQuote && textLeft(outerQuote), innerQuote && textLeft(innerQuote), deepestQuote && textLeft(deepestQuote)],
+        quotePadding: [outerQuote, innerQuote, deepestQuote].map(line => line && parseFloat(getComputedStyle(line).paddingInlineStart)),
+        codeBlocks: headers.map(header => ({ className: header.className, text: header.textContent, header: header.getBoundingClientRect().toJSON(), body: header.nextElementSibling?.getBoundingClientRect().toJSON(), bodyClass: header.nextElementSibling?.className })),
+        indentedCodeLines: [...document.querySelectorAll('.cm-md-code-header, .cm-md-code-line')].filter(line => line.textContent.includes('indented')).map(line => ({ text: line.textContent, className: line.className, rect: line.getBoundingClientRect().toJSON() })),
+        tableInline: tableCode && { code: tableCode.getBoundingClientRect().toJSON(), cell: pureCodeCell?.getBoundingClientRect().toJSON(), mixedCodeText, mixedPlainText, mixedCell: mixedCodeCell?.getBoundingClientRect().toJSON() },
+        quoteCodeLineClasses: [...document.querySelectorAll('.cm-md-code-line')].filter(line => line.textContent.includes('quoted')).map(line => line.className),
+      };
+    });
+    check(renderGeometry.quoteLeft.every(Number.isFinite) && renderGeometry.quoteLeft[1] > renderGeometry.quoteLeft[0] + 2 && renderGeometry.quoteLeft[2] > renderGeometry.quoteLeft[1] + 2 &&
+      renderGeometry.quotePadding.every(padding => padding > 0),
+      `Nested quote levels did not gain padding and text insets: ${JSON.stringify({ left: renderGeometry.quoteLeft, padding: renderGeometry.quotePadding })}`);
+    check(renderGeometry.codeBlocks.length === 4 && renderGeometry.codeBlocks.some(block => block.className.includes('cm-md-code-empty')) &&
+      renderGeometry.codeBlocks.filter(block => !block.className.includes('cm-md-code-empty')).every(block => block.bodyClass?.includes('cm-md-code-line') && block.body.top >= block.header.bottom - 1),
+      `Fenced code headers did not separate cleanly from their bodies or the empty fence was lost: ${JSON.stringify(renderGeometry.codeBlocks)}`);
+    const emptyFence = renderGeometry.codeBlocks.find(block => block.className.includes('cm-md-code-empty'));
+    const indentedHeader = renderGeometry.codeBlocks.find(block => block.text.includes('indented'));
+    check(renderGeometry.indentedCodeLines.length === 2 && renderGeometry.indentedCodeLines[0].text === 'const indented = 2;' &&
+      renderGeometry.indentedCodeLines[0].rect.top < renderGeometry.indentedCodeLines[1].rect.top && indentedHeader?.header.top > emptyFence?.header.bottom,
+      `Indented code retained its Markdown prefix or was joined to the preceding empty fence: ${JSON.stringify(renderGeometry.indentedCodeLines)}`);
+    check(renderGeometry.quoteCodeLineClasses.length === 2 && renderGeometry.quoteCodeLineClasses.every(className => className.includes('cm-md-quote-depth-1')),
+      `Quoted code body lost its quote structure: ${JSON.stringify(renderGeometry.quoteCodeLineClasses)}`);
+    check(renderGeometry.tableInline && renderGeometry.tableInline.mixedCodeText && renderGeometry.tableInline.mixedPlainText &&
+      renderGeometry.tableInline.code.top >= renderGeometry.tableInline.cell.top && renderGeometry.tableInline.code.bottom <= renderGeometry.tableInline.cell.bottom &&
+      Math.abs(renderGeometry.tableInline.mixedCodeText.center - renderGeometry.tableInline.mixedPlainText.center) < 4,
+      `Inline code escaped its table cell's text box: ${JSON.stringify(renderGeometry.tableInline)}`);
+    const renderCopyButtons = editor.locator('.cm-md-code-copy');
+    check(await renderCopyButtons.count() === 3, `Expected copy controls for the quoted, ordinary fenced, and empty fenced blocks, got ${await renderCopyButtons.count()}.`);
+    for (const [index, expected] of ['quoted first\n    quoted second\n', 'const fenced = 1;\nconsole.log(fenced);\n', ''].entries()) {
+      await renderCopyButtons.nth(index).click();
+      await editor.waitForFunction(async value => document.querySelector('#status')?.textContent?.includes('代码已复制') && (await navigator.clipboard.readText()).replace(/\r\n/g, '\n') === value, expected);
+      check(await editor.evaluate(() => window.markerTest.clipboardPayloads.at(-1)) === expected,
+        `Code copy changed or retained Markdown prefixes in sample ${index}: ${JSON.stringify(await editor.evaluate(() => window.markerTest.clipboardPayloads.at(-1)))}`);
+    }
+    await editor.locator('.cm-content').click();
+    await editor.keyboard.press('Control+Alt+m');
+    check(await snapshot(renderSessionId) === renderFixture && (await editor.locator('.cm-content').innerText()).includes('> ```text') && (await editor.locator('.cm-content').innerText()).includes('    const indented = 2;'),
+      'Source mode did not preserve the quoted fence and indented code source.');
+    await editor.keyboard.press('Control+a');
+    await editor.keyboard.insertText('temporary replacement');
+    await editor.keyboard.press('Control+z');
+    check(await snapshot(renderSessionId) === renderFixture, 'Undo did not restore the independent render fixture exactly.');
+    await editor.keyboard.press('Control+Alt+m');
+    check(await snapshot(renderSessionId) === renderFixture, 'Source/display round trip changed the independent render fixture.');
+    checks.push('quote-depth-geometry-code-headers-table-inline-and-code-copy-source-undo');
+    await send({ type: 'initialize', sessionId, text: fixture });
+    await editor.locator('.cm-md-table-row').first().waitFor();
+    await frames();
+    check(await snapshot() === fixture, 'Restoring the original fixture changed its Markdown source.');
 
     const tableRows = editor.locator('.cm-md-table-row');
     const cells = editor.locator('.cm-md-table-cell');
