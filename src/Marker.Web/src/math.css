@@ -1,0 +1,39 @@
+.marker-math-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .35em;
+  vertical-align: baseline;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.marker-math-block {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: .6em;
+  overflow-x: auto;
+  padding-block: .25em;
+  white-space: nowrap;
+  margin-block: 1.25em;
+  justify-content: center;
+}
+
+.marker-math-output { min-width: 0; }
+.marker-math-inline .marker-math-output { display: inline; }
+.marker-math-block .marker-math-output { flex: 1 0 auto; }
+.marker-math-copy { flex: none; padding: 2px 7px; border: 1px solid var(--editor-border, var(--border)); border-radius: 5px; color: var(--editor-foreground, var(--foreground)); background: var(--editor-paper, var(--paper)); font: 11px/1.5 "Segoe UI", "Microsoft YaHei UI", sans-serif; cursor: pointer; }
+.marker-math-copy:focus-visible { outline: 2px solid var(--editor-focus, var(--accent)); outline-offset: 2px; }
+.marker-math-source { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.marker-math-error { color: var(--editor-muted, var(--muted)); font: 12px/1.5 "Segoe UI", "Microsoft YaHei UI", sans-serif; }
+
+.marker-math-inline .marker-math-source { vertical-align: baseline; }
+.marker-math-block .marker-math-source { flex: 1 0 auto; }
+
+#preview .marker-math-inline { margin-inline: .08em; }
+#preview .marker-math-block { margin-block: .5em; justify-content: flex-start; }
+
+@media (forced-colors: active) {
+  .marker-math-copy { border-color: ButtonText; color: ButtonText; background: ButtonFace; }
+  .marker-math-error { color: CanvasText; }
+}

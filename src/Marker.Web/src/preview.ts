@@ -3,6 +3,7 @@ import { codeLanguage } from "./code-languages";
 import { classHighlighter, highlightTree } from "@lezer/highlight";
 import { enableFileDrop } from "./file-drop";
 import "./preview.css";
+import { renderMath } from "./math";
 
 declare global {
   interface Window {
@@ -38,6 +39,7 @@ let sessionId: string | undefined;
 let version = -1;
 let headings: OutlineEntry[] = [];
 enableFileDrop(bridge, () => sessionId);
+
 function applySettings(value: unknown): void {
   if (!value || typeof value !== "object") return;
   const settings = value as Record<string, unknown>;
@@ -234,7 +236,7 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
     ALLOWED_TAGS: [
       "p", "br", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
       "ul", "ol", "li", "pre", "code", "em", "strong", "del", "table", "img", "a",
-      "thead", "tbody", "tr", "th", "td", "input",
+      "thead", "tbody", "tr", "th", "td", "input", "span", "div", "sup", "section",
     ],
     ALLOWED_ATTR: ["title", "start", "align", "src", "alt", "href", "id", "class", "type", "disabled", "checked"],
     FORBID_TAGS: ["svg", "math", "style", "iframe", "form"],
@@ -255,7 +257,8 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
     } else input.remove();
   }
   for (const element of template.content.querySelectorAll<HTMLElement>("[class]")) {
-    if (element.tagName !== "CODE" || element.parentElement?.tagName !== "PRE") element.removeAttribute("class");
+    if ((element.tagName !== "CODE" || element.parentElement?.tagName !== "PRE") &&
+        !(["SPAN", "DIV"].includes(element.tagName) && element.className === "math")) element.removeAttribute("class");
   }
   for (const image of template.content.querySelectorAll("img")) {
     const src = image.getAttribute("src") ?? "";
@@ -280,6 +283,7 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
   headings = headings.filter((entry) => validIds.has(entry.id));
   configureLinks(template.content);
   preview.replaceChildren(template.content);
+  renderMath(preview);
   if (scrollingElement) scrollingElement.scrollTop = scrollTop;
   renderOutline(headings);
   version = message.version;
