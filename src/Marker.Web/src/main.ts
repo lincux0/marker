@@ -13,6 +13,7 @@ import { countMarkdown } from "./statistics";
 import { DocumentOutline, type Heading } from "./outline";
 import { ImageLightbox } from "./lightbox";
 import "./style.css";
+import { codeLanguage } from "./code-languages";
 
 declare global {
   interface Window {
@@ -54,6 +55,11 @@ if (!app || !editorParent) throw new Error("找不到编辑器入口元素。");
 
 const bridge = window.chrome?.webview;
 const settingsCompartment = new Compartment();
+const codeCompartment = new Compartment();
+function markdownSupport(length: number) {
+  // shortcut: disable fenced-language parsing for documents over 100K chars; use per-block limits if long mixed documents need highlighting.
+  return markdown({ base: markdownLanguage, codeLanguages: length <= 100000 ? codeLanguage : () => null });
+}
 let view: EditorView | undefined;
 let sessionId: string | undefined;
 let version = 0;
@@ -469,7 +475,10 @@ function initialize(nextSessionId: string, text: string): void {
     state: EditorState.create({
       doc: text,
       extensions: [
-        markdown({ base: markdownLanguage }),
+        codeCompartment.of(markdownSupport(text.length)),
+        EditorState.transactionExtender.of(transaction =>
+          transaction.docChanged && (transaction.startState.doc.length <= 100000) !== (transaction.newDoc.length <= 100000)
+            ? { effects: codeCompartment.reconfigure(markdownSupport(transaction.newDoc.length)) } : null),
         placeholder("写下新的想法…"),
         liveMarkdown,
         markdownFormattingKeymap,

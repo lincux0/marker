@@ -1,5 +1,5 @@
 import DOMPurify from "dompurify";
-import { javascript } from "@codemirror/lang-javascript";
+import { codeLanguage } from "./code-languages";
 import { classHighlighter, highlightTree } from "@lezer/highlight";
 import { enableFileDrop } from "./file-drop";
 import "./preview.css";
@@ -38,13 +38,6 @@ let sessionId: string | undefined;
 let version = -1;
 let headings: OutlineEntry[] = [];
 enableFileDrop(bridge, () => sessionId);
-const javascriptParser = javascript().language.parser;
-const typescriptParser = javascript({ typescript: true, jsx: true }).language.parser;
-const codeParsers = new Map([
-  ...["javascript", "js", "jsx", "mjs", "cjs"].map((name) => [name, javascriptParser] as const),
-  ...["typescript", "ts", "tsx"].map((name) => [name, typescriptParser] as const),
-]);
-
 function applySettings(value: unknown): void {
   if (!value || typeof value !== "object") return;
   const settings = value as Record<string, unknown>;
@@ -142,7 +135,7 @@ function highlightCodeBlocks(root: ParentNode): void {
     const languageClass = [...code.classList].find((name) => name.startsWith("language-"));
     code.removeAttribute("class");
     const language = languageClass?.slice("language-".length).toLowerCase();
-    const parser = language ? codeParsers.get(language) : undefined;
+    const parser = language ? codeLanguage(language)?.parser : undefined;
     if (!parser) continue;
 
     const source = code.textContent ?? "";
