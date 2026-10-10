@@ -8,6 +8,19 @@ namespace Marker.Tests;
 public sealed class DocumentFileTests
 {
     [TestMethod]
+    public void WatchesRawFingerprintEvenWhenExternalEncodingIsInvalid()
+    {
+        using var temp = new TempDirectory();
+        var path = Path.Combine(temp.Path, "external.md");
+        File.WriteAllText(path, "原文", new UTF8Encoding(false));
+        Assert.AreEqual(DocumentFile.Read(path).Fingerprint, DocumentFile.ReadFingerprint(path));
+        byte[] invalid = [0xFF, 0xFE, 0x00];
+        File.WriteAllBytes(path, invalid);
+        Assert.ThrowsException<InvalidDataException>(() => DocumentFile.Read(path));
+        Assert.AreEqual(DocumentFile.Fingerprint(invalid), DocumentFile.ReadFingerprint(path));
+    }
+
+    [TestMethod]
     public void ReadsUtf8BomAndPreservesCrlfAndFingerprintOnSave()
     {
         using var temp = new TempDirectory();

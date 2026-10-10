@@ -19,6 +19,9 @@ public sealed partial class MainWindow
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Marker", "Recovery"));
     private DispatcherQueueTimer? _recoveryTimer;
     private FileSystemWatcher? _watcher;
+    private DispatcherQueueTimer? _diskCheckTimer;
+    private bool _checkingDisk;
+    private readonly DiskChangeNotice _diskNotice = new();
     private Task _draftWrite = Task.CompletedTask;
     private readonly Queue<string> _pendingFileOpenPaths = new();
     private readonly HashSet<string> _queuedFileOpenPaths = new(StringComparer.OrdinalIgnoreCase);
@@ -35,6 +38,17 @@ public sealed partial class MainWindow
         _recoveryTimer.Interval = TimeSpan.FromSeconds(1);
         _recoveryTimer.IsRepeating = false;
         _recoveryTimer.Tick += (_, _) => QueueRecovery();
+        _diskCheckTimer = DispatcherQueue.CreateTimer();
+        _diskCheckTimer.Interval = TimeSpan.FromMilliseconds(300);
+        _diskCheckTimer.IsRepeating = false;
+        _diskCheckTimer.Tick += async (_, _) =>
+        {
+            if (_closed) return;
+            if (_operationBusy || _checkingDisk) { _diskCheckTimer.Start(); return; }
+            _checkingDisk = true;
+            try { await CheckDiskAsync(); }
+            finally { _checkingDisk = false; }
+        };
         UpdateDocumentStatus();
     }
 
@@ -167,6 +181,8 @@ public sealed partial class MainWindow
         _recoveryTimer?.Stop();
         try { await _draftWrite; } catch { /* The old document's recovery error was already reported. */ }
         _watcher?.Dispose(); _watcher = null;
+        _diskCheckTimer?.Stop();
+        _diskNotice.Reset();
         _snapshotCompletion?.TrySetException(new IOException("文档已切换。"));
         _document = data;
         _documentId = recoveredId ?? Guid.NewGuid();
@@ -183,6 +199,7 @@ public sealed partial class MainWindow
         ApplyWebSettings();
         StartFileWatcher();
         UpdateDocumentStatus();
+        SendDiskChangeNotice();
     }
 
     private async Task<bool> SaveDocumentAsync(bool saveAs)
@@ -231,6 +248,8 @@ public sealed partial class MainWindow
             _savedText = snapshot.Text;
             _forceDirty = false;
             _diskChanged = false;
+            _diskNotice.Reset();
+            SendDiskChangeNotice();
             _recoveryOriginalPath = null;
             _images.SetRoot(Path.GetDirectoryName(saved.Path), _session.SessionId);
             StartFileWatcher();
@@ -313,14 +332,22 @@ public sealed partial class MainWindow
     {
         _watcher?.Dispose(); _watcher = null;
         if (_document.Path is not { } path) return;
+        var document = _document;
         try
         {
             _watcher = new FileSystemWatcher(Path.GetDirectoryName(path)!, Path.GetFileName(path))
             { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size };
-            FileSystemEventHandler changed = (_, _) => DispatcherQueue.TryEnqueue(() => _ = CheckDiskAsync());
+            void ScheduleCheck() => DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!_closed && ReferenceEquals(document, _document)) _diskCheckTimer?.Start();
+            });
+            FileSystemEventHandler changed = (_, _) => ScheduleCheck();
             _watcher.Changed += changed; _watcher.Deleted += changed; _watcher.Created += changed;
-            _watcher.Renamed += (_, _) => DispatcherQueue.TryEnqueue(() => _ = CheckDiskAsync());
-            _watcher.Error += (_, _) => DispatcherQueue.TryEnqueue(() => SetStatus("文件监控暂不可用；保存前仍会复核磁盘内容。"));
+            _watcher.Renamed += (_, _) => ScheduleCheck();
+            _watcher.Error += (_, _) => DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!_closed && ReferenceEquals(document, _document)) SetStatus("文件监控暂不可用；保存前仍会复核磁盘内容。");
+            });
             _watcher.EnableRaisingEvents = true;
         }
         catch (IOException error) { SetStatus($"文件监控不可用：{error.Message}；保存前仍会检查内容。"); }
@@ -330,14 +357,71 @@ public sealed partial class MainWindow
     {
         var document = _document;
         if (_closed || document.Path is not { } path) return;
-        bool changed;
-        try { changed = (await Task.Run(() => DocumentFile.Read(path, document.EncodingName))).Fingerprint != document.Fingerprint; }
-        catch (IOException) { changed = true; }
-        catch (UnauthorizedAccessException) { changed = true; }
+        string? fingerprint = null;
+        try { fingerprint = await Task.Run(() => DocumentFile.ReadFingerprint(path)); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
         if (_closed || !ReferenceEquals(document, _document)) return;
-        _diskChanged = changed;
+        _diskNotice.Update(document.Fingerprint, fingerprint);
+        _diskChanged = _diskNotice.IsChanged;
         UpdateDocumentStatus();
-        if (changed) SetStatus("磁盘文件已修改、删除或移动；保存前会检查冲突，不会静默覆盖。");
+        SendDiskChangeNotice();
+    }
+
+    private void SendDiskChangeNotice()
+    {
+        if (_closed || !_editorReady) return;
+        _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            type = "diskChange", protocolVersion = BridgeSession.ProtocolVersion,
+            sessionId = _session.SessionId, notificationId = _diskNotice.NotificationId, busy = _operationBusy
+        }));
+    }
+
+    private async Task HandleDiskChangeActionAsync(string notificationId, string action)
+    {
+        if (_closed || _operationBusy || notificationId != _diskNotice.NotificationId) return;
+        if (action == "dismiss")
+        {
+            _diskNotice.Dismiss(notificationId);
+            SendDiskChangeNotice();
+            return;
+        }
+        if (_document.Path is not { } path) return;
+        _operationBusy = true;
+        SendToolbarState();
+        SendDiskChangeNotice();
+        try
+        {
+            // Read before asking to discard: missing/invalid files keep the current document intact.
+            var data = await ReadDocumentAsync(path);
+            ValidateEditorText(data.Text);
+            await RequestCurrentSnapshotAsync();
+            EnableWindow(_editorWindow, false);
+            await RequestCurrentSnapshotAsync();
+            if (IsDirty)
+            {
+                QueueRecovery();
+                try { await _draftWrite; } catch { /* Already reported; the explicit discard confirmation still applies. */ }
+                if (MessageBoxW(_window, "当前文档尚未保存。重新加载将放弃当前编辑，是否继续？", "Marker · 重新加载", 0x134) != 6) return;
+            }
+            data = await ReadDocumentAsync(path);
+            ValidateEditorText(data.Text);
+            await DeleteCurrentRecoveryAsync();
+            await SwitchDocumentAsync(data);
+        }
+        catch (Exception error)
+        {
+            MessageBoxW(_window, error.Message, "Marker · 重新加载未完成", 0x10);
+        }
+        finally
+        {
+            _operationBusy = false;
+            if (!_closed) EnableWindow(_editorWindow, true);
+            SendToolbarState();
+            SendDiskChangeNotice();
+            ConsumePendingFileActivations();
+        }
     }
 
     private async Task OfferRecoveryOnStartupAsync()
@@ -389,6 +473,7 @@ public sealed partial class MainWindow
     {
         _recoveryTimer?.Stop();
         _watcher?.Dispose();
+        _diskCheckTimer?.Stop();
         _snapshotCompletion?.TrySetException(new IOException("窗口已关闭。"));
     }
 

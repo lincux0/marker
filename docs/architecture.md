@@ -46,7 +46,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `WritingPalette.cs`：根据配置的颜色组合与明暗主题统一提供背景/强调色；宿主客户区、系统标题栏 caption、设置窗口复用该配色，并与 Web 正文、预览及浮动工具栏 CSS 变量保持精确一致。高对比模式改用 Windows 系统色。
 - `MainWindow.Activation.cs`、`MarkdownActivation.cs`：串行打开受支持的文件激活；校验完整路径及 `.md`/`.markdown` 扩展名；XAML Island 接收 `StorageItems` 拖放，根窗口与两个 WebView2 子窗口提供 `WM_DROPFILES` 兼容路径。
 - `MainWindow.xaml.cs`：`MainWindow` 创建并管理 Win32 根 HWND、编辑器/隐藏预览子 HWND 和工具栏 XAML Island；负责客户区布局、焦点、DPI/窗口消息、WebView2 安全配置、桥接路由、异步 Markdig 解析及关闭流程，并拥有设置子窗口。编辑器图片只接收受控 `document.marker.example` URL，通过现有 `LocalImageResources.TryRead` 校验后响应；JSON 只传相对 Markdown 引用到随机会话 URL 的映射，不传磁盘绝对路径。启动前检测 Evergreen Runtime，缺失时显示安装提示但不运行安装器。文件拖放通过 `AdditionalObjects` 接收原生 File 对象，宿主不从 JSON 收取路径。
-- `MainWindow.Documents.cs`：管理当前单文档会话、脏状态、原生文件选择器、命令/快照 requestId 往返、原生消息框确认、打开/保存/另存为/关闭/恢复流程、外部文件监控和每秒节流的草稿写入。保存前向 CodeMirror 请求最新完整快照；输入法组合尚未提交时拒绝保存。恢复草稿成为未命名副本，不自动覆盖来源文件。
+- `MainWindow.Documents.cs`：管理当前单文档会话、脏状态、原生文件选择器、命令/快照 requestId 往返、原生消息框确认、打开/保存/另存为/关闭/恢复流程、外部文件监控和每秒节流的草稿写入。外部修改事件经 300 ms 合并后读取受限原始字节指纹；`DiskChangeNotice` 对相同磁盘版本去重，通知与动作绑定会话和随机编号，重新加载先验证文件并确认未保存内容的丢弃。保存前向 CodeMirror 请求最新完整快照；输入法组合尚未提交时拒绝保存。恢复草稿成为未命名副本，不自动覆盖来源文件。
 - `DocumentFile.cs`：按严格 UTF-8（含/不含 BOM）或带 BOM 的 UTF-16 LE/BE 读取；解码失败由界面明确询问 GB18030。磁盘编码与换行保持为元数据，编辑快照统一 LF；混合换行须用户选择策略后保存。文件读取/保存限制 8 MiB，以 SHA-256 指纹检测变更，并通过同目录临时文件、flush-to-disk、原子替换和替换前后校验保存；并发替换的外部内容保留为 `.external` 副本。拒绝路径重解析点。
 - `RecoveryStore.cs`：在 LocalAppData 的 Marker/Recovery 目录按文档 ID 保存 schemaVersion 1 JSON 草稿，附可选 `applicationVersion`；读取旧 schemaVersion 1 时允许该字段缺省。通过同目录临时文件及覆盖式移动保存。未知版本、损坏或超限草稿保留原文件并返回可提示错误。
 - `LocalImageResources.cs`：仅允许当前文档目录内 PNG/JPEG/GIF/WebP/BMP 图片，单张不超过 16 MiB；拒绝绝对/越界/重解析路径，并从最终打开的文件句柄核验真实路径。通过会话绑定随机不透明 URL 提供资源，不将磁盘路径交给 Web 内容。
@@ -63,6 +63,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `package.json`、`package-lock.json`：Web 工程脚本、CodeMirror 6、DOMPurify 及锁定版本。
 - `index.html`、`preview.html`：编辑器与预览独立页面入口，分别声明内容安全策略 CSP。
 - `src/toolbar.ts`：在编辑 WebView 内创建固定定位的浮动工具栏、文档标题、常用命令和窄窗溢出菜单。原生操作发送既有文档命令；撤销、重做、查找、替换和代码模式由当前编辑器处理。接收经协议版本及 session 校验的 `toolbarState`，包含标题、通知和 busy 状态。支持按设置将常用功能移入“更多”菜单（设置入口常驻），实时显示本地字数/段数；宽度在普通宽窗为 1108 px，正文为 980 px。
+- `src/disk-change.ts`：展示可关闭的磁盘修改通知，提供重新加载与关闭按钮；不自动改写文档或抢走编辑焦点。专用 `diskChange`/`diskChangeAction` 桥只传通知编号与动作，不接收页面指定路径；旧会话、旧通知及非白名单字段均被拒绝。
 - `src/statistics.ts`：使用现有 CodeMirror Markdown 完整语法树剔除标记、链接目标及图片，中文逐字、其余文本按词统计；非空 Paragraph/Task 节点作为正文段落。编辑短暂停顿 180 ms 后更新，不经原生桥接或上传文档。
 - `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版与代码语言通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配工具栏、即时 Markdown、专业语法装饰及快捷键；`richContent` 受来源、协议、session、文档版本、字段及 2 MiB 整包大小校验，编辑后立即失效。
 - `src/live-markdown.ts`：复用 CodeMirror Markdown/GFM 语法树装饰常见 Markdown；新增代码语言与 AST-based math、脚注、提示框呈现。Math 范围来自 Markdig 权威 `richContent` 元数据，不对全文扫描美元符号；脚注引用为可操作上标，脚注定义只替换源前缀并在原位置显示，点击引用后定义提供回跳。进入源/选择编辑上下文时显示原文，修改文档即清除旧 metadata。提示框仅替换识别出的 `[!NOTE/TIP/IMPORTANT/WARNING/CAUTION]` 标记为标题，保留嵌套引用正文。HTML/编辑器语法不承诺全量一致；CodeMirror 侧坐标仍按 UTF-16 源偏移对齐。

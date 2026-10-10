@@ -250,6 +250,20 @@ internal sealed class BridgeSession(string sessionId)
         return true;
     }
 
+    public bool TryReadDiskChangeAction(string source, string expectedSource, string json, out string notificationId, out string action, out string error)
+    {
+        notificationId = action = string.Empty;
+        if (!TryRead(source, expectedSource, json, "diskChangeAction", ["type", "protocolVersion", "sessionId", "notificationId", "action"], out var root, out error)
+            || !HasMatchingSession(root, out error)) return false;
+        if (!root.TryGetProperty("notificationId", out var id) || id.ValueKind != JsonValueKind.String
+            || !Guid.TryParseExact(id.GetString(), "N", out _)
+            || !root.TryGetProperty("action", out var kind) || kind.ValueKind != JsonValueKind.String || kind.GetString() is not ("reload" or "dismiss"))
+            return Fail("磁盘变更提示动作无效。", out error);
+        notificationId = id.GetString()!;
+        action = kind.GetString()!;
+        return true;
+    }
+
     private static bool IsSafeEditorLinkTarget(string candidate)
     {
         if (candidate.Length is 0 or > 2048 || candidate.Any(char.IsControl) || candidate.StartsWith("\\\\", StringComparison.Ordinal) || candidate.StartsWith("//", StringComparison.Ordinal))

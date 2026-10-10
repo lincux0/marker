@@ -36,6 +36,13 @@ public static class DocumentFile
 
     public static DocumentFileData New(string? path = null) => new(string.Empty, path, "utf-8", false, "LF", Fingerprint([]));
 
+    internal static string ReadFingerprint(string path)
+    {
+        var fullPath = ValidatePath(path);
+        RejectReparsePath(fullPath, includeTarget: true);
+        return Fingerprint(ReadBounded(fullPath));
+    }
+
     public static DocumentFileData Read(string path, string? encodingName = null)
     {
         var fullPath = ValidatePath(path);

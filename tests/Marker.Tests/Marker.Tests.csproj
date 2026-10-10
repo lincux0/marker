@@ -18,6 +18,7 @@
   <ItemGroup>
     <Compile Include="..\..\src\Marker.App\BridgeSession.cs" Link="BridgeSession.cs" />
     <Compile Include="..\..\src\Marker.App\DocumentFile.cs" Link="DocumentFile.cs" />
+    <Compile Include="..\..\src\Marker.App\DiskChangeNotice.cs" Link="DiskChangeNotice.cs" />
     <Compile Include="..\..\src\Marker.App\MarkdownRenderer.cs" Link="MarkdownRenderer.cs" />
     <Compile Include="..\..\src\Marker.App\LocalImageResources.cs" Link="LocalImageResources.cs" />
     <Compile Include="..\..\src\Marker.App\RecoveryStore.cs" Link="RecoveryStore.cs" />

@@ -9,6 +9,22 @@ public sealed class BridgeSessionTests
     private const string EditorUrl = "https://editor.marker.example/index.html";
 
     [TestMethod]
+    public void DiskChangeActionsRequireTrustedSessionExactFieldsAndNotificationId()
+    {
+        var session = new BridgeSession("session-1");
+        const string json = "{\"type\":\"diskChangeAction\",\"protocolVersion\":1,\"sessionId\":\"session-1\",\"notificationId\":\"0123456789abcdef0123456789abcdef\",\"action\":\"reload\"}";
+        Assert.IsTrue(session.TryReadDiskChangeAction(EditorUrl, EditorUrl, json, out var id, out var action, out _));
+        Assert.AreEqual("0123456789abcdef0123456789abcdef", id);
+        Assert.AreEqual("reload", action);
+        Assert.IsTrue(session.TryReadDiskChangeAction(EditorUrl, EditorUrl, json.Replace("reload", "dismiss"), out _, out _, out _));
+        Assert.IsFalse(session.TryReadDiskChangeAction("https://untrusted.invalid", EditorUrl, json, out _, out _, out _));
+        Assert.IsFalse(session.TryReadDiskChangeAction(EditorUrl, EditorUrl, json.Replace("session-1", "stale"), out _, out _, out _));
+        Assert.IsFalse(session.TryReadDiskChangeAction(EditorUrl, EditorUrl, json.Replace("reload", "save"), out _, out _, out _));
+        Assert.IsFalse(session.TryReadDiskChangeAction(EditorUrl, EditorUrl, json.Replace(id, "bad"), out _, out _, out _));
+        Assert.IsFalse(session.TryReadDiskChangeAction(EditorUrl, EditorUrl, json.Replace("\"action\":", "\"extra\":true,\"action\":"), out _, out _, out _));
+    }
+
+    [TestMethod]
     public void FileDropRequiresTrustedSessionAndBoundedCountWithoutJsonPaths()
     {
         var session = new BridgeSession("session-1");

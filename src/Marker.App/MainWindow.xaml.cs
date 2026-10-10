@@ -237,11 +237,17 @@ public sealed partial class MainWindow : UserControl
             }));
             ApplyWebSettings();
             SendToolbarState();
+            SendDiskChangeNotice();
             ConsumePendingFileActivations();
             _ = OfferRecoveryOnStartupAsync();
             return;
         }
 
+        if (_session.TryReadDiskChangeAction(source, EditorUrl, json, out var notificationId, out var diskAction, out _))
+        {
+            _ = HandleDiskChangeActionAsync(notificationId, diskAction);
+            return;
+        }
         if (_session.TryReadCommand(source, EditorUrl, json, out var command, out _))
         {
             if (command == "settings")

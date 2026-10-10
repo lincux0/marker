@@ -12,6 +12,7 @@ import { FloatingToolbar, isHiddenToolbarActions, type ConfigurableToolbarAction
 import { countMarkdown } from "./statistics";
 import { DocumentOutline, type Heading } from "./outline";
 import { ImageLightbox } from "./lightbox";
+import { DiskChangePrompt } from "./disk-change";
 import "./style.css";
 import { codeLanguage } from "./code-languages";
 import { richContent, validateRichContent, type RichNode } from "./rich-content";
@@ -93,6 +94,15 @@ function setStatus(message: string): void {
   status.textContent = message;
   status.hidden = message.length === 0;
 }
+
+const diskChangePrompt = new DiskChangePrompt(app, (notificationId, action) => {
+  if (!sessionId) return false;
+  if (action === "reload" && view?.compositionStarted) {
+    setStatus("请先完成输入法候选输入，再重新加载文档。");
+    return false;
+  }
+  return post({ type: "diskChangeAction", sessionId, notificationId, action });
+}, () => view?.focus());
 
 const outline = new DocumentOutline(() => view, setStatus, () => version, open => toolbar?.setOutlineOpen(open));
 const lightbox = new ImageLightbox(editorParent);
@@ -463,6 +473,13 @@ function applyHostMessage(value: unknown): void {
       message.sessionId === sessionId && typeof message.title === "string" && message.title.length <= 4096 &&
       typeof message.notification === "string" && message.notification.length <= 4096 && typeof message.busy === "boolean") {
     toolbar?.updateState(message.title, message.notification, message.busy);
+    diskChangePrompt.setBusy(message.busy);
+    return;
+  }
+  if (message.type === "diskChange" && exact("type", "protocolVersion", "sessionId", "notificationId", "busy") &&
+      message.sessionId === sessionId && typeof message.busy === "boolean" &&
+      (message.notificationId === null || typeof message.notificationId === "string" && /^[0-9a-f]{32}$/.test(message.notificationId))) {
+    diskChangePrompt.update(message.notificationId as string | null, message.busy);
     return;
   }
   if (message.type === "editorCommand" && exact("type", "protocolVersion", "sessionId", "command") && message.sessionId === sessionId && view) {
@@ -495,6 +512,7 @@ function isSettings(value: unknown): value is Settings {
 
 function initialize(nextSessionId: string, text: string): void {
   if (nextSessionId === sessionId) return;
+  diskChangePrompt.update(null, false);
   currentRichNodes = [];
   footnoteReturn = undefined;
   if (view) view.destroy();
