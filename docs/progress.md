@@ -468,6 +468,14 @@
 - EXE/Setup 重生成；Release 66 通过、2 个权限相关跳过，0 错误、4 条既有 PRI249 警告及 Vite chunk 提示。163 个 Web 资源哈希一致，107 个生产依赖许可文本随包；Graphify 1455 节点/2623 边。测试页面/服务器已关闭；未 push、安装或改变证书信任。
 - 本轮未复验真实 WebView、IME、多屏、读屏、最低系统与性能预算；既有源码选择等未关闭问题保持。文档中的完整交互清单仍需人工逐项验收。
 
+## 2026-10-10 U5 自动化回归修复
+
+- 修复源码切换后的旧高度缓存导致选区偏移、320 px 工具栏按钮裁切、减少动画反而启动字号过渡，以及隐藏预览块公式容器换行导致定界符未解包；原因和权衡见 D028。
+- 生产 dist：120 组外观设置、10 组高对比、320 px/200% 等效文字重排及菜单操作通过；源码选行/三击复制 12 轮、模式切换保留编辑/撤销/滚动检查通过。原专业语法 15 组、导航 10、灯箱 7、复杂内容 11 组通过。复杂内容脚本补充真实滚动进入 CodeMirror 虚拟视口，避免对未挂载按钮等待。
+- MCP 断连后复用其已安装的 Playwright 库及现有脚本，annotations、原高亮、扩充高亮、live-edit、浮动工具栏、编辑器链接及玻璃视觉回归通过；没有替换测试框架。证据位于 `artifacts/reading-ui/u5-production-mcp-results.json`、`u5-production-fallback-results.json`、`u5-visual-results.json`。
+- 修复批次的 EXE/Setup 已重建：Release 66 通过、2 个权限相关跳过、0 失败；4 条既有 PRI249 警告及 Vite chunk 提示保留。163 项 Web 资源哈希一致，构建日志 `u5-build-setup.log`、产物记录 `u5-fix-resource-check.json`。Graphify code-only/no-cluster 更新为 1458 节点/2623 边，无语义提取。
+- U5 交付与实机验收继续进行，性能预算、IME、Narrator、混合 DPI 和最低系统仍未关闭；本段不宣称完整 U5 通过。
+
 ## 后续阶段
 
 | 阶段 | 目标 | 状态 |

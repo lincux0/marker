@@ -68,7 +68,17 @@ async (page) => {
       await editor.locator('.cm-md-mermaid[data-rendered="fallback"] .marker-mermaid-source').waitFor();
       check((await editor.locator('.cm-md-mermaid[data-rendered="fallback"] .marker-mermaid-source').textContent()).includes(code),'Blocked diagram lost complete source');
     }
+    const preview=await context.newPage();
+    preview.on('pageerror',e=>errors.push(e.message));
+    await preview.goto('http://127.0.0.1:5173/preview.html');
+    const previewSession='99999999999999999999999999999999';
+    await preview.evaluate(sessionId=>window.markerTest.receive({type:'initialize',protocolVersion:1,sessionId}),previewSession);
+    await preview.evaluate(sessionId=>window.markerTest.receive({type:'render',protocolVersion:1,sessionId,version:1,outline:[],html:'<div class="math">\n\\[\n\\frac{1}{3}\n\\]\n</div>'}),previewSession);
+    await preview.locator('.marker-math-block .katex').waitFor();
+    check((await preview.locator('.katex math').count())===1,'Markdig block delimiters with surrounding newlines failed to render');
+    await preview.locator('.marker-math-copy').click();
+    check((await preview.evaluate(()=>navigator.clipboard.readText())).trim()==='\\frac{1}{3}','Preview formula copy retained Markdig wrappers');
     check(errors.length===0,errors.join('; '));check(external.length===0,`External requests: ${external.join(',')}`);
-    return{passed:true,checks:['inline-block-math-and-MathML','invalid-math-source','duplicate-and-overlapping-range-packets-rejected','math-copy','mermaid-copy','keyboard-math-edit','range-invalidation','stale-version-rejected','undo','fenced-source-edit','theme-change','source-mode-closes-diagram','image-resources-and-native-edge-limit','no-external-requests'],errors};
+    return{passed:true,checks:['inline-block-math-and-MathML','invalid-math-source','duplicate-and-overlapping-range-packets-rejected','math-copy','mermaid-copy','keyboard-math-edit','range-invalidation','stale-version-rejected','undo','fenced-source-edit','theme-change','source-mode-closes-diagram','image-resources-and-native-edge-limit','preview-block-delimiters','no-external-requests'],errors};
   }finally{await context.close()}
 }

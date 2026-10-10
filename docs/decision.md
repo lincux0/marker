@@ -273,3 +273,9 @@
 - 复用锁定的 legacy modes，不升级其他依赖；PHP 使用官方 `@codemirror/lang-php` 6.0.2，`plain:true` 支持带或不带开标签片段。Diff 浅/深主题分别区分新增和删除；不改变代码文本、复制、撤销及既有长文降级规则。
 - 权衡：StreamLanguage 是词法高亮，不提供 IDE 语义诊断。HTML 模式不解析内嵌 JavaScript/CSS；未支持的语言继续显示纯文本。没有加入自动语言猜测或运行代码功能。
 - 资料核实：Exa 定位 [CodeMirror 官方参考](https://codemirror.net/docs/ref/) 与[维护者的 Markdown/legacy 模式说明](https://discuss.codemirror.net/t/codemirror-lang-markdown-with-codemirror-legacy-modes/7925)；Context7 查询官方文档核实 StreamLanguage/语言支持用法，PHP 参数以锁定版本包内类型声明为准。许可随生产依赖聚合文件分发。
+
+## D028 U5 交互回归修正
+
+- 源码切换移除行级排版后，CodeMirror 6.43.13 的高度图仍可能保留旧行高，导致鼠标位置映射到前一行。仅在模式切换时用 `EditorView.setState(editor.state)` 重建内部视图；保留同一 EditorView、EditorState、文档、选区及撤销历史，不使用私有高度缓存字段。普通编辑和设置仍沿用事务更新。代价是模式切换时重建插件与 DOM；选择、滚动、撤销、目录、灯箱及专业语法均须回归。Context7 官方指南和锁定版本实现用于核实状态/视图边界。
+- 减少动画时使用 `transition:none`，避免非零的全局 transition-duration 给原本没有过渡的字号等属性启动动画，也取消正在运行的过渡；普通动画设置不变。
+- 不超过 400 CSS px 时，撤销、重做、查找复用既有“更多”菜单，保留快捷键；720 px 的直显布局及用户按钮偏好不变。默认排版仍是用户确认的 16 px、1.5 行高、0.5em 段距。

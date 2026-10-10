@@ -48,15 +48,15 @@ function makeIcon(name: Action | "more"): SVGSVGElement {
   return svg;
 }
 
-const actions: Array<{ id: Action; label: string; shortcut?: string; overflow?: boolean }> = [
+const actions: Array<{ id: Action; label: string; shortcut?: string; overflow?: boolean; compactOverflow?: boolean }> = [
   { id: "new", label: "新建文档", shortcut: "Ctrl+N" },
   { id: "open", label: "打开文档", shortcut: "Ctrl+O" },
   { id: "save", label: "保存", shortcut: "Ctrl+S" },
   { id: "saveAs", label: "另存为", overflow: true },
   { id: "recover", label: "恢复草稿", overflow: true },
-  { id: "undo", label: "撤销", shortcut: "Ctrl+Z" },
-  { id: "redo", label: "重做", shortcut: "Ctrl+Y" },
-  { id: "find", label: "查找", shortcut: "Ctrl+F" },
+  { id: "undo", label: "撤销", shortcut: "Ctrl+Z", compactOverflow: true },
+  { id: "redo", label: "重做", shortcut: "Ctrl+Y", compactOverflow: true },
+  { id: "find", label: "查找", shortcut: "Ctrl+F", compactOverflow: true },
   { id: "replace", label: "查找和替换", shortcut: "Ctrl+H", overflow: true },
   { id: "toggleSource", label: "代码模式", shortcut: "Ctrl+Alt+M" },
   { id: "toggleOutline", label: "文档大纲" },
@@ -72,6 +72,7 @@ export class FloatingToolbar {
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly more: HTMLDetailsElement;
   private readonly narrow = matchMedia("(max-width: 800px)");
+  private readonly compact = matchMedia("(max-width: 400px)");
   private hiddenActions = new Set<ConfigurableToolbarAction>();
   private ready = false;
   private busy = false;
@@ -131,6 +132,7 @@ export class FloatingToolbar {
     root.append(documentGroup, buttonGroup);
     this.element = root;
     this.narrow.addEventListener("change", () => this.syncVisibility());
+    this.compact.addEventListener("change", () => this.syncVisibility());
     this.syncVisibility();
     this.updateStatistics(0, 0);
   }
@@ -215,7 +217,8 @@ export class FloatingToolbar {
         continue;
       }
       const hidden = this.hiddenActions.has(button.dataset.action as ConfigurableToolbarAction);
-      const overflow = !this.focusMode && this.narrow.matches && button.dataset.overflow === "true";
+      const overflow = !this.focusMode && ((this.narrow.matches && button.dataset.overflow === "true") ||
+        (this.compact.matches && button.dataset.compactOverflow === "true"));
       button.hidden = button.classList.contains("marker-toolbar-menu-button") ? !(hidden || overflow) : hidden || overflow;
     }
     this.more.hidden = !this.buttons.some(button => button.classList.contains("marker-toolbar-menu-button") && !button.hidden);
@@ -226,6 +229,7 @@ export class FloatingToolbar {
     button.type = "button";
     button.className = "marker-toolbar-button";
     button.dataset.action = action.id;
+    if (action.compactOverflow) button.dataset.compactOverflow = "true";
     button.title = this.withShortcut(action.label, action.shortcut);
     button.setAttribute("aria-label", action.label);
     if (action.shortcut) button.setAttribute("aria-keyshortcuts", action.shortcut.replaceAll("Ctrl", "Control"));

@@ -89,6 +89,7 @@ function showError(root: HTMLElement, tex: string, display: boolean, message: st
 }
 
 function unwrapDelimiters(source: string, display: boolean): string {
+  source = source.trim();
   const delimiters = display ? [["$$", "$$"], ["\\[", "\\]"]] : [["$", "$"], ["\\(", "\\)"]];
   for (const [open, close] of delimiters) {
     if (source.startsWith(open) && source.endsWith(close) && source.length >= open.length + close.length) {

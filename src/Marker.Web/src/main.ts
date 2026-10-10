@@ -214,6 +214,8 @@ function sendCommand(command: NativeCommand): boolean {
 
 function toggleSource(editor: EditorView): boolean {
   if (!toggleSourceMode(editor)) return false;
+  // Removing line styles leaves stale heights; rebuild the view with the same document, selection and history.
+  editor.setState(editor.state);
   toolbar?.setSourceMode(editor.dom.dataset.sourceMode === "true");
   post({ type: "sourceMode", sessionId, version, sourceMode: editor.dom.dataset.sourceMode === "true" });
   return true;

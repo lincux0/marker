@@ -178,6 +178,11 @@ async (page) => {
     check(await snapshot() === fixture, 'Table source-mode selection or copy changed the document.');
     checks.push('wide-table-computed-alignment-and-source-select-copy');
 
+    // Collapse the selection and scroll the code header into CodeMirror's virtual viewport.
+    await editor.keyboard.press('Control+Home');
+    await editor.locator('.cm-scroller').evaluate(element => element.scrollBy(0, element.clientHeight * 0.75));
+    await frames();
+
     const code = fixture.match(/```[^\n]*\n([\s\S]*?)\n```/);
     check(code, 'Long fenced code sample was not found.');
     const codePayload = `${code[1]}\n`;

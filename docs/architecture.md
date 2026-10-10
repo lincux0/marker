@@ -67,7 +67,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版与代码语言通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配工具栏、即时 Markdown、专业语法装饰及快捷键；`richContent` 受来源、协议、session、文档版本、字段及 2 MiB 整包大小校验，编辑后立即失效。
 - `src/live-markdown.ts`：复用 CodeMirror Markdown/GFM 语法树装饰常见 Markdown；新增代码语言与 AST-based math、脚注、提示框呈现。Math 范围来自 Markdig 权威 `richContent` 元数据，不对全文扫描美元符号；脚注引用为可操作上标，脚注定义只替换源前缀并在原位置显示，点击引用后定义提供回跳。进入源/选择编辑上下文时显示原文，修改文档即清除旧 metadata。提示框仅替换识别出的 `[!NOTE/TIP/IMPORTANT/WARNING/CAUTION]` 标记为标题，保留嵌套引用正文。HTML/编辑器语法不承诺全量一致；CodeMirror 侧坐标仍按 UTF-16 源偏移对齐。
 - `src/annotations.ts`、`src/annotations.css`：脚注引用/定义导航按钮与五种提示框的专用装饰；跳转事件携带目标和返回偏移，由根编辑器状态管理失效与返回。
-- `src/math.ts`、`src/math.css`：KaTeX 公式显示及错误/源码回退；只渲染 Markdig 提供的 TeX 范围，原始 TeX 可复制，MathML 和专用公式 SVG 输出受限处理。
+- `src/math.ts`、`src/math.css`：KaTeX 公式显示及错误/源码回退；只渲染 Markdig 提供的 TeX 范围，原始 TeX 可复制，MathML 和专用公式 SVG 输出受限处理。隐藏预览先去除容器外侧空白再解包 Markdig 的公式定界符。
 - `src/code-languages.ts`：编辑器和隐藏预览共享 JS/TS/C#/Python/JSON/Shell 及 D027 新增的 20 类常用代码语言定义。编辑器文档超过 100,000 字符时停用语言解析器，跨阈值只重配语言 Compartment 并保留撤销历史；这是性能降级捷径，超长预览代码块为纯文本。
 - `src/mermaid.ts`、`src/mermaid.css`：仅可见编辑器中支持受限 Mermaid flowchart/graph/sequence diagram，懒加载、串行队列与复杂度门槛；生成 SVG 经专用白名单处理，不放宽普通 Markdown SVG 边界。预览未接 Mermaid widget。
 - `src/outline.ts`、`src/outline.css`：可见大纲默认收起，消费宿主同一 Markdig 结果的标题 ID/UTF-16 偏移；当前会话/版本及整包校验、编辑失效、200 项分页、宽窗停靠/窄窗浮层、滚动高亮、片段复制及返回原选区。`main.ts` 将页内片段交此模块，使用工具栏实际高度避让定位。
