@@ -52,7 +52,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `LocalImageResources.cs`：仅允许当前文档目录内 PNG/JPEG/GIF/WebP/BMP 图片，单张不超过 16 MiB；拒绝绝对/越界/重解析路径，并从最终打开的文件句柄核验真实路径。通过会话绑定随机不透明 URL 提供资源，不将磁盘路径交给 Web 内容。
 - `BridgeSession.cs`：校验页面来源、消息类型与字段白名单、会话标识、版本、JSON 深度和消息/文本大小；支持快照 requestId、文档命令和 snapshotError，并允许相同版本且相同文本的完整重同步。原生文档命令白名单含 `recover` 与 `settings`；命令 envelope 的来源、protocolVersion、sessionId 和字段精确校验维持原规则。文本最多 1 Mi UTF-16 单元，JSON 消息最多 2 MiB。
 - `MarkdownRenderer.cs`：使用显式 Markdig 管线，启用表格、任务列表、自动链接、强调、脚注、数学和提示框所需扩展，禁用原始 HTML；同一 AST 提供 HTML、大纲与 `richContent` 富语法节点的 UTF-16 精确范围。脚注和五类已知提示框保留源位置/标识；图片链接必须通过本地受控资源解析器转换，否则以保留 alt 的安全文本占位，不输出被拒绝的源路径。
-- `Package.appxmanifest`：MSIX 身份为 Marker、发布者 `CN=Marker.Dev`、x64，最低 build 26100，并注册 `.md`/`.markdown` 文件关联。
+- `installer/Marker.iss`：当前用户 Setup 将 `.md`/`.markdown` 注册为 Marker 的打开方式候选，配置专用 ProgID 和带引号打开命令，安装/卸载刷新 Explorer；不设置默认应用或 UserChoice。`Package.appxmanifest`：MSIX 身份为 Marker、发布者 `CN=Marker.Dev`、x64，最低 build 26100，并注册 `.md`/`.markdown` 文件关联。
 - `app.manifest`：桌面进程清单；声明 Per-Monitor V2 DPI 感知及 `asInvoker` 权限。
 - `Assets/`：MSIX 使用的 PNG 磁贴/商店图标与窗口图标。
 - `Marker.App.csproj`：WinUI 3、Windows App SDK、Markdig、自包含打包及 Web dist 内容映射。

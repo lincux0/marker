@@ -32,6 +32,7 @@ WizardStyle=modern
 SetupLogging=yes
 VersionInfoVersion={#AppVersion}
 Uninstallable=yes
+ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -54,6 +55,17 @@ Name: "{group}\第三方组件声明"; Filename: "{app}\THIRD_PARTY_NOTICES.md"
 Name: "{group}\第三方许可证\MIT License"; Filename: "{app}\licenses\MIT.txt"
 Name: "{group}\第三方许可证\Apache License 2.0"; Filename: "{app}\licenses\Apache-2.0.txt"
 Name: "{autodesktop}\Marker"; Filename: "{app}\Marker.App.exe"; Tasks: desktopicon
+
+[Registry]
+Root: HKCU; Subkey: "Software\Classes\Marker.Markdown"; ValueType: string; ValueName: ""; ValueData: "Marker Markdown 文档"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\Marker.Markdown\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\Marker.App.exe"",0"
+Root: HKCU; Subkey: "Software\Classes\Marker.Markdown\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\Marker.App.exe"" ""%1"""
+Root: HKCU; Subkey: "Software\Classes\.md\OpenWithProgids"; ValueType: string; ValueName: "Marker.Markdown"; ValueData: ""; Flags: uninsdeletevalue uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\.markdown\OpenWithProgids"; ValueType: string; ValueName: "Marker.Markdown"; ValueData: ""; Flags: uninsdeletevalue uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\Applications\Marker.App.exe"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "Marker"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\Applications\Marker.App.exe\SupportedTypes"; ValueType: string; ValueName: ".md"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\Applications\Marker.App.exe\SupportedTypes"; ValueType: string; ValueName: ".markdown"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\Applications\Marker.App.exe\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\Marker.App.exe"" ""%1"""
 
 [Code]
 const

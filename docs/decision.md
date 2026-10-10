@@ -292,3 +292,10 @@
 - 用户确认顶栏取消应用图标，保留文档名；此项替代 D018 的顶栏品牌图标呈现决策，窗口/安装图标及素材生成保持原有用途。
 - 目录按钮允许原生鼠标聚焦，防止从编辑器继承键盘焦点可见状态后，程序聚焦的目录关闭按钮及返回触发按钮持续出现外框。继续采用 `:focus-visible`，键盘 Tab、Enter 和 Esc 保留清晰焦点，不全局取消 outline。
 - 统一图标路径的视觉中心，保留 19 px SVG 和 36 px 操作按钮。极窄窗口收起文档标识区域，操作使用已有更多菜单；高对比悬停/按下状态使用 HighlightText/Highlight，避免前景与背景同色。
+
+## D031 当前用户 Markdown 打开方式注册
+
+- 用户要求双击已有 Markdown 文件使用 Marker，或自动加入“打开方式”。当前 Setup 默认注册 `.md`、`.markdown` 的 Marker 候选项，复用现有文件路径启动与单实例激活，不扩展可打开文件类型。
+- 仅写 HKCU：`Marker.Markdown` ProgID 的图标/带引号打开命令、扩展名 `OpenWithProgids` 值、`Applications/Marker.App.exe` 名称与 SupportedTypes。安装/卸载通过 ChangesAssociations 通知 Explorer 刷新。用户在 Windows“打开方式”选择始终使用 Marker 后，双击文件使用所选默认应用；安装器不覆盖扩展名默认值或 UserChoice。
+- 此项补充 D022 的候选关联注册；D022 不抢占默认关联的约定继续有效。卸载清理 Marker 专用键及共享键中的 Marker 值，不删除其他程序候选项，用户设置/草稿/文件仍保留。
+- 依据：Context7 核实 Inno 注册/卸载处理；具体配置参考 [Microsoft OpenWithProgids 文档](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-include-an-application-on-the-open-with-dialog-box)、[Inno Registry](https://jrsoftware.org/ishelp/topic_registrysection.htm) 与 [ChangesAssociations](https://jrsoftware.org/ishelp/topic_setup_changesassociations.htm)。

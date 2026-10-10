@@ -522,3 +522,11 @@
 - Vite dev 四脚本通过：浮动工具栏、目录导航（含鼠标/键盘焦点模态）、玻璃像素以及 U5 120 组矩阵/高对比/320 px 文字重排；结果 `u5-manual-toolbar-results.json`、`u5-manual-matrix-results.json`，截图 `artifacts/glass-spacing-top.png` 已审查。没有把 dev 验证写成生产 dist 复验。
 - 与磁盘通知 `75f3f75` 共同生成新版 EXE/Setup，70 项 MSTest 通过、2 权限跳过、0 失败，163 项 Web 哈希一致。EXE `78578BD386FFD26D826AE6DBE192FFD0A35296EE87CF6ACB67642E9BD1153D91`；Setup `5B7AC72A4E71D6C7A73C10E41A6076076AFFBE6FEB29525A596C078A17F835DB`，未签名。新版 EXE 真实重载 13 项通过，未再次安装新版 Setup；原生及设置清理证据见验收记录。
 - Graphify code-only/no-cluster 1484 节点/2693 边；测试服务/浏览器/本轮 EXE 均已关闭，上轮测试设置恢复及草稿清理已完成。没有 push、MSIX、证书变更或扩大到其他设备验收。
+
+## 2026-10-10 Markdown 打开方式注册
+
+- 按用户要求，当前用户 Setup 自动注册 `.md`、`.markdown` 的 Marker 打开方式候选、名称、图标及带引号打开命令，安装/卸载通知 Explorer 刷新。用户在 Windows 选择始终使用 Marker 后可双击文件打开；不修改现有默认值/UserChoice。复用现有单实例文件激活，不修改 C# 或 Web 功能。决策见 D031。
+- 新增 `scripts/test-setup-associations.ps1`，PowerShell 语法与 diff 检查通过；实际隔离安装到含中文/空格的目录，注册值类型/数据/路径引号断言通过，默认应用与其他程序候选保持，卸载后安装目录和 Marker 注册完整移除。`file-association-test.log` 记录实际结果。
+- 通过 Windows ShellExecuteEx 指定 Marker.Markdown ProgID，打开含中文/空格的 `.md` 文件；随后打开 `.markdown`，既有窗口复用且编辑器源文逐字一致，共 3 项原生检查通过。`file-association-native-results.json`。首轮只因测试未等待临时转发进程退出而断言失败，修正等待后通过；初始失败记录保留。未设置用户默认应用，也未模拟 Explorer 人工双击/打开方式列表点击，不将 Shell 检查冒称这些操作实测。
+- 本次仅安装配置改变，`build-setup.ps1 -SkipBuild` 复用上轮已验证且源码未变的 EXE，重新编译 Setup；没有重跑业务单元/Web 或重建 EXE。EXE SHA-256 保持 `78578BD386FFD26D826AE6DBE192FFD0A35296EE87CF6ACB67642E9BD1153D91`；新版 Setup `2E3A5EB512B265182FB471CBD44106CC4744808A3C4A404C0077FDF3058557BD`，仍 NotSigned。交付核对 `file-association-delivery.json`。
+- 测试原生进程正常关闭，测试设置备份已恢复且哈希一致，未编辑用户文档，隔离安装已卸载；安装正式版本由用户自行运行新版包。Graphify code-only/no-cluster 更新 1487 节点/2695 边，Inno 脚本不被图谱解析，以编译/真实安装证据为准。未 push、MSIX、产品签名或证书变更。
