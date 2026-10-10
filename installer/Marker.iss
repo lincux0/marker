@@ -45,6 +45,7 @@ Source: "{#ProjectRoot}\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Fla
 Source: "{#ProjectRoot}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#ProjectRoot}\installer\licenses\MIT.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "{#ProjectRoot}\installer\licenses\Apache-2.0.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "{#ProjectRoot}\installer\licenses\WebThirdParty.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Marker"; Filename: "{app}\Marker.App.exe"

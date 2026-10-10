@@ -1,0 +1,98 @@
+.cm-md-mermaid {
+  display: block;
+  margin-block: 14px;
+  overflow: hidden;
+  border: 1px solid var(--editor-border, #d8dbe0);
+  border-radius: 10px;
+  color: var(--editor-foreground, #202124);
+  background: var(--editor-paper, #fff);
+  font: 14px/1.5 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+.marker-mermaid-toolbar,
+.marker-mermaid-dialog-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--editor-border, #d8dbe0);
+}
+.marker-mermaid-toolbar button,
+.marker-mermaid-dialog-toolbar button {
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 1px solid var(--editor-border, #d8dbe0);
+  border-radius: 7px;
+  color: var(--editor-foreground, #202124);
+  background: var(--editor-background, #f5f5f5);
+  font: inherit;
+  cursor: pointer;
+}
+.marker-mermaid-toolbar button:focus-visible,
+.marker-mermaid-dialog-toolbar button:focus-visible { outline: 2px solid var(--editor-focus, Highlight); outline-offset: 2px; }
+.marker-mermaid-preview {
+  display: grid;
+  min-height: 72px;
+  place-items: center;
+  padding: 16px;
+  overflow: auto;
+}
+.marker-mermaid-preview > svg { display: block; max-width: 100%; height: auto; }
+.marker-mermaid-hint { margin: 0 0 8px; color: var(--editor-muted, #555); }
+.marker-mermaid-preview:has(.marker-mermaid-source) { display: block; }
+.marker-mermaid-source {
+  max-height: 360px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: inherit;
+  font: 12px/1.5 Consolas, "Cascadia Mono", monospace;
+}
+.marker-mermaid-dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  color: var(--editor-foreground, #202124);
+  background: var(--editor-background, #f5f5f5);
+}
+.marker-mermaid-dialog::backdrop { background: #101114cc; }
+.marker-mermaid-dialog[open] { display: flex; flex-direction: column; }
+.marker-mermaid-dialog-toolbar { flex: none; }
+.marker-mermaid-instructions { margin-inline-end: auto; color: var(--editor-muted, #555); font-size: 12px; }
+.marker-mermaid-viewport {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+.marker-mermaid-viewport:active { cursor: grabbing; }
+.marker-mermaid-viewport:focus-visible { outline: 2px solid var(--editor-focus, Highlight); outline-offset: -3px; }
+.marker-mermaid-canvas {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: max-content;
+  transform-origin: top left;
+  will-change: transform;
+}
+.marker-mermaid-canvas svg { display: block; max-width: none; }
+html[data-high-contrast="true"] .cm-md-mermaid,
+html[data-high-contrast="true"] .marker-mermaid-dialog { color: CanvasText; background: Canvas; border-color: CanvasText; }
+html[data-high-contrast="true"] .marker-mermaid-toolbar button,
+html[data-high-contrast="true"] .marker-mermaid-dialog-toolbar button { color: ButtonText; background: ButtonFace; border-color: ButtonText; }
+html[data-high-contrast="true"] .marker-mermaid-instructions { color: CanvasText; }
+@media (forced-colors: active) {
+  .cm-md-mermaid, .marker-mermaid-dialog { color: CanvasText; background: Canvas; border: 1px solid CanvasText; }
+  .marker-mermaid-toolbar button, .marker-mermaid-dialog-toolbar button { color: ButtonText; background: ButtonFace; border-color: ButtonText; }
+  .marker-mermaid-instructions { color: CanvasText; }
+}

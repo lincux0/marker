@@ -1,6 +1,6 @@
 # Third-party notices
 
-本文件记录 Marker 当前直接依赖的许可证信息。依赖版本以项目清单与锁文件为准。它不是完整的分发许可证清单：NuGet/npm 传递依赖、Windows SDK/Windows App SDK 的组件级条款，以及最终 Setup/MSIX 实际分发内容，须在 M5 发布准备时逐项复核。
+本文件记录 Marker 当前直接依赖及已核实的新增 Web 运行时传递依赖许可证信息。依赖版本以项目清单与锁文件为准。NuGet/npm 其他传递依赖、Windows SDK/Windows App SDK 的组件级条款，以及最终 Setup/MSIX 实际分发内容，仍须在发布准备时逐项复核。
 
 ## 应用直接依赖
 
@@ -27,15 +27,26 @@
 |---|---:|---|---|
 | @codemirror/commands | 6.11.1 | 编辑命令 | MIT |
 | @codemirror/lang-javascript | 6.2.5 | JavaScript / TypeScript 代码块解析 | MIT（[上游项目](https://github.com/codemirror/lang-javascript)） |
+| @codemirror/lang-json | 6.0.2 | JSON 代码解析 | npm 包 `package.json` 与 `LICENSE`：MIT |
 | @codemirror/lang-markdown | 6.5.2 | Markdown 语言支持 | MIT |
+| @codemirror/lang-python | 6.2.1 | Python 代码解析 | npm 包 `package.json` 与 `LICENSE`：MIT |
 | @codemirror/language | 6.12.4 | 语言基础设施 | MIT |
+| @codemirror/legacy-modes | 6.5.2 | 复用 Shell 等 StreamLanguage mode | npm 包 `package.json` 与 `LICENSE`：MIT |
 | @codemirror/search | 6.7.2 | 查找与替换能力 | MIT |
 | @codemirror/state | 6.7.6 | 编辑器状态 | MIT |
 | @codemirror/view | 6.43.13 | 编辑器视图 | MIT |
 | @lezer/highlight | 1.2.5 | 代码块 token 高亮 | MIT（[上游项目](https://code.haverbeke.berlin/lezer/highlight)） |
 | dompurify | 3.4.16 | 预览 HTML 净化 | npm 包 `package.json` 声明 `(MPL-2.0 OR Apache-2.0)`；随包包含 `LICENSE-MPL`。 |
+| katex | 0.19.0 | 数学排版 | npm 包 `package.json` 与 `LICENSE`：MIT；本地字体随包分发。 |
+| mermaid | 12.1.0 | 受限 Mermaid 图表解析与生成 | npm 包 `package.json` 与 `LICENSE`：MIT。 |
 | typescript | 7.0.2 | 开发与类型检查 | Apache-2.0 |
 | vite | 8.3.3 | Web 资源构建 | MIT |
+
+### Web 运行时传递依赖补充
+
+`installer/licenses/WebThirdParty.txt` 汇总 Web 生产依赖闭包中实际安装包提供的 LICENSE/LICENCE/COPYING/NOTICE 文件，按包保留版权和完整文本；依据 `src/Marker.Web/package-lock.json` 生成，排除开发依赖、类型声明包、包安装辅助工具和 OS/CPU 专用绑定。当前 Mermaid 运行时树包含 Chevrotain（Apache-2.0）、`elkjs`（EPL-2.0）、D3 家族（主要 ISC，`d3-ease`/`d3-sankey` 为 BSD-3-Clause）、`rw`（BSD-3-Clause）及 `robust-predicates`（Unlicense）；其余核实的依赖主要为 MIT。DOMPurify 的 MPL 文本也保留在聚合文件中。
+
+依赖更新并完成 `npm ci` 后，可运行 `node scripts/update-web-licenses.mjs` 重新生成聚合文件。脚本对无包目录、无许可证文本或未解析锁文件依赖会在输出中明确标记并返回失败，需在发布前补齐来源或处理结论。`installer/Marker.iss` 将聚合文件作为单个附件随 Setup 分发；MSIX/其他分发形式仍须确认其是否包含此文件。
 
 ## 测试工程直接依赖
 

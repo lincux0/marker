@@ -21,6 +21,7 @@ try {
     Push-Location (Join-Path $root 'src\Marker.Web')
     try {
         Invoke-Checked 'npm.cmd' @('ci')
+        Invoke-Checked 'node' @((Join-Path $root 'scripts\update-web-licenses.mjs'))
         Invoke-Checked 'npm.cmd' @('run', 'check')
         Invoke-Checked 'npm.cmd' @('run', 'build')
     } finally { Pop-Location }
