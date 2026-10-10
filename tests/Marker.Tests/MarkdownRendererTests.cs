@@ -68,19 +68,34 @@ public sealed class MarkdownRendererTests
     [TestMethod]
     public void BuildsOutlineAndHtmlFromTheSameAstWithUtf16HeadingOffsets()
     {
-        var markdown = "前言 😀\n\n# 标题 **加粗**\n\n### 标题 **加粗**\n\n## [链接](https://example.com)";
+        var markdown = "前言 😀\n\n# 中文 😀 标题 **加粗**\n\n### 中文 😀 标题 **加粗**\n\n## [链接](https://example.com)";
         var result = MarkdownRenderer.RenderDocument(markdown);
 
         Assert.AreEqual(3, result.Outline.Count);
-        Assert.AreEqual("标题 加粗", result.Outline[0].Text);
+        Assert.AreEqual("中文 😀 标题 加粗", result.Outline[0].Text);
         Assert.AreEqual(1, result.Outline[0].Level);
-        Assert.AreEqual(markdown.IndexOf("# 标题", StringComparison.Ordinal), result.Outline[0].Offset);
-        Assert.AreEqual("heading-标题-加粗", result.Outline[0].Id);
-        Assert.AreEqual("heading-标题-加粗-2", result.Outline[1].Id);
+        Assert.AreEqual(markdown.IndexOf("# 中文", StringComparison.Ordinal), result.Outline[0].Offset);
+        Assert.AreEqual("heading-中文-标题-加粗", result.Outline[0].Id);
+        Assert.AreEqual("heading-中文-标题-加粗-2", result.Outline[1].Id);
+        Assert.AreEqual(3, result.Outline[1].Level);
         Assert.AreEqual("链接", result.Outline[2].Text);
-        StringAssert.Contains(result.Html, "id=\"heading-标题-加粗\"");
-        StringAssert.Contains(result.Html, "id=\"heading-标题-加粗-2\"");
+        StringAssert.Contains(result.Html, "id=\"heading-中文-标题-加粗\"");
+        StringAssert.Contains(result.Html, "id=\"heading-中文-标题-加粗-2\"");
         StringAssert.Contains(result.Html, "<h2 id=\"heading-链接\">");
+    }
+
+    [TestMethod]
+    public void KeepsAnEmptyHeadingInTheOutlineWithAFallbackId()
+    {
+        var result = MarkdownRenderer.RenderDocument("#\n\n## 之后");
+
+        Assert.AreEqual(2, result.Outline.Count);
+        Assert.AreEqual(string.Empty, result.Outline[0].Text);
+        Assert.AreEqual("heading-section", result.Outline[0].Id);
+        Assert.AreEqual(1, result.Outline[0].Level);
+        Assert.AreEqual(0, result.Outline[0].Offset);
+        Assert.AreEqual("heading-之后", result.Outline[1].Id);
+        Assert.AreEqual(2, result.Outline[1].Level);
     }
 
     [TestMethod]

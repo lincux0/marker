@@ -72,11 +72,11 @@ class CodeBlockWidget extends WidgetType {
 }
 
 class ImageWidget extends WidgetType {
-  constructor(readonly url: string | null, readonly alt: string) { super(); }
-  eq(other: ImageWidget): boolean { return other.url === this.url && other.alt === this.alt; }
+  constructor(readonly url: string | null, readonly alt: string, readonly linked: boolean) { super(); }
+  eq(other: ImageWidget): boolean { return other.url === this.url && other.alt === this.alt && other.linked === this.linked; }
   toDOM(view: EditorView): HTMLElement {
     const wrapper = document.createElement("span");
-    wrapper.className = "cm-md-image";
+    wrapper.className = `cm-md-image${this.linked ? " cm-md-link" : ""}`;
     const showUnavailable = (): void => {
       wrapper.classList.add("cm-md-image-unavailable");
       const placeholder = document.createElement("span");
@@ -93,13 +93,28 @@ class ImageWidget extends WidgetType {
     image.alt = this.alt;
     image.loading = "lazy";
     image.draggable = false;
-    image.addEventListener("load", () => { if (wrapper.isConnected) view.requestMeasure(); });
+    image.addEventListener("load", () => {
+      if (!wrapper.isConnected) return;
+      view.requestMeasure();
+      if (!image.naturalWidth || wrapper.querySelector(".cm-md-image-zoom")) return;
+      const zoom = document.createElement("button");
+      zoom.type = "button";
+      zoom.className = "cm-md-image-zoom";
+      zoom.textContent = "放大";
+      zoom.setAttribute("aria-label", this.alt ? `放大图片：${this.alt}` : "放大图片");
+      zoom.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        wrapper.dispatchEvent(new CustomEvent("marker-image-zoom", { bubbles: true, detail: { url: this.url, trigger: zoom } }));
+      });
+      wrapper.append(zoom);
+    });
     image.addEventListener("error", () => { if (wrapper.isConnected) showUnavailable(); });
     image.src = this.url;
     wrapper.append(image);
     return wrapper;
   }
-  ignoreEvent(): boolean { return false; }
+  ignoreEvent(event: Event): boolean { return event.target instanceof Element && !!event.target.closest(".cm-md-image-zoom"); }
 }
 
 type Presentation = {
@@ -251,7 +266,7 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
           });
           const imageUrl = resources.get(rawSource) ?? resources.get(unescaped) ?? resources.get(decoded);
           const alt = state.doc.sliceString(opening.to, close.from);
-          hide(node.from, node.to, new ImageWidget(imageUrl ?? null, alt));
+          hide(node.from, node.to, new ImageWidget(imageUrl ?? null, alt, syntax.parent?.name === "Link"));
         }
         return false;
       }

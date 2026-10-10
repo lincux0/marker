@@ -10,6 +10,8 @@ import { markdownLinkActions } from "./links";
 import { imageResources, liveMarkdown, markdownFormattingKeymap, toggleSourceMode } from "./live-markdown";
 import { FloatingToolbar, isHiddenToolbarActions, type ConfigurableToolbarAction, type EditorCommand, type NativeCommand } from "./toolbar";
 import { countMarkdown } from "./statistics";
+import { DocumentOutline, type Heading } from "./outline";
+import { ImageLightbox } from "./lightbox";
 import "./style.css";
 
 declare global {
@@ -58,6 +60,7 @@ let version = 0;
 let fullSnapshotPending = false;
 let toolbar: FloatingToolbar | undefined;
 let statisticsTimer: ReturnType<typeof setTimeout> | undefined;
+let focusMode = false;
 let settings: Settings = {
   theme: "system",
   fontSize: 15,
@@ -80,6 +83,27 @@ app.append(status);
 function setStatus(message: string): void {
   status.textContent = message;
   status.hidden = message.length === 0;
+}
+
+const outline = new DocumentOutline(() => view, setStatus, () => version, open => toolbar?.setOutlineOpen(open));
+const lightbox = new ImageLightbox(editorParent);
+editorParent.addEventListener("marker-image-zoom", event => {
+  if (!view?.compositionStarted) return;
+  event.stopImmediatePropagation();
+  setStatus("请先完成输入法候选输入，再查看图片。");
+}, true);
+
+function toggleFocusMode(): void {
+  focusMode = !focusMode;
+  document.documentElement.dataset.focusMode = String(focusMode);
+  toolbar?.setFocusMode(focusMode);
+  if (focusMode) outline.close();
+  view?.requestMeasure();
+  view?.focus();
+}
+
+function toolbarScrollMargin(editor: EditorView): number {
+  return Math.max(0, (toolbar?.element.getBoundingClientRect().bottom ?? 0) - editor.scrollDOM.getBoundingClientRect().top) + 12;
 }
 
 editorParent.addEventListener("marker-code-copy", event => {
@@ -165,7 +189,7 @@ function toggleSource(editor: EditorView): boolean {
   return true;
 }
 
-function runEditorCommand(command: EditorCommand): void {
+function runEditorCommand(command: EditorCommand, trigger?: HTMLElement): void {
   if (!view) return;
   if (view.compositionStarted) {
     if (command === "toggleSource") post({ type: "sourceMode", sessionId, version, sourceMode: view.dom.dataset.sourceMode === "true" });
@@ -178,6 +202,8 @@ function runEditorCommand(command: EditorCommand): void {
     case "find": openSearchPanel(view); break;
     case "replace": openReplacePanel(view); break;
     case "toggleSource": toggleSource(view); view.focus(); break;
+    case "toggleOutline": outline.toggle(trigger); break;
+    case "toggleFocus": toggleFocusMode(); break;
   }
 }
 
@@ -186,6 +212,11 @@ toolbar = new FloatingToolbar({
   runEditor: runEditorCommand,
 });
 toolbar.attach(app, editorParent);
+new ResizeObserver(() => {
+  const height = toolbar?.element.getBoundingClientRect().height ?? 50;
+  document.documentElement.style.setProperty("--marker-toolbar-height", `${height}px`);
+  view?.requestMeasure();
+}).observe(toolbar.element);
 
 editorParent.addEventListener("keydown", (event: KeyboardEvent) => {
   if (event.ctrlKey && event.key.toLowerCase() === "s") {
@@ -359,7 +390,27 @@ function applyHostMessage(value: unknown): void {
       if (Object.keys(item).length !== 2 || typeof item.source !== "string" || item.source.length > 32768 || typeof item.url !== "string" || !safeUrl.test(item.url)) return;
       resources.set(item.source, item.url);
     }
+    lightbox.setResources(resources.values());
     view.dispatch({ effects: imageResources.of(resources) });
+    return;
+  }
+  if (message.type === "outline" && exact("type", "protocolVersion", "sessionId", "version", "headings") &&
+      message.sessionId === sessionId && message.version === version && view && Array.isArray(message.headings)) {
+    const headings: Heading[] = [];
+    const ids = new Set<string>();
+    let previousOffset = -1;
+    for (const value of message.headings) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      const item = value as Record<string, unknown>;
+      if (Object.keys(item).length !== 4 || typeof item.id !== "string" || !item.id || ids.has(item.id) ||
+          typeof item.text !== "string" || item.text.length > 2000 || !Number.isInteger(item.level) ||
+          (item.level as number) < 1 || (item.level as number) > 6 || !Number.isSafeInteger(item.offset) ||
+          (item.offset as number) <= previousOffset || (item.offset as number) > view.state.doc.length) return;
+      ids.add(item.id);
+      previousOffset = item.offset as number;
+      headings.push(item as Heading);
+    }
+    outline.setItems(headings, version);
     return;
   }
   if (message.type === "settings" && ["type", "protocolVersion", "sessionId"].every(key => key in message) &&
@@ -380,13 +431,14 @@ function applyHostMessage(value: unknown): void {
     return;
   }
   if (message.type === "revealSource" && exact("type", "protocolVersion", "sessionId", "version", "offset") &&
-      message.sessionId === sessionId && message.version === version && Number.isSafeInteger(message.offset) && view) {
+      message.sessionId === sessionId && message.version === version && Number.isSafeInteger(message.offset) && view &&
+      (message.offset as number) >= 0 && (message.offset as number) <= view.state.doc.length) {
     if (view.compositionStarted) {
       setStatus("请先完成输入法候选输入，再定位源码。");
       return;
     }
-    const offset = Math.min(view.state.doc.length, Math.max(0, message.offset as number));
-    view.dispatch({ selection: { anchor: offset }, scrollIntoView: true });
+    const offset = message.offset as number;
+    view.dispatch({ selection: { anchor: offset }, effects: EditorView.scrollIntoView(offset, { y: "start" }) });
     view.focus();
   }
 }
@@ -404,6 +456,8 @@ function isSettings(value: unknown): value is Settings {
 function initialize(nextSessionId: string, text: string): void {
   if (nextSessionId === sessionId) return;
   if (view) view.destroy();
+  outline.reset();
+  lightbox.setResources([]);
   sessionId = nextSessionId;
   version = 0;
   fullSnapshotPending = false;
@@ -419,7 +473,11 @@ function initialize(nextSessionId: string, text: string): void {
         placeholder("写下新的想法…"),
         liveMarkdown,
         markdownFormattingKeymap,
-        markdownLinkActions(url => { if (sessionId) post({ type: "openLink", sessionId, version, url }); }),
+        markdownLinkActions(url => {
+          if (url.startsWith("#")) outline.navigateAnchor(url, version);
+          else if (sessionId) post({ type: "openLink", sessionId, version, url });
+        }),
+        EditorView.scrollMargins.of(editor => ({ top: toolbarScrollMargin(editor) })),
         history(),
         search({ top: true, createPanel: createSearchPanel }),
         settingsCompartment.of([]),
@@ -436,6 +494,8 @@ function initialize(nextSessionId: string, text: string): void {
         EditorView.contentAttributes.of({ "aria-label": "Markdown 呈现编辑器", "aria-description": "点击文档直接编辑。Ctrl+Enter 新建段落，Ctrl+Alt+M 临时查看或隐藏 Markdown 源码" }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
+            outline.invalidate();
+            lightbox.close();
             scheduleStatistics();
             if (version >= Number.MAX_SAFE_INTEGER) {
               fullSnapshotPending = true;
@@ -456,6 +516,7 @@ function initialize(nextSessionId: string, text: string): void {
             }
           }
           if (update.docChanged || update.selectionSet) sendStatus(update.view);
+          if (update.viewportChanged || update.selectionSet) outline.onScroll();
         }),
         EditorView.domEventHandlers({
           compositionend: () => {
@@ -466,6 +527,7 @@ function initialize(nextSessionId: string, text: string): void {
       ],
     }),
   });
+  view.scrollDOM.addEventListener("scroll", () => outline.onScroll(), { passive: true });
   styleSettings(settings);
   toolbar?.updateStatistics(0, 0);
   scheduleStatistics();

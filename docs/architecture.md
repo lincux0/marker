@@ -66,7 +66,10 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `src/statistics.ts`：使用现有 CodeMirror Markdown 完整语法树剔除标记、链接目标及图片，中文逐字、其余文本按词统计；非空 Paragraph/Task 节点作为正文段落。编辑短暂停顿 180 ms 后更新，不经原生桥接或上传文档。
 - `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配 `toolbar.ts`、`live-markdown.ts` 与 Markdown 快捷键；`toolbarState` 按当前来源及 session 校验，仅更新标题、通知与 busy 状态。
 - `src/live-markdown.ts`：复用 CodeMirror GFM 语法树以装饰并隐藏标题、引用、列表、强调、行内代码、链接、表格和围栏标记；任务项、列表标记及受控图片显示为可视元素。表格保留等宽可编辑单元格，通过分隔行应用固定左/中/右对齐样式；单元格使用 outerDecorations 包住内部行内语法，避免布局盒子被代码装饰反向包裹。引用逐行记录 AST 最大深度并显示有限层级边线与首尾留白；缩进代码隐藏语法缩进，保留额外代码空白及完整源码。围栏操作条从语法树的代码范围读取当前原文，用用户手势调用浏览器 Clipboard API，成功/失败通过 `main.ts` 的现有 status 通知；不新增原生通用剪贴板桥接。图片以单一 widget 显示，alt 只作替代文本，资源缺失或加载失败显示安全占位。源文档与原生同步仍保留完整 Markdown 文本，顶部代码模式按钮或 Ctrl+Alt+M 暂时显示源码标记以调整复杂/暂不支持的语法；同一编辑器和历史不重建。格式化快捷键使用原有 CodeMirror 事务与 changeByRange，保留选区方向并隔离每次格式化的撤销步骤；无选区时插入选中的占位文本供直接输入。CodeMirror 语法解析和装饰不承诺与 Markdig HTML 完全一致，复杂嵌套语法仍需兼容样例实测。
-- `src/links.ts`：正文链接悬停显示“按ctrl并点击以访问”；只有 Ctrl+左键发送当前会话/版本的 `openLink`，普通点击、拖选与源码模式保持编辑。HTTP(S) 经宿主校验后直接交默认浏览器，页面不导航；本地 Markdown 复用文档打开与未保存保护，其他普通文件/目录由系统关联打开。
+- `src/outline.ts`、`src/outline.css`：可见大纲默认收起，消费宿主同一 Markdig 结果的标题 ID/UTF-16 偏移；当前会话/版本及整包校验、编辑失效、200 项分页、宽窗停靠/窄窗浮层、滚动高亮、片段复制及返回原选区。`main.ts` 将页内片段交此模块，使用工具栏实际高度避让定位。
+- `src/lightbox.ts`、`src/lightbox.css`：成功加载的受控图片通过独立按钮进入原生 dialog 灯箱，适配/原尺寸与缩放、焦点循环及 Esc 返回；资源更新关闭旧图。图片正文仍可编辑，链接图片保留 Ctrl+点击。
+- U3 专注模式由 `main.ts` 与 `toolbar.ts` 保存会话状态，临时收起可选按钮，保留设置、退出及既有保存入口；退出恢复按钮偏好，不写设置数据库。
+- `src/links.ts`：正文链接悬停显示“按ctrl并点击以访问”；只有 Ctrl+左键触发访问；页内片段本地定位，其余链接发送当前会话/版本的 `openLink`，普通点击、拖选与源码模式保持编辑。HTTP(S) 经宿主校验后直接交默认浏览器，页面不导航；本地 Markdown 复用文档打开与未保存保护，其他普通文件/目录由系统关联打开。
 - `MarkdownLinkResolver.cs`：本地链接解析与路径边界，共用纯逻辑测试；相对地址基于已保存文档目录，盘符或 file URI 规范化后检查本地根、重解析点、编码路径与 ADS，拒绝 UNC、设备路径和危险文件类型。
 - `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用已安装 JavaScript/Lezer 解析器，以 DOM 文本节点实现 JS/TS 围栏高亮；其他语言或超长代码保留纯文本。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。

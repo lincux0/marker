@@ -1,5 +1,5 @@
 export type NativeCommand = "new" | "open" | "save" | "saveAs" | "recover" | "settings";
-export type EditorCommand = "undo" | "redo" | "find" | "replace" | "toggleSource";
+export type EditorCommand = "undo" | "redo" | "find" | "replace" | "toggleSource" | "toggleOutline" | "toggleFocus";
 export const configurableToolbarActions = ["new", "open", "save", "saveAs", "recover", "undo", "redo", "find", "replace", "toggleSource", "statistics"] as const;
 export type ConfigurableToolbarAction = (typeof configurableToolbarActions)[number];
 type Action = NativeCommand | EditorCommand | "statistics";
@@ -9,7 +9,7 @@ export function isHiddenToolbarActions(value: unknown): value is ConfigurableToo
 }
 type ToolbarOptions = {
   runNative(command: NativeCommand): void;
-  runEditor(command: EditorCommand): void;
+  runEditor(command: EditorCommand, trigger?: HTMLElement): void;
 };
 
 const iconPaths: Record<Action | "more", string[]> = {
@@ -23,6 +23,8 @@ const iconPaths: Record<Action | "more", string[]> = {
   find: ["M10.8 18.2a7.4 7.4 0 1 0 0-14.8 7.4 7.4 0 0 0 0 14.8z", "m16.2 16.2 4.3 4.3"],
   replace: ["M4 7h13", "m14 4 3 3-3 3", "M20 17H7", "m10 14-3 3 3 3", "M5 13h.01", "M19 11h.01"],
   toggleSource: ["m8 5-6 7 6 7", "m16 5 6 7-6 7", "m14 4-4 16"],
+  toggleOutline: ["M8 5h13", "M8 12h13", "M8 19h13", "M3 5h.01", "M3 12h.01", "M3 19h.01"],
+  toggleFocus: ["M8 3H3v5", "M16 3h5v5", "M3 16v5h5", "M21 16v5h-5"],
   settings: ["M10 3h4l.6 2.4a7 7 0 0 1 1.8 1l2.3-.7 2 3.5-1.8 1.7a7 7 0 0 1 0 2.1l1.8 1.7-2 3.5-2.3-.7a7 7 0 0 1-1.8 1L14 21h-4l-.6-2.4a7 7 0 0 1-1.8-1l-2.3.7-2-3.5 1.8-1.7a7 7 0 0 1 0-2.1L3.3 9.2l2-3.5 2.3.7a7 7 0 0 1 1.8-1L10 3z", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"],
   statistics: ["M5 18V12", "M12 18V6", "M19 18V3"],
   more: ["M5 12h.01", "M12 12h.01", "M19 12h.01"],
@@ -57,6 +59,8 @@ const actions: Array<{ id: Action; label: string; shortcut?: string; overflow?: 
   { id: "find", label: "查找", shortcut: "Ctrl+F" },
   { id: "replace", label: "查找和替换", shortcut: "Ctrl+H", overflow: true },
   { id: "toggleSource", label: "代码模式", shortcut: "Ctrl+Alt+M" },
+  { id: "toggleOutline", label: "文档大纲" },
+  { id: "toggleFocus", label: "进入专注模式", overflow: true },
   { id: "statistics", label: "字数统计", overflow: true },
   { id: "settings", label: "设置" },
 ];
@@ -71,6 +75,7 @@ export class FloatingToolbar {
   private hiddenActions = new Set<ConfigurableToolbarAction>();
   private ready = false;
   private busy = false;
+  private focusMode = false;
 
   constructor(private readonly options: ToolbarOptions) {
     const root = document.createElement("div");
@@ -167,6 +172,33 @@ export class FloatingToolbar {
     this.syncVisibility();
   }
 
+  setFocusMode(enabled: boolean): void {
+    this.focusMode = enabled;
+    this.more.open = false;
+    for (const button of this.buttons.filter(item => item.dataset.action === "toggleFocus")) {
+      const label = enabled ? "退出专注模式" : "进入专注模式";
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(enabled));
+      const text = button.querySelector("span");
+      if (text) text.textContent = label;
+      if (!button.classList.contains("marker-toolbar-menu-button")) {
+        if (enabled && !text) {
+          const visibleLabel = document.createElement("span");
+          visibleLabel.textContent = "退出专注";
+          button.append(visibleLabel);
+        } else if (!enabled) text?.remove();
+      }
+    }
+    this.syncVisibility();
+  }
+
+  setOutlineOpen(open: boolean): void {
+    for (const button of this.buttons.filter(item => item.dataset.action === "toggleOutline")) {
+      button.setAttribute("aria-expanded", String(open));
+    }
+  }
+
   updateStatistics(words: number, paragraphs: number): void {
     const counts = `${words.toLocaleString("zh-CN")} 字 · ${paragraphs.toLocaleString("zh-CN")} 段`;
     for (const button of this.buttons.filter(item => item.dataset.action === "statistics")) {
@@ -178,8 +210,12 @@ export class FloatingToolbar {
 
   private syncVisibility(): void {
     for (const button of this.buttons) {
+      if (this.focusMode && !["save", "settings", "toggleFocus"].includes(button.dataset.action!)) {
+        button.hidden = true;
+        continue;
+      }
       const hidden = this.hiddenActions.has(button.dataset.action as ConfigurableToolbarAction);
-      const overflow = this.narrow.matches && button.dataset.overflow === "true";
+      const overflow = !this.focusMode && this.narrow.matches && button.dataset.overflow === "true";
       button.hidden = button.classList.contains("marker-toolbar-menu-button") ? !(hidden || overflow) : hidden || overflow;
     }
     this.more.hidden = !this.buttons.some(button => button.classList.contains("marker-toolbar-menu-button") && !button.hidden);
@@ -194,6 +230,11 @@ export class FloatingToolbar {
     button.setAttribute("aria-label", action.label);
     if (action.shortcut) button.setAttribute("aria-keyshortcuts", action.shortcut.replaceAll("Ctrl", "Control"));
     if (action.id === "toggleSource") button.setAttribute("aria-pressed", "false");
+    if (action.id === "toggleFocus") button.setAttribute("aria-pressed", "false");
+    if (action.id === "toggleOutline") {
+      button.setAttribute("aria-expanded", "false");
+      button.setAttribute("aria-controls", "marker-outline");
+    }
     if (action.overflow) button.dataset.overflow = "true";
     button.append(makeIcon(action.id));
     if (action.id === "statistics") button.classList.add("marker-toolbar-statistics");
@@ -208,8 +249,8 @@ export class FloatingToolbar {
     });
     button.addEventListener("click", () => {
       if (!this.ready || this.busy || action.id === "statistics") return;
-      if (action.id === "undo" || action.id === "redo" || action.id === "find" || action.id === "replace" || action.id === "toggleSource") {
-        this.options.runEditor(action.id);
+      if (action.id === "undo" || action.id === "redo" || action.id === "find" || action.id === "replace" || action.id === "toggleSource" || action.id === "toggleOutline" || action.id === "toggleFocus") {
+        this.options.runEditor(action.id, button);
       } else this.options.runNative(action.id);
       if (more) more.open = false;
     });

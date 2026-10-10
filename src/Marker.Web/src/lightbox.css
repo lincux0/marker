@@ -1,0 +1,65 @@
+.cm-md-image { position: relative; }
+.cm-md-image-zoom {
+  position: absolute;
+  inset-block-end: 8px;
+  inset-inline-end: 8px;
+  padding: 4px 9px;
+  border: 1px solid #ffffff88;
+  border-radius: 999px;
+  color: white;
+  background: #202124cc;
+  font: inherit;
+  cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.cm-md-image:hover .cm-md-image-zoom,
+.cm-md-image-zoom:focus-visible { opacity: 1; }
+.cm-md-image-zoom:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+.marker-lightbox {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 56px 24px 24px;
+  overflow: auto;
+  border: 0;
+  color: white;
+  background: #101114ed;
+}
+.marker-lightbox::backdrop { background: #101114ed; }
+.marker-lightbox[open] { display: flex; flex-direction: column; }
+.marker-lightbox-toolbar {
+  position: fixed;
+  z-index: 1;
+  inset-block-start: 12px;
+  inset-inline-end: 16px;
+  display: flex;
+  gap: 8px;
+}
+.marker-lightbox-toolbar button {
+  min-width: 40px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid #ffffff55;
+  border-radius: 8px;
+  color: inherit;
+  background: #303238;
+  font: inherit;
+  cursor: pointer;
+}
+.marker-lightbox-toolbar button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.marker-lightbox-image { display: block; flex: none; height: auto; margin: auto; }
+@media (prefers-reduced-motion: reduce) { .cm-md-image-zoom { transition: none; } }
+html[data-reduced-motion="true"] .cm-md-image-zoom { transition: none; }
+html[data-high-contrast="true"] .marker-lightbox { color: CanvasText; background: Canvas; }
+html[data-high-contrast="true"] .marker-lightbox-toolbar button,
+html[data-high-contrast="true"] .cm-md-image-zoom { color: ButtonText; background: ButtonFace; border-color: ButtonText; }
+@media (forced-colors: active) {
+  .marker-lightbox { color: CanvasText; background: Canvas; }
+  .marker-lightbox-toolbar button, .cm-md-image-zoom { color: ButtonText; background: ButtonFace; border-color: ButtonText; }
+}

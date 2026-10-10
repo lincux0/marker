@@ -149,10 +149,11 @@ body {
 }
 .marker-toolbar-menu-button { width: 100%; height: 36px; justify-content: flex-start; gap: 10px; padding-inline: 9px; color: var(--editor-foreground); text-align: left; }
 .marker-toolbar-menu-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marker-toolbar-button[data-action="toggleFocus"][aria-pressed="true"] { width: auto; padding-inline: 10px; gap: 6px; }
 .marker-toolbar-notification {
   position: fixed;
   z-index: 51;
-  top: calc(var(--marker-toolbar-top) + 58px);
+  top: calc(var(--marker-toolbar-top) + var(--marker-toolbar-height, 50px) + 8px);
   left: 50%;
   max-width: min(720px, calc(100vw - 64px));
   padding: 7px 12px;
@@ -184,7 +185,7 @@ body {
 #editor .cm-scroller {
   overflow: auto;
   padding-inline: var(--editor-canvas-inset);
-  padding-top: calc(var(--marker-toolbar-top) + 50px);
+  padding-top: calc(var(--marker-toolbar-top) + var(--marker-toolbar-height, 50px));
   font-family: var(--editor-body-font, "Segoe UI Variable Text"), "Segoe UI", "Microsoft YaHei UI", sans-serif;
   line-height: inherit;
   scrollbar-color: color-mix(in srgb, var(--editor-muted) 30%, transparent) transparent;

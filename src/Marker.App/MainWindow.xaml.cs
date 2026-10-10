@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
@@ -424,6 +425,28 @@ public sealed partial class MainWindow : UserControl
                 version = snapshot.Version,
                 resources = imageResources.Select(entry => new { source = entry.Key, url = entry.Value })
             }));
+            var outlineMessage = JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                type = "outline",
+                protocolVersion = BridgeSession.ProtocolVersion,
+                sessionId = session.SessionId,
+                version = snapshot.Version,
+                headings = rendered.Outline.Select(heading => new { id = heading.Id, text = heading.Text, level = heading.Level, offset = heading.Offset })
+            });
+            if (outlineMessage.Length <= BridgeSession.MaxMessageBytes)
+                _editor?.CoreWebView2.PostWebMessageAsJson(Encoding.UTF8.GetString(outlineMessage));
+            else
+            {
+                SetStatus("标题大纲超过 2 MiB，已隐藏大纲但保留文档内容。");
+                _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                {
+                    type = "outline",
+                    protocolVersion = BridgeSession.ProtocolVersion,
+                    sessionId = session.SessionId,
+                    version = snapshot.Version,
+                    headings = Array.Empty<object>()
+                }));
+            }
             _preview.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "render",

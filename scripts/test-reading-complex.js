@@ -250,7 +250,11 @@ async (page) => {
     await editor.waitForFunction(() => document.querySelector('.cm-md-image img')?.complete && document.querySelector('.cm-md-image img')?.naturalWidth > 0);
     check(await image.getAttribute('alt') === '成功 **粗体** 与 `code` 不重叠', 'Successful image alt text or nested Markdown markers changed unexpectedly.');
     check(await editor.locator('.cm-md-image-caption').count() === 0, 'Image alt text is redundantly displayed as a caption.');
-    check(await image.evaluate(element => element.parentElement.children.length === 1 && element.parentElement.textContent === ''), 'Nested bold/code markers overlapped or appeared beside the image widget.');
+    check(await image.evaluate(element => {
+      const wrapper = element.parentElement.cloneNode(true);
+      wrapper.querySelector('.cm-md-image-zoom')?.remove();
+      return wrapper.children.length === 1 && wrapper.textContent === '';
+    }), 'Nested bold/code markers overlapped or appeared beside the image widget.');
     const imageSize = await image.evaluate(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height, naturalWidth: element.naturalWidth, naturalHeight: element.naturalHeight }));
     check(imageSize.width <= imageSize.naturalWidth && Math.abs(imageSize.width / imageSize.height - imageSize.naturalWidth / imageSize.naturalHeight) < 0.02,
       `Small image was enlarged or its aspect ratio changed: ${JSON.stringify(imageSize)}`);

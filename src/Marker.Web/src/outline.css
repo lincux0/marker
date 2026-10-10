@@ -1,0 +1,74 @@
+.marker-outline {
+  position: fixed;
+  z-index: 40;
+  top: calc(var(--marker-toolbar-top) + var(--marker-toolbar-height, 50px) + 12px);
+  right: 16px;
+  bottom: 18px;
+  width: min(320px, calc(100vw - 32px));
+  color: var(--editor-foreground);
+  font: 13px/1.4 var(--editor-body-font, "Segoe UI Variable Text"), "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+.marker-outline[hidden] { display: none; }
+.marker-outline nav {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 10px;
+  border: 1px solid var(--editor-border);
+  border-radius: 14px;
+  background: var(--editor-paper);
+  box-shadow: 0 12px 36px rgb(35 29 47 / 14%);
+  scrollbar-width: thin;
+}
+.marker-outline-list { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 0; list-style: none; }
+.marker-outline-item { box-sizing: border-box; height: 36px; display: flex; align-items: center; gap: 4px; padding-left: calc((var(--heading-level) - 1) * 10px); }
+.marker-outline-heading,
+.marker-outline-copy,
+.marker-outline-return,
+.marker-outline-close,
+.marker-outline-page {
+  min-width: 0;
+  border: 0;
+  border-radius: 7px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.marker-outline-heading { flex: 1; overflow: hidden; padding: 7px 8px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.marker-outline-copy { flex: none; width: 28px; height: 28px; color: var(--editor-muted); }
+.marker-outline-return { width: 100%; margin-bottom: 8px; padding: 8px; text-align: left; background: var(--editor-accent-soft); }
+.marker-outline-close { flex: none; align-self: flex-end; margin-bottom: 6px; padding: 6px 9px; }
+.marker-outline-page { padding: 7px 10px; }
+.marker-outline-pagination { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; }
+.marker-outline-pagination span { color: var(--editor-muted); font-size: 12px; }
+.marker-outline-empty { margin: auto; padding: 16px 8px; color: var(--editor-muted); text-align: center; }
+.marker-outline-page:disabled { color: var(--editor-muted); opacity: .5; cursor: default; }
+.marker-outline[hidden] .marker-outline-empty { display: none; }
+.marker-outline-item[aria-current="location"] .marker-outline-heading { color: var(--editor-accent); background: var(--editor-accent-soft); font-weight: 650; }
+.marker-outline button:hover { background: var(--editor-accent-soft); }
+.marker-outline button:focus-visible { outline: 2px solid var(--editor-focus); outline-offset: 2px; }
+
+@media (min-width: 1320px) {
+  html[data-outline-open="true"] #editor .cm-scroller { padding-right: calc(var(--editor-canvas-inset) + 272px); }
+  html[data-outline-open="true"] #editor .cm-content {
+    width: min(100%, calc(100vw - var(--editor-canvas-inset) - var(--editor-canvas-inset) - 272px));
+    min-width: min(100%, calc(100vw - var(--editor-canvas-inset) - var(--editor-canvas-inset) - 272px));
+    max-width: min(var(--editor-paper-width), calc(100vw - var(--editor-canvas-inset) - var(--editor-canvas-inset) - 272px));
+  }
+  html[data-outline-open="true"] .marker-outline { width: 240px; }
+}
+
+@media (max-width: 720px) {
+  .marker-outline { right: 10px; bottom: 10px; width: min(300px, calc(100vw - 20px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker-outline *, .marker-outline *::before, .marker-outline *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+
+html[data-high-contrast="true"] .marker-outline nav { border-color: CanvasText; color: CanvasText; background: Canvas; }
+html[data-high-contrast="true"] .marker-outline button { color: ButtonText; }
