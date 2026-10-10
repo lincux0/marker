@@ -30,6 +30,7 @@
 | @codemirror/lang-json | 6.0.2 | JSON 代码解析 | npm 包 `package.json` 与 `LICENSE`：MIT |
 | @codemirror/lang-markdown | 6.5.2 | Markdown 语言支持 | MIT |
 | @codemirror/lang-python | 6.2.1 | Python 代码解析 | npm 包 `package.json` 与 `LICENSE`：MIT |
+| @codemirror/lang-php | 6.0.2 | PHP 代码解析（含无开标签片段） | npm 包 `package.json` 与 `LICENSE`：MIT |
 | @codemirror/language | 6.12.4 | 语言基础设施 | MIT |
 | @codemirror/legacy-modes | 6.5.2 | 复用 Shell 等 StreamLanguage mode | npm 包 `package.json` 与 `LICENSE`：MIT |
 | @codemirror/search | 6.7.2 | 查找与替换能力 | MIT |

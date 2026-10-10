@@ -68,14 +68,14 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `src/live-markdown.ts`：复用 CodeMirror Markdown/GFM 语法树装饰常见 Markdown；新增代码语言与 AST-based math、脚注、提示框呈现。Math 范围来自 Markdig 权威 `richContent` 元数据，不对全文扫描美元符号；脚注引用为可操作上标，脚注定义只替换源前缀并在原位置显示，点击引用后定义提供回跳。进入源/选择编辑上下文时显示原文，修改文档即清除旧 metadata。提示框仅替换识别出的 `[!NOTE/TIP/IMPORTANT/WARNING/CAUTION]` 标记为标题，保留嵌套引用正文。HTML/编辑器语法不承诺全量一致；CodeMirror 侧坐标仍按 UTF-16 源偏移对齐。
 - `src/annotations.ts`、`src/annotations.css`：脚注引用/定义导航按钮与五种提示框的专用装饰；跳转事件携带目标和返回偏移，由根编辑器状态管理失效与返回。
 - `src/math.ts`、`src/math.css`：KaTeX 公式显示及错误/源码回退；只渲染 Markdig 提供的 TeX 范围，原始 TeX 可复制，MathML 和专用公式 SVG 输出受限处理。
-- `src/code-languages.ts`：编辑器和隐藏预览共享 JS/TS/C#/Python/JSON/Shell 代码语言定义。编辑器文档超过 100,000 字符时停用语言解析器，跨阈值只重配语言 Compartment 并保留撤销历史；这是性能降级捷径，超长预览代码块为纯文本。
+- `src/code-languages.ts`：编辑器和隐藏预览共享 JS/TS/C#/Python/JSON/Shell 及 D027 新增的 20 类常用代码语言定义。编辑器文档超过 100,000 字符时停用语言解析器，跨阈值只重配语言 Compartment 并保留撤销历史；这是性能降级捷径，超长预览代码块为纯文本。
 - `src/mermaid.ts`、`src/mermaid.css`：仅可见编辑器中支持受限 Mermaid flowchart/graph/sequence diagram，懒加载、串行队列与复杂度门槛；生成 SVG 经专用白名单处理，不放宽普通 Markdown SVG 边界。预览未接 Mermaid widget。
 - `src/outline.ts`、`src/outline.css`：可见大纲默认收起，消费宿主同一 Markdig 结果的标题 ID/UTF-16 偏移；当前会话/版本及整包校验、编辑失效、200 项分页、宽窗停靠/窄窗浮层、滚动高亮、片段复制及返回原选区。`main.ts` 将页内片段交此模块，使用工具栏实际高度避让定位。
 - `src/lightbox.ts`、`src/lightbox.css`：成功加载的受控图片通过独立按钮进入原生 dialog 灯箱，适配/原尺寸与缩放、焦点循环及 Esc 返回；资源更新关闭旧图。图片正文仍可编辑，链接图片保留 Ctrl+点击。
 - U3 专注模式由 `main.ts` 与 `toolbar.ts` 保存会话状态，临时收起可选按钮，保留设置、退出及既有保存入口；退出恢复按钮偏好，不写设置数据库。
 - `src/links.ts`：正文链接悬停显示“按ctrl并点击以访问”；只有 Ctrl+左键触发访问；页内片段本地定位，其余链接发送当前会话/版本的 `openLink`，普通点击、拖选与源码模式保持编辑。HTTP(S) 经宿主校验后直接交默认浏览器，页面不导航；本地 Markdown 复用文档打开与未保存保护，其他普通文件/目录由系统关联打开。
 - `MarkdownLinkResolver.cs`：本地链接解析与路径边界，共用纯逻辑测试；相对地址基于已保存文档目录，盘符或 file URI 规范化后检查本地根、重解析点、编码路径与 ADS，拒绝 UNC、设备路径和危险文件类型。
-- `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用共享语言配置，以 DOM 文本节点实现 JS/TS/C#/Python/JSON/Shell 围栏高亮；其他语言或单块超长代码保留纯文本。预览有数学与代码高亮，但没有 Mermaid widget，脚注 HTML 也未适配为当前编辑器的脚注导航体验，不能据此宣称两视图能力一致。更新正文保留页面滚动，设置不重建 DOM。
+- `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用共享语言配置，以 DOM 文本节点实现 JS/TS/C#/Python/JSON/Shell 及 D027 新增的 20 类常用语言的围栏高亮；其他语言或单块超长代码保留纯文本。预览有数学与代码高亮，但没有 Mermaid widget，脚注 HTML 也未适配为当前编辑器的脚注导航体验，不能据此宣称两视图能力一致。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。
 - `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、Web 浮动工具栏与减少动画样式。工具栏 fixed 并在视口内居中，与正文共享 980 px 纸面宽度及响应式边距变量；常规顶栏总宽 1108 px，比纸面宽 128 px，窄窗随纸面收缩且至少保留 16 px 外边距。纸面最小宽度与响应式目标宽度一致，并禁止 flex 收缩，避免容器挤压成极窄列。文档名可收缩并以原生省略号截断，保留完整名称 Tooltip；玻璃表面使用 36% 画布底色、32 px backdrop blur 和 1.5 倍饱和度，模糊随正文滚动的内容；首屏纸面与工具栏下沿保持 32 px 距离（滚动内边距随顶栏顶部偏移计算）。高对比模式停用透明模糊效果并回退到系统色。
 - `public/app-logo.png`：由桌面端裁剪生成的 `Assets/AppLogo.png` 复制，为 Web 工具栏提供同源品牌图标；不从 CDN 加载。
@@ -116,7 +116,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 9. 应用激活、XAML/OLE 拖放和 WebView2 `AdditionalObjects` 文件对象均进入同一个串行文件打开队列；只有 `.md`/`.markdown` 路径进入既有未保存确认与文档读取流程。桥接只传计数和会话信息，宿主对原生文件对象及路径再次校验。
 10. 窗口尺寸/位置变化时按客户区和当前 DPI更新隐藏 Island 与两个子窗口；编辑器 WebView 从 `(0,0)` 调整为完整客户区边界。关闭前进行未保存确认，之后保存普通位置、释放主题监听和资源，再关闭 controller、释放 XAML Island 并销毁根窗口。
 
-当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；`richContent` 超限时整包清空而不截断；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。编辑页单次图片资源映射亦受 2 MiB 桥接消息上限约束，超过部分退化为 alt 占位。即时呈现与 Markdig 最终 HTML 不保证一致：编辑器已支持 Markdig range 驱动的行内/块公式、脚注引用/定义、五类已知提示框与受限 Mermaid；预览当前只有数学和代码高亮，脚注语义/跳转和 Mermaid widget 尚未适配。编辑器代码语言范围为 JS/TS/C#/Python/JSON/Shell，超 100,000 字符文档会停用语言装饰；预览单块代码超过 100,000 字符降为纯文本。恢复写入的秒级节流及草稿写入节流意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览仅支持受控 HTTP(S) 链接；不支持用户任意 SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。WebView2 Evergreen Runtime 由目标机器提供，应用只提示缺失，不自动安装；多标签与文件树尚未实现。
+当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；`richContent` 超限时整包清空而不截断；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。编辑页单次图片资源映射亦受 2 MiB 桥接消息上限约束，超过部分退化为 alt 占位。即时呈现与 Markdig 最终 HTML 不保证一致：编辑器已支持 Markdig range 驱动的行内/块公式、脚注引用/定义、五类已知提示框与受限 Mermaid；预览当前只有数学和代码高亮，脚注语义/跳转和 Mermaid widget 尚未适配。编辑器代码语言范围为 JS/TS/C#/Python/JSON/Shell 及 D027 新增的 20 类常用语言，超 100,000 字符文档会停用语言装饰；预览单块代码超过 100,000 字符降为纯文本。恢复写入的秒级节流及草稿写入节流意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览仅支持受控 HTTP(S) 链接；不支持用户任意 SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。WebView2 Evergreen Runtime 由目标机器提供，应用只提示缺失，不自动安装；多标签与文件树尚未实现。
 
 ## 构建与打包管线
 

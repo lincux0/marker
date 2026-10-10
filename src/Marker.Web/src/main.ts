@@ -321,10 +321,10 @@ function openReplacePanel(editor: EditorView): boolean {
   return true;
 }
 
-const darkHighlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map(style => style.color ? {
+const darkHighlightStyle = HighlightStyle.define([...defaultHighlightStyle.specs.map(style => style.color ? {
   ...style,
   color: style.tag === tags.meta || style.tag === tags.comment ? "var(--editor-muted)" : "var(--editor-accent)",
-} : style));
+} : style), { tag: tags.inserted, color: "#98d5ac" }, { tag: tags.deleted, color: "#f0a3a8" }]);
 
 const fontStacks: Record<FontChoice, string> = {
   system: '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif',

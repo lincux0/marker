@@ -318,6 +318,8 @@ html[data-line-wrapping="true"] #preview pre code { white-space: pre-wrap; overf
 .tok-string, .tok-string2 { color: var(--tok-string); }
 .tok-comment { color: var(--tok-comment); font-style: italic; }
 .tok-number, .tok-bool, .tok-atom { color: var(--tok-number); }
+.tok-inserted { color: var(--tok-string); }
+.tok-deleted { color: var(--tok-number); }
 .tok-variableName, .tok-variableName2, .tok-propertyName, .tok-typeName, .tok-className, .tok-namespace, .tok-labelName { color: var(--tok-name); }
 
 #preview table {

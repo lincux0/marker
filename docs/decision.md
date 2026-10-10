@@ -261,8 +261,15 @@
 - 原生 Markdig AST 是数学、脚注与提示框的范围权威。`richContent` 为同一文档快照附带当前 session/version 的 UTF-16 `From`/exclusive `To`、文本及语义字段；脚注定义可按展示需要在预览/装饰中重组，但源文档位置不变。2 MiB JSON 限制下必须发送完整 metadata 或空列表，不截断；任何编辑立即清除过期 metadata。前端不得对整篇文本用美元正则猜公式。
 - 行内/块数学使用锁定 KaTeX 0.19；`trust:false`、strict/error 处理、文档内宏隔离、`maxExpand:1000`、`maxSize:50`、每个 TeX 片段 8192 字符。输出包含 MathML；对 KaTeX 生成的 SVG/path 使用单独限制的处理规则，不扩大普通 Markdown 的 SVG 许可。错误呈现安全源码回退，复制返回原 TeX；编辑器选择/源码状态显示可编辑原文。
 - 脚注引用显示上标，定义保持在源位置；点击定义回到最近点击的引用，重复引用返回具体点击位置。定义前缀在正常装饰视图中可隐藏，但源码/相关选择中必须可还原原文。五种 alert 只识别 NOTE、TIP、IMPORTANT、WARNING、CAUTION；仅替换 marker 为标题，保留其余引用 AST 内容；未知 marker 保持普通引用。
-- 代码语言配置由 CodeMirror 与 HTML 预览共享，当前为 JS/TS/C#/Python/JSON/Shell；以 `StreamLanguage` 复用 legacy modes，不引入 Shiki。编辑器全文超过 100,000 字符时停用语言解析，仅重新配置语言 compartment 并保留历史；预览单个代码块超过同一阈值降为纯文本。
+- 代码语言配置由 CodeMirror 与 HTML 预览共享，D026 采纳时为 JS/TS/C#/Python/JSON/Shell，后续扩充见 D027；以 `StreamLanguage` 复用 legacy modes，不引入 Shiki。编辑器全文超过 100,000 字符时停用语言解析，仅重新配置语言 compartment 并保留历史；预览单个代码块超过同一阈值降为纯文本。
 - Mermaid 12.1 只在可见编辑器按需异步加载，串行队列最多 4 个待处理项；仅 flowchart/graph/sequence，源码不超过 32768 个 UTF-16 单元、250 行、800 tokens，预检估算节点最多 100 个，Mermaid 原生 `maxEdges:150` 限制连线。根级 `htmlLabels:false` 禁用 HTML 标签；禁用 directives/front matter、click、style、classDef、linkStyle、图片/图标形状和外部链接；仅专用 SVG 白名单及本地引用处理生成结果。过期/断开 widget 丢弃结果；关闭对话框销毁 widget。图表只提供受限显示、源码复制/编辑、缩放/平移、Esc 和焦点恢复，不解释或执行图中操作。
 - 安全边界：Markdig 禁止原始 HTML；DOMPurify 和 CSP 继续用于普通预览；生成数学/Mermaid SVG 使用各自专用输出处理，不能把 SVG 规则扩展到用户文件。所有 range 元数据通过既有来源、协议、会话、版本、字段白名单与 2 MiB 限制。未知/错误/超限语法保留源文本并局部降级。
 - 当前不一致：可见编辑器提供数学、脚注、提示框、Mermaid；隐藏 HTML preview 仅有数学与共享代码高亮，尚无脚注导航适配和 Mermaid widget。两者仍共享原始 Markdown 文档与保存历史。
 - 依赖：KaTeX 0.19.0、Mermaid 12.1.0；`katex` override 统一 Mermaid 传递依赖版本。代码语言依赖为 `@codemirror/lang-python` 6.2.1、`@codemirror/lang-json` 6.0.2、`@codemirror/legacy-modes` 6.5.2。许可证与分发边界见 `THIRD_PARTY_NOTICES.md`。验证与验收状态以项目历程/验收记录的实际结果为准。
+
+## D027 常用代码语言扩充
+
+- 用户确认新增 HTML/XML、CSS、SQL、C/C++、Java/Kotlin、Go/Rust、Swift、PHP、Ruby、YAML/TOML/INI、PowerShell、Lua、Dockerfile、Diff；连同原六类共 26 类。编辑器与隐藏预览继续使用同一映射，语言名大小写不敏感，别名见工程开发指南；`sql`/`sqlite` 使用 SQLite 模式，PostgreSQL/MySQL 提供独立别名。
+- 复用锁定的 legacy modes，不升级其他依赖；PHP 使用官方 `@codemirror/lang-php` 6.0.2，`plain:true` 支持带或不带开标签片段。Diff 浅/深主题分别区分新增和删除；不改变代码文本、复制、撤销及既有长文降级规则。
+- 权衡：StreamLanguage 是词法高亮，不提供 IDE 语义诊断。HTML 模式不解析内嵌 JavaScript/CSS；未支持的语言继续显示纯文本。没有加入自动语言猜测或运行代码功能。
+- 资料核实：Exa 定位 [CodeMirror 官方参考](https://codemirror.net/docs/ref/) 与[维护者的 Markdown/legacy 模式说明](https://discuss.codemirror.net/t/codemirror-lang-markdown-with-codemirror-legacy-modes/7925)；Context7 查询官方文档核实 StreamLanguage/语言支持用法，PHP 参数以锁定版本包内类型声明为准。许可随生产依赖聚合文件分发。
