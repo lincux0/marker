@@ -447,6 +447,36 @@ public sealed partial class MainWindow : UserControl
                     headings = Array.Empty<object>()
                 }));
             }
+            var richContentMessage = JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                type = "richContent",
+                protocolVersion = BridgeSession.ProtocolVersion,
+                sessionId = session.SessionId,
+                version = snapshot.Version,
+                nodes = rendered.RichNodes.Select(node => new
+                {
+                    kind = node.Kind,
+                    from = node.From,
+                    to = node.To,
+                    text = node.Text,
+                    label = node.Label,
+                    target = node.Target
+                })
+            });
+            if (richContentMessage.Length <= BridgeSession.MaxMessageBytes)
+                _editor?.CoreWebView2.PostWebMessageAsJson(Encoding.UTF8.GetString(richContentMessage));
+            else
+            {
+                SetStatus("专业语法范围超过 2 MiB，已暂时隐藏标记但保留文档内容。");
+                _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+                {
+                    type = "richContent",
+                    protocolVersion = BridgeSession.ProtocolVersion,
+                    sessionId = session.SessionId,
+                    version = snapshot.Version,
+                    nodes = Array.Empty<object>()
+                }));
+            }
             _preview.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
             {
                 type = "render",

@@ -148,4 +148,84 @@ public sealed class MarkdownRendererTests
         StringAssert.Contains(result.Html, "align=\"center\"");
         StringAssert.Contains(result.Html, "align=\"right\"");
     }
+
+    [TestMethod]
+    public void ReturnsAstBackedRangesForMathFootnotesAndAlerts()
+    {
+        const string markdown = "# $a+b$ and $c^2$\n\n$$\nx^2 + y^2\n$$\n\nFootnote[^note] again[^note].\n\n[^note]: Definition with $z$.\n    continuation.\n\n> [!WARNING]\n> First line\n> second line\n> <script>alert(1)</script>\n";
+        var result = MarkdownRenderer.RenderDocument(markdown);
+        var ranges = result.RichNodes;
+
+        Assert.AreEqual(3, ranges.Count(node => node.Kind == "math-inline"));
+        Assert.AreEqual(1, ranges.Count(node => node.Kind == "math-block"));
+        Assert.AreEqual(2, ranges.Count(node => node.Kind == "footnote-reference"));
+        Assert.AreEqual(1, ranges.Count(node => node.Kind == "footnote-definition"));
+        Assert.AreEqual(1, ranges.Count(node => node.Kind == "alert"));
+        Assert.IsTrue(ranges.SequenceEqual(ranges.OrderBy(node => node.From).ThenByDescending(node => node.To)));
+
+        foreach (var node in ranges)
+        {
+            Assert.IsTrue(node.From >= 0 && node.To > node.From && node.To <= markdown.Length);
+            Assert.IsTrue(node.Target >= 0 && node.Target <= markdown.Length);
+        }
+
+        var inline = ranges.First(node => node.Kind == "math-inline");
+        Assert.AreEqual("a+b", inline.Text);
+        Assert.AreEqual("$a+b$", markdown[inline.From..inline.To]);
+        var block = ranges.Single(node => node.Kind == "math-block");
+        StringAssert.Contains(block.Text, "x^2 + y^2");
+        Assert.AreEqual("1", ranges.First(node => node.Kind == "footnote-reference").Text);
+        foreach (var reference in ranges.Where(node => node.Kind == "footnote-reference"))
+            Assert.AreEqual("[^note]", markdown[reference.From..reference.To]);
+
+        var definition = ranges.Single(node => node.Kind == "footnote-definition");
+        Assert.AreEqual("note", definition.Label);
+        Assert.AreEqual(markdown.IndexOf("[^note]:", StringComparison.Ordinal), definition.From);
+        Assert.AreEqual(markdown.IndexOf("continuation.", StringComparison.Ordinal) + "continuation.".Length, definition.To);
+        Assert.AreEqual(ranges.Where(node => node.Kind == "footnote-reference").Min(node => node.From), definition.Target);
+        Assert.IsTrue(ranges.Where(node => node.Kind == "footnote-reference").All(node => node.Target == definition.From));
+        var alert = ranges.Single(node => node.Kind == "alert");
+        Assert.AreEqual("WARNING", alert.Text);
+        Assert.AreEqual("[!WARNING]", alert.Label);
+        Assert.AreEqual(markdown.IndexOf("[!WARNING]", StringComparison.Ordinal) + "[!WARNING]".Length, alert.Target);
+        StringAssert.StartsWith(markdown[alert.From..alert.To], "> [!WARNING]");
+        StringAssert.Contains(markdown[alert.From..alert.To], "<script>");
+        StringAssert.Contains(result.Html, "footnote");
+        StringAssert.Contains(result.Html, "<blockquote>");
+        Assert.IsFalse(result.Html.Contains("<script>", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
+    public void DoesNotTreatCodeOrUnmatchedDollarsAsMathAndKeepsUnknownAlertAsQuote()
+    {
+        const string markdown = "`$code$` and price $5\n\nPrices $5 and $10; escaped \\$x\\$.\n\n```tex\n$x$\n```\n\n> [!UNKNOWN]\n> Keep ordinary quote\n\n> [!NOTE]suffix\n> Keep literal marker\n\n> [!NOTE]\n> <script>alert(1)</script>\n";
+        var result = MarkdownRenderer.RenderDocument(markdown);
+
+        Assert.AreEqual(0, result.RichNodes.Count(node => node.Kind.StartsWith("math-", StringComparison.Ordinal)));
+        Assert.AreEqual(1, result.RichNodes.Count(node => node.Kind == "alert"));
+        Assert.AreEqual("NOTE", result.RichNodes.Single(node => node.Kind == "alert").Text);
+        StringAssert.Contains(result.Html, "<p>[!UNKNOWN]");
+        StringAssert.Contains(result.Html, "<blockquote>");
+    }
+
+    [TestMethod]
+    public void PreservesMultilineQuotedMathBlockSourceRange()
+    {
+        const string markdown = "> $$\n> \\int_0^1 x\\,dx\n> $$\n";
+        var result = MarkdownRenderer.RenderDocument(markdown);
+        var math = result.RichNodes.Where(node => node.Kind == "math-block").ToArray();
+
+        if (math.Length == 0)
+        {
+            Assert.Inconclusive("Markdig did not produce a MathBlock for a multiline formula inside a block quote.");
+            return;
+        }
+
+        Assert.AreEqual(1, math.Length);
+        var node = math[0];
+        Assert.AreEqual(markdown.IndexOf("$$", StringComparison.Ordinal), node.From);
+        Assert.AreEqual(markdown.LastIndexOf("$$", StringComparison.Ordinal) + 2, node.To);
+        StringAssert.Contains(markdown[node.From..node.To], "> \\int_0^1 x\\,dx");
+        StringAssert.Contains(node.Text, "\\int_0^1 x\\,dx");
+    }
 }

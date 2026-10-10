@@ -1,6 +1,8 @@
 using System.Linq;
 using System.Text;
 using Markdig;
+using Markdig.Extensions.Footnotes;
+using Markdig.Extensions.Mathematics;
 using Markdig.Extensions.Tables;
 using Markdig.Extensions.EmphasisExtras;
 using Markdig.Renderers.Html;
@@ -11,11 +13,14 @@ namespace Marker.App;
 
 internal static class MarkdownRenderer
 {
+    private static readonly string[] AlertKinds = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UsePreciseSourceLocation()
         .UsePipeTables()
         .UseTaskLists()
         .UseAutoLinks()
+        .UseFootnotes()
+        .UseMathematics()
         .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
         .DisableHtml()
         .Build();
@@ -76,7 +81,81 @@ internal static class MarkdownRenderer
             outline.Add(new MarkdownOutlineItem(id, text.Length <= 2000 ? text : text[..1999] + "…", heading.Level, heading.Span.Start));
         }
 
-        return new MarkdownRenderDocument(document.ToHtml(Pipeline), outline);
+        return new MarkdownRenderDocument(document.ToHtml(Pipeline), outline, GetRichNodes(markdown, document));
+    }
+
+    private static IReadOnlyList<MarkdownRichNode> GetRichNodes(string markdown, MarkdownDocument document)
+    {
+        var nodes = new List<MarkdownRichNode>();
+        foreach (var math in document.Descendants<MathInline>())
+            AddRange(nodes, math.Span, "math-inline", math.Content.ToString(), string.Empty, 0, markdown.Length);
+        foreach (var math in document.Descendants<MathBlock>())
+            AddRange(nodes, math.Span, "math-block", math.Lines.ToString(), string.Empty, 0, markdown.Length);
+
+        foreach (var footnote in document.Descendants<Footnote>())
+        {
+            var references = footnote.Links.Where(link => !link.IsBackLink).ToArray();
+            if (references.Length == 0) continue;
+            var firstReference = references.Min(link => link.Span.Start);
+            var label = (footnote.Label?.ToString() ?? string.Empty).TrimStart('^');
+            var labelStart = footnote.LabelSpan.Start;
+            var lineStart = markdown.LastIndexOf('\n', Math.Max(0, labelStart - 1)) + 1;
+            var definitionFrom = labelStart;
+            while (definitionFrom > lineStart && markdown[definitionFrom] != '[') definitionFrom--;
+            AddRange(nodes, definitionFrom, footnote.Span.End, "footnote-definition", footnote.Order.ToString(), label, firstReference, markdown.Length);
+            foreach (var reference in references)
+                AddRange(nodes, reference.Span, "footnote-reference", footnote.Order.ToString(), label, definitionFrom, markdown.Length);
+        }
+
+        foreach (var quote in document.Descendants<QuoteBlock>())
+        {
+            if (quote.Count == 0 || quote[0] is not ParagraphBlock paragraph) continue;
+            var markerStart = GetAlertMarkerStart(markdown, paragraph.Span, out var kind, out var marker);
+            if (markerStart < 0) continue;
+            AddRange(nodes, quote.Span, "alert", kind, marker, markerStart + marker.Length, markdown.Length);
+        }
+
+        return nodes.OrderBy(node => node.From).ThenByDescending(node => node.To).ToArray();
+    }
+
+    private static int GetAlertMarkerStart(string markdown, SourceSpan paragraphSpan, out string kind, out string marker)
+    {
+        kind = string.Empty;
+        marker = string.Empty;
+        var start = paragraphSpan.Start;
+        if (start < 0 || paragraphSpan.End < start || start >= markdown.Length) return -1;
+        var lineEnd = markdown.IndexOf('\n', start, Math.Min(markdown.Length - start, paragraphSpan.End - start + 1));
+        if (lineEnd < 0) lineEnd = Math.Min(markdown.Length, paragraphSpan.End + 1);
+        var position = start;
+        while (position < lineEnd)
+        {
+            while (position < lineEnd && markdown[position] == '>') position++;
+            while (position < lineEnd && markdown[position] is ' ' or '\t') position++;
+            if (position >= lineEnd || markdown[position] != '>') break;
+        }
+        foreach (var candidate in AlertKinds)
+        {
+            var candidateMarker = $"[!{candidate}]";
+            if (position + candidateMarker.Length > lineEnd || !markdown.AsSpan(position, candidateMarker.Length).SequenceEqual(candidateMarker)) continue;
+            if (!markdown.AsSpan(position + candidateMarker.Length, lineEnd - position - candidateMarker.Length).Trim().IsEmpty) continue;
+            kind = candidate;
+            marker = candidateMarker;
+            return position;
+        }
+        return -1;
+    }
+
+    private static void AddRange(List<MarkdownRichNode> nodes, SourceSpan span, string kind, string text, string label, int target, int sourceLength)
+    {
+        AddRange(nodes, span.Start, span.End, kind, text, label, target, sourceLength);
+    }
+
+    private static void AddRange(List<MarkdownRichNode> nodes, int from, int endInclusive, string kind, string text, string label, int target, int sourceLength)
+    {
+        if (from < 0 || endInclusive < from || from >= sourceLength) return;
+        var to = Math.Min(sourceLength, endInclusive + 1);
+        if (to <= from) return;
+        nodes.Add(new MarkdownRichNode(kind, from, to, text, label, Math.Clamp(target, 0, sourceLength)));
     }
 
     private static string GetHeadingText(ContainerInline? inline)
@@ -91,6 +170,9 @@ internal static class MarkdownRenderer
                     break;
                 case CodeInline code:
                     text.Append(code.Content);
+                    break;
+                case MathInline math:
+                    text.Append(math.Content.ToString());
                     break;
                 case HtmlEntityInline entity:
                     text.Append(entity.Transcoded.ToString());
@@ -156,5 +238,6 @@ internal static class MarkdownRenderer
     }
 }
 
-internal sealed record MarkdownRenderDocument(string Html, IReadOnlyList<MarkdownOutlineItem> Outline);
+internal sealed record MarkdownRenderDocument(string Html, IReadOnlyList<MarkdownOutlineItem> Outline, IReadOnlyList<MarkdownRichNode> RichNodes);
 internal sealed record MarkdownOutlineItem(string Id, string Text, int Level, int Offset);
+internal sealed record MarkdownRichNode(string Kind, int From, int To, string Text, string Label, int Target);
