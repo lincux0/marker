@@ -5,6 +5,21 @@ async (page) => {
   const sessionId = '55555555555555555555555555555555';
   const errors = [];
   const check = (condition, message) => { if (!condition) throw new Error(message); };
+  const outlineFocusInsideList = element => element.evaluate(button => {
+    const list = button.closest('.marker-outline-list');
+    const rect = button.getBoundingClientRect();
+    const style = getComputedStyle(button);
+    const width = parseFloat(style.outlineWidth) || 0;
+    const outside = Math.max(0, (parseFloat(style.outlineOffset) || 0) + width);
+    const clip = {
+      left: list.getBoundingClientRect().left + list.clientLeft,
+      top: list.getBoundingClientRect().top + list.clientTop,
+      right: list.getBoundingClientRect().left + list.clientLeft + list.clientWidth,
+      bottom: list.getBoundingClientRect().top + list.clientTop + list.clientHeight,
+    };
+    return button.matches(':focus-visible') && rect.left - outside >= clip.left - 0.5 && rect.top - outside >= clip.top - 0.5
+      && rect.right + outside <= clip.right + 0.5 && rect.bottom + outside <= clip.bottom + 0.5;
+  });
   const sourceLines = [
     '# 重复标题', '# 重复标题', '## 中文标题', '[有效链接](#heading-%E4%B8%AD%E6%96%87%E6%A0%87%E9%A2%98)',
     '[未知链接](#heading-unknown)', '[坏链接](#bad%ZZ)',
@@ -63,6 +78,13 @@ async (page) => {
     if (!(await nav.isVisible())) await outlineToggle.click();
     check(await nav.isVisible() && await nav.locator('.marker-outline-heading').count() > 0, 'Rejected outline packets replaced or disabled the accepted outline.');
 
+    // Keyboard focus rings must remain inside the list's actual scrollport at its first row.
+    const firstHeading = nav.locator('.marker-outline-heading').first();
+    await nav.getByRole('button', { name: '关闭文档大纲' }).focus();
+    await editor.keyboard.press('Tab');
+    check(await firstHeading.evaluate(element => element === document.activeElement) && await outlineFocusInsideList(firstHeading),
+      'The keyboard focus ring on the first outline entry was clipped by the list.');
+
     // Same-title entries must retain their distinct source offsets; navigation and undo leave the source intact.
     await nav.locator('.marker-outline-heading').filter({ hasText: '重复标题' }).nth(1).click();
     check((await latest('status'))?.line === 3, 'The second repeated title did not navigate to its own source line.');
@@ -100,6 +122,15 @@ async (page) => {
     }
     const lastHeading = nav.getByRole('button', { name: '目录 220', exact: true });
     check(await lastHeading.count() === 1, 'The last entry in the long outline was not reachable by paging.');
+    const pageFirstHeading = nav.locator('.marker-outline-heading').first();
+    check(await pageFirstHeading.count() === 1, 'The first entry on the final outline page was missing.');
+    await pageFirstHeading.press('Shift+Tab');
+    await editor.keyboard.press('Tab');
+    check(await pageFirstHeading.evaluate(element => element === document.activeElement) && await outlineFocusInsideList(pageFirstHeading),
+      'The keyboard focus ring on the first entry after paging was clipped by the list.');
+    for (let tabIndex = 0; tabIndex < (await nav.locator('.marker-outline-heading').count() - 1) * 2; tabIndex++) await editor.keyboard.press('Tab');
+    check(await lastHeading.evaluate(element => element === document.activeElement) && await outlineFocusInsideList(lastHeading),
+      'Tabbing to the last entry on the final outline page left its focus ring outside the visible list.');
     await lastHeading.click();
     check((await latest('status'))?.line === sourceLines.length * 2 - 1, 'The last paged entry did not navigate to its source offset.');
     const layout = await editor.evaluate(() => ({
@@ -176,7 +207,7 @@ async (page) => {
     check(historyText !== edited && errors.length === 0, `Unexpected browser error or missing edit: ${errors.join('; ')}`);
     return { passed: true, checks: [
       'outline-collapsed-and-keyboard-close-focus', 'invalid-outline-atomicity', 'duplicate-title-offset-and-no-doc-history-change',
-      'encoded-local-and-invalid-fragment-links', 'paged-outline-over-200-and-720px-toolbar-clearance',
+      'encoded-local-and-invalid-fragment-links', 'outline-keyboard-focus-ring-visible-at-list-and-page-edges', 'paged-outline-over-200-and-720px-toolbar-clearance',
       'stale-version-invalidation-and-fresh-version-restore', 'temporary-focus-mode-preserves-hidden-actions-and-status',
       'source-mode-preserves-undo-history', 'return-selection-and-copy-chapter-anchor',
     ] };

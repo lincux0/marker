@@ -51,6 +51,7 @@
 .marker-outline-item[aria-current="location"] .marker-outline-heading { color: var(--editor-accent); background: var(--editor-accent-soft); font-weight: 650; }
 .marker-outline button:hover { background: var(--editor-accent-soft); }
 .marker-outline button:focus-visible { outline: 2px solid var(--editor-focus); outline-offset: 2px; }
+.marker-outline-list button:focus-visible { outline-offset: -2px; }
 
 @media (min-width: 1320px) {
   html[data-outline-open="true"] #editor .cm-scroller { padding-right: calc(var(--editor-canvas-inset) + 272px); }
