@@ -33,7 +33,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 ### `src/Marker.App/`
 
-- `Assets/`：应用 ICO、顶栏 `AppLogo.png` 与 MSIX 标识素材由用户原图 `asserts/icon.png` 生成；`scripts/build-icon-assets.ps1` 按当前素材的显式 `CropRectangle` 裁剪主体、生成抗锯齿透明圆角、等比缩放并封装七尺寸 ICO，保留原图。PNG/ICO 随 EXE 输出复制；原生主窗口与设置窗口从输出 ICO 加载，顶栏文档标题左侧使用同源 PNG。
+- `Assets/`：应用 ICO、顶栏 `AppLogo.png` 与 MSIX 标识素材由用户原图 `asserts/icon.png` 生成；`scripts/build-icon-assets.ps1` 按当前素材的显式 `CropRectangle` 裁剪主体、生成抗锯齿透明圆角、等比缩放并封装七尺寸 ICO，保留原图。PNG/ICO 随 EXE 输出复制；原生主窗口与设置窗口从输出 ICO 加载，按本轮验收要求，Web 顶栏只显示文档标题，不再显示应用图标。
 
 - `App.xaml`、`App.xaml.cs`：注册 WinUI 资源，通过 WinUI 应用消息泵创建并显示唯一 `MainWindow`；使用 `DispatcherShutdownMode.OnExplicitShutdown`，避免关闭唯一 WinUI 设置窗口时自动结束 Win32 主窗口，主窗口关闭流程显式退出应用；用 `AppInstance` 保证单实例运行，并通过并发队列串行路由后续 `.md`/`.markdown` 文件激活，避免编辑器初始化前丢失请求。
 - `MainWindow.xaml`：XAML Island 工具栏缩为 1×1 隐藏，保留原生控件字段及兼容 handler；主编辑器 WebView 从客户区原点 `(0,0)` 填满整个客户区。可见浮动工具栏放在编辑器 WebView 的 HTML/CSS 层内，覆盖随正文滚动的内容，不跨 HWND。
@@ -79,7 +79,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用共享语言配置，以 DOM 文本节点实现 JS/TS/C#/Python/JSON/Shell 及 D027 新增的 20 类常用语言的围栏高亮；其他语言或单块超长代码保留纯文本。预览有数学与代码高亮，但没有 Mermaid widget，脚注 HTML 也未适配为当前编辑器的脚注导航体验，不能据此宣称两视图能力一致。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。
 - `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、Web 浮动工具栏与减少动画样式。工具栏 fixed 并在视口内居中，与正文共享 980 px 纸面宽度及响应式边距变量；常规顶栏总宽 1108 px，比纸面宽 128 px，窄窗随纸面收缩且至少保留 16 px 外边距。纸面最小宽度与响应式目标宽度一致，并禁止 flex 收缩，避免容器挤压成极窄列。文档名可收缩并以原生省略号截断，保留完整名称 Tooltip；玻璃表面使用 36% 画布底色、32 px backdrop blur 和 1.5 倍饱和度，模糊随正文滚动的内容；首屏纸面与工具栏下沿保持 32 px 距离（滚动内边距随顶栏顶部偏移计算）。高对比模式停用透明模糊效果并回退到系统色。
-- `public/app-logo.png`：由桌面端裁剪生成的 `Assets/AppLogo.png` 复制，为 Web 工具栏提供同源品牌图标；不从 CDN 加载。
+- `public/app-logo.png`：由桌面端裁剪生成的 `Assets/AppLogo.png` 复制，为现有构建输出的同源图标副本；Web 顶栏已取消引用，不从 CDN 加载。
 - `vite.config.ts`：构建编辑器和预览两个本地页面入口。
 - `tsconfig.json`：TypeScript 编译器设置。
 - `dist/`：Vite 构建目录，由构建生成，不提交；Web 依赖随产物本地打包，不从 CDN 加载。

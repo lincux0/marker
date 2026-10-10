@@ -514,3 +514,11 @@
 - 针对性单元 12 项通过；开发环境通知 MCP 13 组通过。最终真实 Release EXE 的文件监控、通知关闭/再提醒、重载、原生 Yes/No 保护、旧会话/编号拒绝、UTF-8 BOM/CRLF 保存、自身保存不误报和正常关闭共 13 项通过，证据 `artifacts/reading-ui/disk-reload-native-results.json`。
 - 本次与顶部栏修正共同构建：`build-setup.ps1` 的 Release/MSTest 为 70 通过、2 权限跳过、0 失败；4 条既有 PRI249 与 Vite chunk 警告保留。163 项 Web 与 EXE 输出逐项哈希一致，产物哈希与完整记录见[阅读界面验收](阅读界面验收.md)。Graphify code-only/no-cluster 1484 节点/2693 边。
 - 测试页面、Vite 和本轮原生实例均关闭；设置备份已恢复，临时文件恢复且无本轮草稿，用户既有草稿保留。未复验删除/移动全流程、混合 DPI、最低系统、超长文性能或新包安装，没有签名、证书变更或 push。
+
+## 2026-10-10 人工验收与顶部栏修正
+
+- 用户反馈人工验收完成且无阻断性 bug，按其意见记录中文输入法/Narrator 人工通过；未提供逐项设备/播报记录，不推定混合 DPI、最低系统或原生长文性能完成。人工清单保留为复验入口。
+- 顶栏移除应用图标并保留文档名，统一 SVG 路径视觉中心；目录按钮鼠标点击允许原生焦点，避免程序聚焦的关闭/触发按钮继承持久外框，Tab/Enter/Esc 仍保留可见焦点。极窄窗隐藏标题区域及高对比悬停配色补充修复一并交付，D030 替代旧顶栏图标呈现决策。
+- Vite dev 四脚本通过：浮动工具栏、目录导航（含鼠标/键盘焦点模态）、玻璃像素以及 U5 120 组矩阵/高对比/320 px 文字重排；结果 `u5-manual-toolbar-results.json`、`u5-manual-matrix-results.json`，截图 `artifacts/glass-spacing-top.png` 已审查。没有把 dev 验证写成生产 dist 复验。
+- 与磁盘通知 `75f3f75` 共同生成新版 EXE/Setup，70 项 MSTest 通过、2 权限跳过、0 失败，163 项 Web 哈希一致。EXE `78578BD386FFD26D826AE6DBE192FFD0A35296EE87CF6ACB67642E9BD1153D91`；Setup `5B7AC72A4E71D6C7A73C10E41A6076076AFFBE6FEB29525A596C078A17F835DB`，未签名。新版 EXE 真实重载 13 项通过，未再次安装新版 Setup；原生及设置清理证据见验收记录。
+- Graphify code-only/no-cluster 1484 节点/2693 边；测试服务/浏览器/本轮 EXE 均已关闭，上轮测试设置恢复及草稿清理已完成。没有 push、MSIX、证书变更或扩大到其他设备验收。

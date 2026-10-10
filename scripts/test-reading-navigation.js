@@ -70,6 +70,26 @@ async (page) => {
     const nav = editor.getByRole('navigation', { name: '文档大纲' });
     check(await outlineToggle.getAttribute('aria-expanded') === 'false' && !(await nav.isVisible()), 'The outline should start collapsed.');
 
+    // Mouse opening/closing an empty outline must not inherit the editor's visible keyboard focus.
+    await send({ type: 'outline', version, headings: [] });
+    await editor.locator('.cm-content').click();
+    await editor.keyboard.press('Control+Home');
+    await outlineToggle.click();
+    const closeOutline = nav.getByRole('button', { name: '关闭文档大纲' });
+    await editor.waitForFunction(() => document.activeElement?.classList.contains('marker-outline-close'));
+    check(!(await closeOutline.evaluate(element => element.matches(':focus-visible'))), 'Mouse-opened empty outline kept a keyboard focus ring.');
+    await closeOutline.click();
+    check(!(await nav.isVisible()) && !(await outlineToggle.evaluate(element => element.matches(':focus-visible'))), 'Mouse-closing the outline kept the trigger focus ring.');
+    await outlineToggle.press('Tab');
+    await editor.keyboard.press('Shift+Tab');
+    check(await outlineToggle.evaluate(element => element.matches(':focus-visible')), 'Keyboard tabbing lost the outline trigger focus ring.');
+    await editor.keyboard.press('Enter');
+    await editor.waitForFunction(() => document.activeElement?.classList.contains('marker-outline-close'));
+    check(await closeOutline.evaluate(element => element.matches(':focus-visible')), 'Keyboard-opened empty outline lost its focus ring.');
+    await editor.keyboard.press('Escape');
+    check(!(await nav.isVisible()) && await outlineToggle.evaluate(element => element.matches(':focus-visible')), 'Keyboard closing lost the trigger focus ring.');
+    await send({ type: 'outline', version, headings });
+
     // Invalid packets must leave the accepted outline usable and must not navigate.
     await send({ type: 'outline', sessionId: '66666666666666666666666666666666', version, headings });
     await send({ type: 'outline', version: version + 1, headings });
@@ -206,7 +226,7 @@ async (page) => {
     check(await snapshot() === edited, 'Switching source mode rebuilt or discarded the undo history.');
     check(historyText !== edited && errors.length === 0, `Unexpected browser error or missing edit: ${errors.join('; ')}`);
     return { passed: true, checks: [
-      'outline-collapsed-and-keyboard-close-focus', 'invalid-outline-atomicity', 'duplicate-title-offset-and-no-doc-history-change',
+      'outline-collapsed-and-keyboard-close-focus', 'outline-mouse-and-keyboard-focus-modality', 'invalid-outline-atomicity', 'duplicate-title-offset-and-no-doc-history-change',
       'encoded-local-and-invalid-fragment-links', 'outline-keyboard-focus-ring-visible-at-list-and-page-edges', 'paged-outline-over-200-and-720px-toolbar-clearance',
       'stale-version-invalidation-and-fresh-version-restore', 'temporary-focus-mode-preserves-hidden-actions-and-status',
       'source-mode-preserves-undo-history', 'return-selection-and-copy-chapter-anchor',

@@ -16,17 +16,17 @@ const iconPaths: Record<Action | "more", string[]> = {
   new: ["M5 3h10l4 4v14H5z", "M15 3v5h4", "M12 11v6", "M9 14h6"],
   open: ["M3 7h7l2 2h9v10H3z", "M3 7V5h7l2 2"],
   save: ["M4 3h14l3 3v15H3V3z", "M7 3v6h10V3", "M7 21v-8h10v8"],
-  saveAs: ["M4 3h14l3 3v7", "M7 3v6h10V3", "M7 21v-6h5", "m14 19 5-5 2 2-5 5-3 1z"],
-  recover: ["M3 11a9 9 0 1 1 2.6 6.4", "M3 4v7h7", "M12 7v5l3 2"],
-  undo: ["M9 14 4 9l5-5", "M4 9h10a6 6 0 0 1 0 12h-2"],
-  redo: ["m15 14 5-5-5-5", "M20 9H10a6 6 0 0 0 0 12h2"],
+  saveAs: ["M4 3h14l3 3v7", "M7 3v6h10V3", "M7 21v-6h5", "m14 18 5-5 2 2-5 5-3 1z"],
+  recover: ["M3 12a9 9 0 1 1 2.6 6.4", "M3 5v7h7", "M12 8v5l3 2"],
+  undo: ["M9 13 4 8l5-5", "M4 8h10a6.5 6.5 0 0 1 0 13h-2"],
+  redo: ["m15 13 5-5-5-5", "M20 8H10a6.5 6.5 0 0 0 0 13h2"],
   find: ["M10.8 18.2a7.4 7.4 0 1 0 0-14.8 7.4 7.4 0 0 0 0 14.8z", "m16.2 16.2 4.3 4.3"],
   replace: ["M4 7h13", "m14 4 3 3-3 3", "M20 17H7", "m10 14-3 3 3 3", "M5 13h.01", "M19 11h.01"],
   toggleSource: ["m8 5-6 7 6 7", "m16 5 6 7-6 7", "m14 4-4 16"],
   toggleOutline: ["M8 5h13", "M8 12h13", "M8 19h13", "M3 5h.01", "M3 12h.01", "M3 19h.01"],
   toggleFocus: ["M8 3H3v5", "M16 3h5v5", "M3 16v5h5", "M21 16v5h-5"],
   settings: ["M10 3h4l.6 2.4a7 7 0 0 1 1.8 1l2.3-.7 2 3.5-1.8 1.7a7 7 0 0 1 0 2.1l1.8 1.7-2 3.5-2.3-.7a7 7 0 0 1-1.8 1L14 21h-4l-.6-2.4a7 7 0 0 1-1.8-1l-2.3.7-2-3.5 1.8-1.7a7 7 0 0 1 0-2.1L3.3 9.2l2-3.5 2.3.7a7 7 0 0 1 1.8-1L10 3z", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"],
-  statistics: ["M5 18V12", "M12 18V6", "M19 18V3"],
+  statistics: ["M5 19.5V13.5", "M12 19.5V7.5", "M19 19.5V4.5"],
   more: ["M5 12h.01", "M12 12h.01", "M19 12h.01"],
 };
 
@@ -87,18 +87,10 @@ export class FloatingToolbar {
     const documentGroup = document.createElement("div");
     documentGroup.className = "marker-toolbar-document";
 
-    const logo = document.createElement("img");
-    logo.className = "marker-toolbar-logo";
-    logo.src = "/app-logo.png";
-    logo.alt = "Marker";
-    logo.width = 28;
-    logo.height = 28;
-    logo.addEventListener("error", () => { logo.hidden = true; });
-
     this.title = document.createElement("span");
     this.title.className = "marker-toolbar-title";
     this.title.textContent = "未命名文档";
-    documentGroup.append(logo, this.title);
+    documentGroup.append(this.title);
 
     const buttonGroup = document.createElement("div");
     buttonGroup.className = "marker-toolbar-actions";
@@ -249,7 +241,7 @@ export class FloatingToolbar {
       button.append(label);
     }
     button.addEventListener("pointerdown", event => {
-      if (event.pointerType === "mouse") event.preventDefault();
+      if (event.pointerType === "mouse" && action.id !== "toggleOutline") event.preventDefault();
     });
     button.addEventListener("click", () => {
       if (!this.ready || this.busy || action.id === "statistics") return;

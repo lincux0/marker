@@ -97,7 +97,7 @@ body {
   }
 }
 
-.marker-toolbar-document { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.marker-toolbar-document { min-width: 0; display: flex; align-items: center; }
 .marker-toolbar-title { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--editor-foreground); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .marker-toolbar-actions { display: flex; align-items: center; gap: 2px; }
 .marker-toolbar-button,
@@ -132,7 +132,6 @@ body {
 .marker-toolbar-statistics { width: auto; gap: 6px; padding-inline: 9px; font: inherit; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .marker-toolbar-statistics svg { flex-shrink: 0; }
 .marker-toolbar-trailing { display: flex; align-items: center; gap: 6px; }
-.marker-toolbar-logo { display: block; flex: 0 0 28px; width: 28px; height: 28px; object-fit: contain; }
 .marker-toolbar-menu {
   position: absolute;
   z-index: 55;
@@ -602,18 +601,34 @@ html[data-high-contrast="true"][data-color-palette] .marker-toolbar-menu {
   backdrop-filter: none;
 }
 
+html[data-high-contrast="true"] .marker-toolbar-button:hover,
+html[data-high-contrast="true"] .marker-toolbar-button[aria-pressed="true"],
+html[data-high-contrast="true"] .marker-toolbar-more summary:hover {
+  color: HighlightText;
+  background: Highlight;
+}
+
 @media (forced-colors: active) {
   .marker-toolbar,
   .marker-toolbar-notification,
   .marker-toolbar-menu { border-color: CanvasText; color: CanvasText; background: Canvas; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .marker-toolbar-button:focus-visible,
   .marker-toolbar-more summary:focus-visible { outline-color: Highlight; }
+  .marker-toolbar-button:hover,
+  .marker-toolbar-button[aria-pressed="true"],
+  .marker-toolbar-more summary:hover { color: HighlightText; background: Highlight; }
 }
 
 @media (max-width: 800px) {
   :root { --marker-toolbar-top: 8px; }
   .marker-toolbar { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding-left: 12px; }
   .marker-toolbar-notification { max-width: calc(100vw - 64px); }
+}
+
+@media (max-width: 400px) {
+  .marker-toolbar { grid-template-columns: 1fr; padding-inline: 8px; }
+  .marker-toolbar-document { display: none; }
+  .marker-toolbar-actions { justify-content: space-between; }
 }
 
 html[data-high-contrast="true"] .cm-search-panel button[data-action="replace-all"] {

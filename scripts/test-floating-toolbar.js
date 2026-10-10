@@ -24,10 +24,16 @@ async (page) => {
     const surface = await editor.locator('.marker-toolbar').evaluate(element => {
       const style = getComputedStyle(element), rect = element.getBoundingClientRect();
       return { position: style.position, left: rect.left, width: rect.width, center: rect.left + rect.width / 2,
-        blur: style.backdropFilter, logo: element.querySelector('.marker-toolbar-logo')?.getAttribute('src') };
+        blur: style.backdropFilter, logo: !!element.querySelector('img') };
     });
     check(surface.position === 'fixed' && surface.blur.includes('blur'), `Toolbar did not float with the glass surface: ${JSON.stringify(surface)}`);
-    check(surface.logo === '/app-logo.png', 'Toolbar logo asset was not mounted');
+    check(!surface.logo, 'Toolbar kept an application logo');
+    const iconCenters = await editor.locator('.marker-toolbar-actions > .marker-toolbar-button svg').evaluateAll(icons => icons.map(svg => {
+      const bounds = svg.getBBox();
+      return { action: svg.parentElement.dataset.action, center: bounds.y + bounds.height / 2, rect: svg.getBoundingClientRect().toJSON() };
+    }));
+    check(iconCenters.every(icon => Math.abs(icon.center - 12) < 0.1 && icon.rect.width === 19 && icon.rect.height === 19 && icon.rect.top === iconCenters[0].rect.top),
+      `Toolbar icons are not centered consistently: ${JSON.stringify(iconCenters)}`);
     const settingsIcon = await editor.locator('[data-action="settings"] svg').evaluate(svg => {
       const { x, y, width, height } = [...svg.querySelectorAll('path')].map(path => path.getBBox()).reduce((box, next) => ({
         x: Math.min(box.x, next.x), y: Math.min(box.y, next.y),
@@ -124,6 +130,6 @@ async (page) => {
     check(await editor.locator('.marker-toolbar-actions > [data-action="statistics"] span').textContent() === '4 字 · 2 段', 'Source mode changed document counts');
     await editor.keyboard.press('Control+z');
     await editor.locator('.marker-toolbar-actions > [data-action="statistics"] span').filter({ hasText: '1 字 · 1 段' }).waitFor();
-    return { passed: true, viewportLayouts, checks: ['centered-paper-width', 'long-title-ellipsis', 'buttons-fit-and-work', 'floating-glass-surface', 'initial-disabled', 'safe-toolbar-state', 'length-validation', 'busy-disabled', 'history-and-focus', 'native-command-packets', 'source-mode-sync', 'responsive-overflow', 'custom-visibility-and-menu', 'live-statistics-and-undo'] };
+    return { passed: true, viewportLayouts, checks: ['centered-paper-width', 'title-without-application-logo', 'consistent-icon-centers', 'long-title-ellipsis', 'buttons-fit-and-work', 'floating-glass-surface', 'initial-disabled', 'safe-toolbar-state', 'length-validation', 'busy-disabled', 'history-and-focus', 'native-command-packets', 'source-mode-sync', 'responsive-overflow', 'custom-visibility-and-menu', 'live-statistics-and-undo'] };
   } finally { await context.close(); }
 }

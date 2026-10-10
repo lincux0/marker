@@ -209,6 +209,8 @@ async (page) => {
     check(await moreSummary.isVisible() && moreSummaryBounds && moreSummaryBounds.x >= -1 && moreSummaryBounds.x + moreSummaryBounds.width <= 321,
       `More-menu trigger is clipped at 320px: ${JSON.stringify(moreSummaryBounds)}`);
     await moreSummary.click();
+    const hoverColors = await moreSummary.evaluate(element => ({ foreground: getComputedStyle(element).color, background: getComputedStyle(element).backgroundColor }));
+    check(hoverColors.foreground !== hoverColors.background, `High-contrast menu icon disappears on hover: ${JSON.stringify(hoverColors)}`);
     const compactMenu = await editor.evaluate(() => {
       const menu = document.querySelector('.marker-toolbar-more[open] .marker-toolbar-menu');
       if (!menu) return null;
@@ -227,6 +229,7 @@ async (page) => {
       check(await menuButton.isVisible() && compactMenu.actions.some(item => item.id === action && item.visible && item.left >= -1 && item.right <= 321),
         `${action} is not reachable from the 320px more menu: ${JSON.stringify(compactMenu)}`);
     }
+    await editor.screenshot({ path: 'D:/marker/artifacts/reading-ui/u5-320-menu.png' });
     await editor.locator('.marker-toolbar-more[open] .marker-toolbar-menu-button[data-action="find"]').click();
     check(await editor.locator('.cm-search-panel').isVisible(), 'Find action in the 320px more menu did not open search.');
     await editor.locator('.cm-search-panel').getByRole('button', { name: '关闭' }).click();

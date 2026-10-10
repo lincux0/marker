@@ -17,15 +17,15 @@ async (page) => {
     await editor.locator('.marker-toolbar-actions > [data-action="statistics"] span').filter({ hasText: '100 段' }).waitFor();
     const layout = await editor.evaluate(() => {
       const bar=document.querySelector('.marker-toolbar'), content=document.querySelector('.cm-content');
-      const logo=bar.querySelector('img'), title=bar.querySelector('.marker-toolbar-title');
+      const title=bar.querySelector('.marker-toolbar-title');
       const barRect=bar.getBoundingClientRect(), paperRect=content.getBoundingClientRect();
       return { gap: paperRect.top-barRect.bottom, toolbarWidth:barRect.width, paperWidth:paperRect.width,
         centered:Math.abs((barRect.left+barRect.right)/2-innerWidth/2)<1,
-        logoLeft: logo.getBoundingClientRect().right < title.getBoundingClientRect().left,
+        titleVisible: title.getBoundingClientRect().width > 0 && !bar.querySelector('img'),
         blur: getComputedStyle(bar).backdropFilter };
     });
     if (layout.gap < 28 || layout.toolbarWidth-layout.paperWidth < 127 || layout.toolbarWidth-layout.paperWidth > 129 ||
-      !layout.centered || !layout.logoLeft || !layout.blur.includes("blur(32px)")) throw Error(JSON.stringify(layout));
+      !layout.centered || !layout.titleVisible || !layout.blur.includes("blur(32px)")) throw Error(JSON.stringify(layout));
     const viewportLayouts=[];
     for (const width of [1400,2000,720]) {
       await editor.setViewportSize({width,height:760});
