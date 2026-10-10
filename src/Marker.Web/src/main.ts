@@ -14,6 +14,7 @@ import { DocumentOutline, type Heading } from "./outline";
 import { ImageLightbox } from "./lightbox";
 import "./style.css";
 import { codeLanguage } from "./code-languages";
+import { richContent, validateRichContent, type RichNode } from "./rich-content";
 
 declare global {
   interface Window {
@@ -67,6 +68,8 @@ let fullSnapshotPending = false;
 let toolbar: FloatingToolbar | undefined;
 let statisticsTimer: ReturnType<typeof setTimeout> | undefined;
 let focusMode = false;
+let currentRichNodes: readonly RichNode[] = [];
+let footnoteReturn: number | undefined;
 let settings: Settings = {
   theme: "system",
   fontSize: 15,
@@ -93,6 +96,27 @@ function setStatus(message: string): void {
 
 const outline = new DocumentOutline(() => view, setStatus, () => version, open => toolbar?.setOutlineOpen(open));
 const lightbox = new ImageLightbox(editorParent);
+editorParent.addEventListener("marker-rich-edit", event => {
+  const offset = (event as CustomEvent<{ offset?: unknown }>).detail?.offset;
+  if (!view || view.compositionStarted || !Number.isSafeInteger(offset) || (offset as number) < 0 || (offset as number) >= view.state.doc.length) return;
+  const position = Math.min(view.state.doc.length, (offset as number) + 1);
+  view.dispatch({ selection: { anchor: position }, effects: EditorView.scrollIntoView(position, { y: "start" }) });
+  view.focus();
+});
+editorParent.addEventListener("marker-rich-navigate", event => {
+  const detail = (event as CustomEvent<{ offset?: unknown; returnOffset?: unknown }>).detail;
+  if (!view || view.compositionStarted) return;
+  const node = currentRichNodes.find(item => item.from === detail?.returnOffset && item.target === detail?.offset);
+  if (!node || !node.kind.startsWith("footnote-")) return;
+  let position = node.target;
+  if (node.kind === "footnote-reference") {
+    footnoteReturn = node.from;
+    const prefix = /^\s*\[\^[^\]\n]+\]:\s*/.exec(view.state.doc.lineAt(position).text);
+    position += prefix?.[0].length ?? 0;
+  } else position = footnoteReturn ?? position;
+  view.dispatch({ selection: { anchor: position }, effects: EditorView.scrollIntoView(position, { y: "start" }) });
+  view.focus();
+});
 editorParent.addEventListener("marker-image-zoom", event => {
   if (!view?.compositionStarted) return;
   event.stopImmediatePropagation();
@@ -375,6 +399,14 @@ function applyHostMessage(value: unknown): void {
   const keys = Object.keys(message);
   const exact = (...allowed: string[]): boolean => keys.every(key => allowed.includes(key)) && allowed.every(key => key in message);
 
+  if (message.type === "richContent" && exact("type", "protocolVersion", "sessionId", "version", "nodes") && message.sessionId === sessionId && message.version === version && view) {
+    const nodes = validateRichContent(message.nodes, view.state.doc.length);
+    if (!nodes) return;
+    currentRichNodes = nodes;
+    view.dispatch({ effects: richContent.of(nodes) });
+    return;
+  }
+
   if (message.type === "initialize" && exact("type", "protocolVersion", "sessionId", "text") &&
       typeof message.sessionId === "string" && /^[0-9a-f]{32}$/.test(message.sessionId) && typeof message.text === "string") {
     if (message.text.length <= maxMessageChars) initialize(message.sessionId, message.text);
@@ -461,6 +493,8 @@ function isSettings(value: unknown): value is Settings {
 
 function initialize(nextSessionId: string, text: string): void {
   if (nextSessionId === sessionId) return;
+  currentRichNodes = [];
+  footnoteReturn = undefined;
   if (view) view.destroy();
   outline.reset();
   lightbox.setResources([]);
@@ -503,6 +537,8 @@ function initialize(nextSessionId: string, text: string): void {
         EditorView.contentAttributes.of({ "aria-label": "Markdown 呈现编辑器", "aria-description": "点击文档直接编辑。Ctrl+Enter 新建段落，Ctrl+Alt+M 临时查看或隐藏 Markdown 源码" }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
+            currentRichNodes = [];
+            footnoteReturn = undefined;
             outline.invalidate();
             lightbox.close();
             scheduleStatistics();

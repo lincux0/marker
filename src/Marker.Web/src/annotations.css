@@ -1,0 +1,56 @@
+#editor .cm-md-rich-annotation {
+  color: var(--editor-accent);
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  border-radius: 3px;
+  padding: 0 .18em;
+  background: color-mix(in srgb, var(--editor-accent) 9%, transparent);
+}
+
+#editor .cm-md-rich-annotation:hover,
+#editor .cm-md-rich-annotation:focus-visible {
+  text-decoration: underline;
+  outline: 2px solid var(--editor-accent);
+  outline-offset: 1px;
+}
+
+#editor .cm-md-rich-footnote-reference {
+  vertical-align: super;
+  font-size: .75em;
+}
+
+#editor .cm-md-rich-footnote-definition {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--editor-accent) 6%, transparent);
+}
+
+#editor .cm-md-quote.cm-md-alert-note,
+#editor .cm-md-quote.cm-md-alert-tip,
+#editor .cm-md-quote.cm-md-alert-important,
+#editor .cm-md-quote.cm-md-alert-warning,
+#editor .cm-md-quote.cm-md-alert-caution {
+  background: color-mix(in srgb, var(--alert-color) 7%, transparent);
+  border-left-color: var(--alert-color);
+}
+
+#editor .cm-md-quote.cm-md-alert-note { --alert-color: #3978ad; }
+#editor .cm-md-quote.cm-md-alert-tip { --alert-color: #33835c; }
+#editor .cm-md-quote.cm-md-alert-important { --alert-color: #845cb0; }
+#editor .cm-md-quote.cm-md-alert-warning { --alert-color: #b27625; }
+#editor .cm-md-quote.cm-md-alert-caution { --alert-color: #b64b4b; }
+
+html[data-theme="dark"] #editor .cm-md-quote.cm-md-alert-note { --alert-color: #82bce7; }
+html[data-theme="dark"] #editor .cm-md-quote.cm-md-alert-tip { --alert-color: #81d1a4; }
+html[data-theme="dark"] #editor .cm-md-quote.cm-md-alert-important { --alert-color: #c0a0e2; }
+html[data-theme="dark"] #editor .cm-md-quote.cm-md-alert-warning { --alert-color: #e3b878; }
+html[data-theme="dark"] #editor .cm-md-quote.cm-md-alert-caution { --alert-color: #ef9292; }
+
+html[data-high-contrast="true"] #editor .cm-md-quote.cm-md-alert-note,
+html[data-high-contrast="true"] #editor .cm-md-quote.cm-md-alert-tip,
+html[data-high-contrast="true"] #editor .cm-md-quote.cm-md-alert-important,
+html[data-high-contrast="true"] #editor .cm-md-quote.cm-md-alert-warning,
+html[data-high-contrast="true"] #editor .cm-md-quote.cm-md-alert-caution {
+  background: transparent;
+  border-left-color: Highlight;
+}

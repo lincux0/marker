@@ -2,6 +2,11 @@ import { syntaxTree } from "@codemirror/language";
 import { deleteCharBackward, isolateHistory } from "@codemirror/commands";
 import { EditorSelection, Prec, StateEffect, StateField, type EditorState, type SelectionRange, type Range } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, keymap, type DecorationSet } from "@codemirror/view";
+import { richContent, type RichNode } from "./rich-content";
+import { AnnotationWidget } from "./annotations";
+import "./annotations.css";
+import { MathWidget } from "./math";
+import { MermaidWidget } from "./mermaid";
 
 export const imageResources = StateEffect.define<ReadonlyMap<string, string>>();
 const composition = StateEffect.define<boolean>();
@@ -125,9 +130,10 @@ type Presentation = {
   resources: ReadonlyMap<string, string>;
   composing: boolean;
   source: boolean;
+  nodes: readonly RichNode[];
 };
 
-function decorate(state: EditorState, resources: ReadonlyMap<string, string>, source: boolean): { decorations: DecorationSet; outer: DecorationSet; atoms: DecorationSet; closing: DecorationSet } {
+function decorate(state: EditorState, resources: ReadonlyMap<string, string>, source: boolean, nodes: readonly RichNode[]): { decorations: DecorationSet; outer: DecorationSet; atoms: DecorationSet; closing: DecorationSet } {
   if (source) return { decorations: Decoration.none, outer: Decoration.none, atoms: Decoration.none, closing: Decoration.none };
   const marks: Range<Decoration>[] = [];
   const outer: Range<Decoration>[] = [];
@@ -156,10 +162,38 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
     return to;
   };
 
+  const focused = (from: number, to: number): boolean => state.selection.ranges.some(range => range.from < to && range.to >= from);
+  const replaced: { from: number; to: number }[] = [];
+  for (const node of nodes) {
+    if ((node.kind === "math-inline" || node.kind === "math-block") && !focused(node.from, node.to)) {
+      hide(node.from, node.to, new MathWidget(node.text, node.kind === "math-block", node.from), node.kind === "math-block");
+      replaced.push(node);
+    } else if (node.kind === "footnote-reference" && !focused(node.from, node.to)) {
+      hide(node.from, node.to, new AnnotationWidget(node.text, node.target, node.from));
+      replaced.push(node);
+    } else if (node.kind === "footnote-definition") {
+      line(node.from, "cm-md-rich-footnote-definition");
+      const prefix = /^\s*\[\^[^\]\n]+\]:\s*/.exec(state.doc.sliceString(node.from, state.doc.lineAt(node.from).to));
+      if (prefix && !focused(node.from, node.from + prefix[0].length)) {
+        hide(node.from, node.from + prefix[0].length, new AnnotationWidget(`${node.text} ↩`, node.target, node.from, false));
+        replaced.push({ from: node.from, to: node.from + prefix[0].length });
+      }
+    } else if (node.kind === "alert") {
+      for (let number = state.doc.lineAt(node.from).number; number <= state.doc.lineAt(node.to - 1).number; number++)
+        line(state.doc.line(number).from, `cm-md-alert-${node.text.toLowerCase()}`);
+      const markerFrom = node.target - node.label.length;
+      if (markerFrom >= node.from && node.target <= node.to && !focused(markerFrom, node.target)) {
+        hide(markerFrom, node.target, new SymbolWidget(node.text, "cm-md-alert-title"));
+        replaced.push({ from: markerFrom, to: node.target });
+      }
+    }
+  }
+
   // ponytail: rebuild the already-parsed syntax tree on edits; incremental decoration mapping if very large documents become slow.
   syntaxTree(state).iterate({ enter(node) {
     const name = node.name;
     const syntax = node.node;
+    if (replaced.some(range => node.from >= range.from && node.to <= range.to)) return false;
     if (/^(?:ATX|Setext)Heading[1-6]$/.test(name)) {
       line(node.from, `cm-md-heading cm-md-h${name.at(-1)}`);
       for (let child = syntax.firstChild; child; child = child.nextSibling) {
@@ -209,6 +243,15 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
       const fenceMarks = name === "FencedCode" ? syntax.getChildren("CodeMark") : [];
       const closingFence = fenceMarks.length > 1 ? fenceMarks.at(-1) : undefined;
       const closingLine = closingFence ? state.doc.lineAt(closingFence.from).number : -1;
+      const info = syntax.getChild("CodeInfo");
+      if (name === "FencedCode" && closingFence && info && state.doc.sliceString(info.from, info.to).trim() === "mermaid" && !focused(node.from, node.to)) {
+        const texts = syntax.getChildren("CodeText");
+        const source = texts.map(text => state.doc.sliceString(text.from, text.to)).join("\n") +
+          (texts.length && texts.at(-1)!.to < state.doc.lineAt(closingFence.from).from ? "\n" : "");
+        const dark = document.documentElement.dataset.theme === "dark" || document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches;
+        hide(state.doc.lineAt(node.from).from, node.to, new MermaidWidget(source, node.from, dark ? "dark" : "light"), true);
+        return false;
+      }
       if (name === "FencedCode") {
         for (const marker of syntax.getChildren("QuoteMark")) {
           if (state.doc.lineAt(marker.from).number !== closingLine) {
@@ -252,6 +295,8 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
     } else if (name === "Link" || name === "Image") {
       const opening = syntax.firstChild;
       const url = syntax.getChild("URL");
+      // Unknown alert markers remain literal, even when Lezer treats them as reference links.
+      if (name === "Link" && !url && state.doc.sliceString(node.from, node.to).startsWith("[!")) return false;
       // A reference link still renders its label; the definition remains available in source mode.
       let close = opening?.nextSibling;
       while (close && !(close.name === "LinkMark" && state.doc.sliceString(close.from, close.to) === "]")) close = close.nextSibling;
@@ -314,20 +359,22 @@ function decorate(state: EditorState, resources: ReadonlyMap<string, string>, so
 const presentation = StateField.define<Presentation>({
   create(state) {
     const resources = new Map<string, string>();
-    return { ...decorate(state, resources, false), resources, composing: false, source: false };
+    return { ...decorate(state, resources, false, []), resources, composing: false, source: false, nodes: [] };
   },
   update(value, transaction) {
-    let { resources, composing, source } = value;
-    let refresh = transaction.docChanged || syntaxTree(transaction.startState) !== syntaxTree(transaction.state);
+    let { resources, composing, source, nodes } = value;
+    if (transaction.docChanged) nodes = [];
+    let refresh = transaction.docChanged || transaction.reconfigured || transaction.selection !== undefined || syntaxTree(transaction.startState) !== syntaxTree(transaction.state);
     for (const effect of transaction.effects) {
       if (effect.is(imageResources)) { resources = effect.value; refresh = true; }
       if (effect.is(composition)) { composing = effect.value; refresh = !composing; }
       if (effect.is(toggleSource)) { source = effect.value; refresh = true; }
+      if (effect.is(richContent)) { nodes = effect.value; refresh = true; }
     }
     const next = composing || !refresh
       ? { decorations: value.decorations.map(transaction.changes), outer: value.outer.map(transaction.changes), atoms: value.atoms.map(transaction.changes), closing: value.closing.map(transaction.changes) }
-      : decorate(transaction.state, resources, source);
-    return { ...next, resources, composing, source };
+      : decorate(transaction.state, resources, source, nodes);
+    return { ...next, resources, composing, source, nodes };
   },
   provide: field => [EditorView.decorations.from(field, value => value.decorations), EditorView.outerDecorations.of(view => view.state.field(field).outer), EditorView.atomicRanges.of(view => view.state.field(field).atoms)],
 });

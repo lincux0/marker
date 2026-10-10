@@ -1,0 +1,74 @@
+// End-to-end editor checks; works against dev or production on 127.0.0.1:5173.
+async (page) => {
+  const context = await page.context().browser().newContext({viewport:{width:1100,height:850}});
+  const editor = await context.newPage();
+  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
+  const errors=[], external=[];
+  editor.on('pageerror', e=>errors.push(e.message));
+  editor.on('request', r=>{if(!r.url().startsWith('http://127.0.0.1:5173')&&!r.url().startsWith('data:'))external.push(r.url())});
+  const sessionId='77777777777777777777777777777777';
+  const source=['# 专业语法','', '行内 $E=mc^2$ 与普通文字。','', '$$', '\\int_0^1 x^2\\,dx = \\frac{1}{3}', '$$', '', '错误 $\\frac{$ 保留源文。', '', '```mermaid','flowchart LR','  A[开始] --> B[结束]','```','','尾部普通段落。'].join('\n');
+  const raws=['$E=mc^2$','$$\n\\int_0^1 x^2\\,dx = \\frac{1}{3}\n$$','$\\frac{$'];
+  const nodes=raws.map(raw=>({kind:raw.startsWith('$$')?'math-block':'math-inline',from:source.indexOf(raw),to:source.indexOf(raw)+raw.length,text:raw.startsWith('$$')?raw.slice(3,-3):raw.slice(1,-1),label:'',target:0}));
+  const send=m=>editor.evaluate(m=>window.markerTest.receive(m),{protocolVersion:1,sessionId,...m});
+  let request=0;
+  const snapshot=async()=>{const requestId=`professional-${++request}`;await send({type:'requestSnapshot',requestId});return editor.evaluate(id=>window.markerTest.sent.findLast(m=>m.type==='snapshot'&&m.requestId===id).text,requestId)};
+  const version=()=>editor.evaluate(()=>window.markerTest.sent.filter(m=>m.type==='changes').at(-1)?.version??0);
+  try{
+    await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:'http://127.0.0.1:5173'});
+    await context.addInitScript(()=>{const handlers=[];window.markerTest={sent:[],receive:data=>handlers.forEach(h=>h({data}))};window.chrome={webview:{postMessage:m=>window.markerTest.sent.push(m),addEventListener:(type,h)=>handlers.push(h)}}});
+    await editor.goto('http://127.0.0.1:5173');
+    await send({type:'initialize',text:source});
+    await editor.locator('.cm-content').click();await editor.keyboard.press('Control+End');
+    await send({type:'richContent',version:0,nodes});
+    await editor.locator('.marker-math-inline .katex').first().waitFor();
+    await editor.locator('.marker-math-block .katex').waitFor();
+    const duplicateRanges=[...nodes,{...nodes[0]}].sort((a,b)=>a.from-b.from||b.to-a.to);
+    await send({type:'richContent',version:0,nodes:duplicateRanges});
+    check(await editor.locator('.marker-math-inline .katex').count()===1,'Duplicate math ranges were not rejected as a whole packet');
+    const overlappingRanges=[...nodes,{kind:'footnote-reference',from:nodes[0].from+1,to:nodes[0].to-1,text:'1',label:'note',target:0}].sort((a,b)=>a.from-b.from||b.to-a.to);
+    await send({type:'richContent',version:0,nodes:overlappingRanges});
+    check(await editor.locator('.cm-md-rich-annotation').count()===0,'Overlapping math and footnote ranges were not rejected as a whole packet');
+    await editor.waitForFunction(()=>document.querySelector('.cm-md-mermaid')?.dataset.rendered==='true');
+    check(await editor.locator('.marker-math-source').innerText()==='\\frac{','Malformed formula lost its source');
+    check(await editor.locator('.katex math').count()===2,'MathML is missing');
+    check((await editor.locator('.marker-mermaid-preview svg').textContent()).includes('开始'),'Diagram labels were lost during sanitization');
+    await editor.locator('.marker-math-inline .marker-math-copy').first().click();
+    check(await editor.evaluate(()=>navigator.clipboard.readText())==='E=mc^2','Math copy differs from original TeX');
+    await editor.locator('.marker-mermaid-copy').click();
+    check((await editor.evaluate(()=>navigator.clipboard.readText())).replace(/\r\n/g,'\n')==='flowchart LR\n  A[开始] --> B[结束]\n','Diagram copy changed the original code');
+    check(await snapshot()===source,'Rendering changed Markdown');
+    await editor.screenshot({path:'D:/marker/artifacts/reading-ui/u4-professional-light.png'});
+    const math=editor.locator('.marker-math-inline').first();await math.focus();await editor.keyboard.press('Enter');
+    check(await editor.locator('.marker-math-inline .katex').count()===0,'Entering formula did not restore editable source');
+    await editor.keyboard.insertText('x');check(await snapshot()===source.slice(0,nodes[0].from+1)+'x'+source.slice(nodes[0].from+1),'Formula edit used wrong source offset');
+    check(await editor.locator('.katex').count()===0,'Editing failed to invalidate old rich ranges');
+    await send({type:'richContent',version:0,nodes});check(await editor.locator('.katex').count()===0,'Stale math ranges accepted');
+    await editor.keyboard.press('Control+z');check(await snapshot()===source,'Undo lost source');
+    await editor.keyboard.press('Control+End');await send({type:'richContent',version:await version(),nodes});
+    await editor.locator('.marker-math-block .katex').waitFor();
+    await editor.locator('.marker-mermaid-edit').click();
+    check(await editor.locator('.cm-md-mermaid').count()===0,'Diagram edit failed to restore fenced source');
+    check(await snapshot()===source,'Diagram edit changed source');
+    await editor.keyboard.press('Control+End');
+    await send({type:'settings',theme:'dark',fontSize:16,lineHeight:1.5,lineWrapping:true});
+    await editor.waitForFunction(()=>document.querySelector('.cm-md-mermaid')?.dataset.rendered==='true');
+    check(await editor.locator('.cm-md-mermaid').getAttribute('data-theme')==='dark','Diagram theme did not follow app');
+    await editor.waitForTimeout(400);
+    await editor.screenshot({path:'D:/marker/artifacts/reading-ui/u4-professional-dark.png'});
+    await editor.locator('.marker-mermaid-open').click();
+    await send({type:'editorCommand',command:'toggleSource'});
+    await editor.waitForFunction(()=>document.querySelectorAll('.marker-mermaid-dialog[open]').length===0);
+    check(await editor.locator('.katex').count()===0,'Source mode retained rendered formulas');
+    check(await snapshot()===source,'Source switch lost Markdown');
+    for (const [index,code] of ['flowchart LR\nA@{ img: "//example.invalid/image.png" }', 'flowchart LR\n'+Array.from({length:151},()=> 'A --- B').join('\n')].entries()) {
+      const nextSession=(index+1).toString().repeat(32);
+      await send({type:'initialize',sessionId:nextSession,text:'```mermaid\n'+code+'\n```\n\nEnd'});
+      await editor.locator('.cm-content').focus();await editor.keyboard.press('Control+End');
+      await editor.locator('.cm-md-mermaid[data-rendered="fallback"] .marker-mermaid-source').waitFor();
+      check((await editor.locator('.cm-md-mermaid[data-rendered="fallback"] .marker-mermaid-source').textContent()).includes(code),'Blocked diagram lost complete source');
+    }
+    check(errors.length===0,errors.join('; '));check(external.length===0,`External requests: ${external.join(',')}`);
+    return{passed:true,checks:['inline-block-math-and-MathML','invalid-math-source','duplicate-and-overlapping-range-packets-rejected','math-copy','mermaid-copy','keyboard-math-edit','range-invalidation','stale-version-rejected','undo','fenced-source-edit','theme-change','source-mode-closes-diagram','image-resources-and-native-edge-limit','no-external-requests'],errors};
+  }finally{await context.close()}
+}

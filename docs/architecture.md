@@ -51,7 +51,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `RecoveryStore.cs`：在 LocalAppData 的 Marker/Recovery 目录按文档 ID 保存 schemaVersion 1 JSON 草稿，附可选 `applicationVersion`；读取旧 schemaVersion 1 时允许该字段缺省。通过同目录临时文件及覆盖式移动保存。未知版本、损坏或超限草稿保留原文件并返回可提示错误。
 - `LocalImageResources.cs`：仅允许当前文档目录内 PNG/JPEG/GIF/WebP/BMP 图片，单张不超过 16 MiB；拒绝绝对/越界/重解析路径，并从最终打开的文件句柄核验真实路径。通过会话绑定随机不透明 URL 提供资源，不将磁盘路径交给 Web 内容。
 - `BridgeSession.cs`：校验页面来源、消息类型与字段白名单、会话标识、版本、JSON 深度和消息/文本大小；支持快照 requestId、文档命令和 snapshotError，并允许相同版本且相同文本的完整重同步。原生文档命令白名单含 `recover` 与 `settings`；命令 envelope 的来源、protocolVersion、sessionId 和字段精确校验维持原规则。文本最多 1 Mi UTF-16 单元，JSON 消息最多 2 MiB。
-- `MarkdownRenderer.cs`：使用 Markdig 管线，启用表格、任务列表、自动链接和强调扩展，禁用原始 HTML；图片链接必须通过本地受控资源解析器转换，否则以保留 alt 的安全文本占位，不输出被拒绝的源路径。
+- `MarkdownRenderer.cs`：使用显式 Markdig 管线，启用表格、任务列表、自动链接、强调、脚注、数学和提示框所需扩展，禁用原始 HTML；同一 AST 提供 HTML、大纲与 `richContent` 富语法节点的 UTF-16 精确范围。脚注和五类已知提示框保留源位置/标识；图片链接必须通过本地受控资源解析器转换，否则以保留 alt 的安全文本占位，不输出被拒绝的源路径。
 - `Package.appxmanifest`：MSIX 身份为 Marker、发布者 `CN=Marker.Dev`、x64，最低 build 26100，并注册 `.md`/`.markdown` 文件关联。
 - `app.manifest`：桌面进程清单；声明 Per-Monitor V2 DPI 感知及 `asInvoker` 权限。
 - `Assets/`：MSIX 使用的 PNG 磁贴/商店图标与窗口图标。
@@ -64,14 +64,18 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `index.html`、`preview.html`：编辑器与预览独立页面入口，分别声明内容安全策略 CSP。
 - `src/toolbar.ts`：在编辑 WebView 内创建固定定位的浮动工具栏、文档标题、常用命令和窄窗溢出菜单。原生操作发送既有文档命令；撤销、重做、查找、替换和代码模式由当前编辑器处理。接收经协议版本及 session 校验的 `toolbarState`，包含标题、通知和 busy 状态。支持按设置将常用功能移入“更多”菜单（设置入口常驻），实时显示本地字数/段数；宽度在普通宽窗为 1108 px，正文为 980 px。
 - `src/statistics.ts`：使用现有 CodeMirror Markdown 完整语法树剔除标记、链接目标及图片，中文逐字、其余文本按词统计；非空 Paragraph/Task 节点作为正文段落。编辑短暂停顿 180 ms 后更新，不经原生桥接或上传文档。
-- `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配 `toolbar.ts`、`live-markdown.ts` 与 Markdown 快捷键；`toolbarState` 按当前来源及 session 校验，仅更新标题、通知与 busy 状态。
-- `src/live-markdown.ts`：复用 CodeMirror GFM 语法树以装饰并隐藏标题、引用、列表、强调、行内代码、链接、表格和围栏标记；任务项、列表标记及受控图片显示为可视元素。表格保留等宽可编辑单元格，通过分隔行应用固定左/中/右对齐样式；单元格使用 outerDecorations 包住内部行内语法，避免布局盒子被代码装饰反向包裹。引用逐行记录 AST 最大深度并显示有限层级边线与首尾留白；缩进代码隐藏语法缩进，保留额外代码空白及完整源码。围栏操作条从语法树的代码范围读取当前原文，用用户手势调用浏览器 Clipboard API，成功/失败通过 `main.ts` 的现有 status 通知；不新增原生通用剪贴板桥接。图片以单一 widget 显示，alt 只作替代文本，资源缺失或加载失败显示安全占位。源文档与原生同步仍保留完整 Markdown 文本，顶部代码模式按钮或 Ctrl+Alt+M 暂时显示源码标记以调整复杂/暂不支持的语法；同一编辑器和历史不重建。格式化快捷键使用原有 CodeMirror 事务与 changeByRange，保留选区方向并隔离每次格式化的撤销步骤；无选区时插入选中的占位文本供直接输入。CodeMirror 语法解析和装饰不承诺与 Markdig HTML 完全一致，复杂嵌套语法仍需兼容样例实测。
+- `src/main.ts`：CodeMirror 6 编辑器；常规编辑立即发送旧文档 UTF-16 范围的 changes，初始化/保存/重同步发送完整快照。中文搜索面板使用既有 search 包，排版与代码语言通过 Compartment 重配置并保留历史；组合输入期间保护保存与编辑命令。接收 host 的主题、强制配色与减少动画设置；深色语法样式使用 HighlightStyle 复用默认装饰并调整标记配色，随 Compartment 切换而保留历史。使用 CodeMirror 原生 placeholder，与编辑内容、字号、源码模式共享编辑器行布局和光标坐标。装配工具栏、即时 Markdown、专业语法装饰及快捷键；`richContent` 受来源、协议、session、文档版本、字段及 2 MiB 整包大小校验，编辑后立即失效。
+- `src/live-markdown.ts`：复用 CodeMirror Markdown/GFM 语法树装饰常见 Markdown；新增代码语言与 AST-based math、脚注、提示框呈现。Math 范围来自 Markdig 权威 `richContent` 元数据，不对全文扫描美元符号；脚注引用为可操作上标，脚注定义只替换源前缀并在原位置显示，点击引用后定义提供回跳。进入源/选择编辑上下文时显示原文，修改文档即清除旧 metadata。提示框仅替换识别出的 `[!NOTE/TIP/IMPORTANT/WARNING/CAUTION]` 标记为标题，保留嵌套引用正文。HTML/编辑器语法不承诺全量一致；CodeMirror 侧坐标仍按 UTF-16 源偏移对齐。
+- `src/annotations.ts`、`src/annotations.css`：脚注引用/定义导航按钮与五种提示框的专用装饰；跳转事件携带目标和返回偏移，由根编辑器状态管理失效与返回。
+- `src/math.ts`、`src/math.css`：KaTeX 公式显示及错误/源码回退；只渲染 Markdig 提供的 TeX 范围，原始 TeX 可复制，MathML 和专用公式 SVG 输出受限处理。
+- `src/code-languages.ts`：编辑器和隐藏预览共享 JS/TS/C#/Python/JSON/Shell 代码语言定义。编辑器文档超过 100,000 字符时停用语言解析器，跨阈值只重配语言 Compartment 并保留撤销历史；这是性能降级捷径，超长预览代码块为纯文本。
+- `src/mermaid.ts`、`src/mermaid.css`：仅可见编辑器中支持受限 Mermaid flowchart/graph/sequence diagram，懒加载、串行队列与复杂度门槛；生成 SVG 经专用白名单处理，不放宽普通 Markdown SVG 边界。预览未接 Mermaid widget。
 - `src/outline.ts`、`src/outline.css`：可见大纲默认收起，消费宿主同一 Markdig 结果的标题 ID/UTF-16 偏移；当前会话/版本及整包校验、编辑失效、200 项分页、宽窗停靠/窄窗浮层、滚动高亮、片段复制及返回原选区。`main.ts` 将页内片段交此模块，使用工具栏实际高度避让定位。
 - `src/lightbox.ts`、`src/lightbox.css`：成功加载的受控图片通过独立按钮进入原生 dialog 灯箱，适配/原尺寸与缩放、焦点循环及 Esc 返回；资源更新关闭旧图。图片正文仍可编辑，链接图片保留 Ctrl+点击。
 - U3 专注模式由 `main.ts` 与 `toolbar.ts` 保存会话状态，临时收起可选按钮，保留设置、退出及既有保存入口；退出恢复按钮偏好，不写设置数据库。
 - `src/links.ts`：正文链接悬停显示“按ctrl并点击以访问”；只有 Ctrl+左键触发访问；页内片段本地定位，其余链接发送当前会话/版本的 `openLink`，普通点击、拖选与源码模式保持编辑。HTTP(S) 经宿主校验后直接交默认浏览器，页面不导航；本地 Markdown 复用文档打开与未保存保护，其他普通文件/目录由系统关联打开。
 - `MarkdownLinkResolver.cs`：本地链接解析与路径边界，共用纯逻辑测试；相对地址基于已保存文档目录，盘符或 file URI 规范化后检查本地根、重解析点、编码路径与 ADS，拒绝 UNC、设备路径和危险文件类型。
-- `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用已安装 JavaScript/Lezer 解析器，以 DOM 文本节点实现 JS/TS 围栏高亮；其他语言或超长代码保留纯文本。更新正文保留页面滚动，设置不重建 DOM。
+- `src/preview.ts`：检查会话、版本及 HTML 大小，净化预览并回报版本。大纲按同一 Markdig AST 的标题 ID/UTF-16 偏移回源；HTTP(S) 链接经原生确认打开。复用共享语言配置，以 DOM 文本节点实现 JS/TS/C#/Python/JSON/Shell 围栏高亮；其他语言或单块超长代码保留纯文本。预览有数学与代码高亮，但没有 Mermaid widget，脚注 HTML 也未适配为当前编辑器的脚注导航体验，不能据此宣称两视图能力一致。更新正文保留页面滚动，设置不重建 DOM。
 - `src/file-drop.ts`：在编辑器和预览页接收文件拖放，只把受限的 `filesDropped` 元数据及 DOM `File` 对象发送给宿主；文件路径不序列化到消息 JSON。
 - `src/style.css`、`src/preview.css`：编辑器和预览的明暗与强制配色、主题 palette、可配置字体/排版、Web 浮动工具栏与减少动画样式。工具栏 fixed 并在视口内居中，与正文共享 980 px 纸面宽度及响应式边距变量；常规顶栏总宽 1108 px，比纸面宽 128 px，窄窗随纸面收缩且至少保留 16 px 外边距。纸面最小宽度与响应式目标宽度一致，并禁止 flex 收缩，避免容器挤压成极窄列。文档名可收缩并以原生省略号截断，保留完整名称 Tooltip；玻璃表面使用 36% 画布底色、32 px backdrop blur 和 1.5 倍饱和度，模糊随正文滚动的内容；首屏纸面与工具栏下沿保持 32 px 距离（滚动内边距随顶栏顶部偏移计算）。高对比模式停用透明模糊效果并回退到系统色。
 - `public/app-logo.png`：由桌面端裁剪生成的 `Assets/AppLogo.png` 复制，为 Web 工具栏提供同源品牌图标；不从 CDN 加载。
@@ -112,7 +116,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 9. 应用激活、XAML/OLE 拖放和 WebView2 `AdditionalObjects` 文件对象均进入同一个串行文件打开队列；只有 `.md`/`.markdown` 路径进入既有未保存确认与文档读取流程。桥接只传计数和会话信息，宿主对原生文件对象及路径再次校验。
 10. 窗口尺寸/位置变化时按客户区和当前 DPI更新隐藏 Island 与两个子窗口；编辑器 WebView 从 `(0,0)` 调整为完整客户区边界。关闭前进行未保存确认，之后保存普通位置、释放主题监听和资源，再关闭 controller、释放 XAML Island 并销毁根窗口。
 
-当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。编辑页单次图片资源映射亦受 2 MiB 桥接消息上限约束，超过部分退化为 alt 占位。即时呈现与 Markdig 最终 HTML 不保证一致；复杂表格结构、参考式图片、原始 HTML、脚注、数学公式和 Mermaid 没有完整富呈现，完整边界见 D016。恢复写入的秒级节流及草稿写入节流意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览仅支持受控 HTTP(S) 链接；不支持 SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。WebView2 Evergreen Runtime 由目标机器提供，应用只提示缺失，不自动安装；多标签、文件树和 SQLite 暂未实现。
+当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；`richContent` 超限时整包清空而不截断；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。编辑页单次图片资源映射亦受 2 MiB 桥接消息上限约束，超过部分退化为 alt 占位。即时呈现与 Markdig 最终 HTML 不保证一致：编辑器已支持 Markdig range 驱动的行内/块公式、脚注引用/定义、五类已知提示框与受限 Mermaid；预览当前只有数学和代码高亮，脚注语义/跳转和 Mermaid widget 尚未适配。编辑器代码语言范围为 JS/TS/C#/Python/JSON/Shell，超 100,000 字符文档会停用语言装饰；预览单块代码超过 100,000 字符降为纯文本。恢复写入的秒级节流及草稿写入节流意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览仅支持受控 HTTP(S) 链接；不支持用户任意 SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。WebView2 Evergreen Runtime 由目标机器提供，应用只提示缺失，不自动安装；多标签与文件树尚未实现。
 
 ## 构建与打包管线
 
@@ -135,7 +139,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - 用户已确认生产 EXE 中微信输入法正常；M1 输入法与 Web 安全核心门槛已通过。M2 核心功能与本机闭环验证完成；生产 MSIX 安装仍未执行，作为独立包验收待办。
 - M3 单元、Web、桌面和性能检查结果及未覆盖边界见[项目历程](progress.md)；文档中的阶段结果不替代最新一次构建记录。
 - 独立原型仅使用内置样例，没有打开、保存、恢复、文件树、多标签或真实图片工作流。
-- 当前生产宿主具备 Win32/XAML Islands/双 WebView2 边界、单页即时呈现和独立设置窗口。旧 M3 视图脚本不覆盖此单页 UI。多标签、文件树、SQLite 和跨 HWND 内容动画仍未实现。
+- 当前生产宿主具备 Win32/XAML Islands/双 WebView2 边界、单页即时呈现和独立设置窗口。旧 M3 视图脚本不覆盖此单页 UI。多标签、文件树和跨 HWND 内容动画仍未实现；SQLite 设置持久化已实现。
 - 运行、测试与打包证据及其限制见[项目历程](progress.md)。
 
 ## 文档维护
