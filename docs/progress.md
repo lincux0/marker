@@ -530,3 +530,12 @@
 - 通过 Windows ShellExecuteEx 指定 Marker.Markdown ProgID，打开含中文/空格的 `.md` 文件；随后打开 `.markdown`，既有窗口复用且编辑器源文逐字一致，共 3 项原生检查通过。`file-association-native-results.json`。首轮只因测试未等待临时转发进程退出而断言失败，修正等待后通过；初始失败记录保留。未设置用户默认应用，也未模拟 Explorer 人工双击/打开方式列表点击，不将 Shell 检查冒称这些操作实测。
 - 本次仅安装配置改变，`build-setup.ps1 -SkipBuild` 复用上轮已验证且源码未变的 EXE，重新编译 Setup；没有重跑业务单元/Web 或重建 EXE。EXE SHA-256 保持 `78578BD386FFD26D826AE6DBE192FFD0A35296EE87CF6ACB67642E9BD1153D91`；新版 Setup `2E3A5EB512B265182FB471CBD44106CC4744808A3C4A404C0077FDF3058557BD`，仍 NotSigned。交付核对 `file-association-delivery.json`。
 - 测试原生进程正常关闭，测试设置备份已恢复且哈希一致，未编辑用户文档，隔离安装已卸载；安装正式版本由用户自行运行新版包。Graphify code-only/no-cluster 更新 1487 节点/2695 边，Inno 脚本不被图谱解析，以编译/真实安装证据为准。未 push、MSIX、产品签名或证书变更。
+
+## 2026-10-11 用户 SVG 应用图标替换
+
+- 保存用户给定的透明蓝色渐变 M 为 `asserts/icon.svg`，浏览器原样栅格化至 512×512 `asserts/icon.png`，新增项目 Playwright 导出入口 `scripts/render-icon-svg.js`。轮廓、渐变、内部模糊和原始留白保留；移除旧圆角蒙版/强制角像素改写及中心不透明假设，继续校验非全透明和透明四角。D032 替代旧素材/遮罩决策，顶栏保持无应用图标。
+- 生成并更新现有应用/设置窗口 ICO、PNG、MSIX 标识与 Web 副本，尺寸与宽图居中不变。七帧 ICO（16/24/32/48/64/128/256 px）的目录、RGBA 载荷、尺寸、透明角和可见像素检查通过；浅/深底预览 `artifacts/reading-ui/svg-icon-sizes.png` 已审查。生成脚本 PowerShell 语法、diff 与三项内存透明度检查通过，允许中心透明、拒绝全透明和不透明角。
+- Playwright MCP 后端运行与关闭请求连续超时，首轮仍生成 PNG；随后复用其已安装 Playwright 库和 Chrome 执行同一导出脚本成功，未引入依赖/新测试框架。本轮专用 MCP Chrome 按 profile/可执行路径核验后清理，fallback 浏览器正常关闭。导出记录 `svg-icon-rasterization.json`，生成日志 `svg-icon-generation.log`。
+- `build-setup.ps1` 完成锁定 npm/NuGet、TypeScript、生产 Web、Release 与 MSTest：70 通过、2 权限跳过、0 失败；本轮 Release 0 警告/0 错误，Vite 大 chunk 提示保留。EXE 内嵌 32 px 图标与新 ICO 逐像素一致；六项图标资源与输出逐项哈希一致、Web 同源图标一致，163 项 Web 文件全匹配。证据 `svg-icon-resource-check.json`、`svg-icon-web-check.json`、构建日志 `svg-icon-build-setup.log`。
+- EXE SHA-256 `A10878A378B49A3F4D5F6701E86BD7CB6F74A314BD508FC9F08E4B8DA397E46F`；新版 Setup `6305990DE14F264E3C5057E91D24DA94BD900557825DC9B9EB003AC6E14364D1`，仍 NotSigned。Graphify code-only/no-cluster 1487 节点/2693 边，无语义提取。
+- 本次未启动 Marker、未重新安装/卸载或复验 Windows Explorer 图标缓存/各 DPI 显示；没有更改用户设置、草稿、默认应用、证书或 push。素材改动不改变阅读/文件工作流，既有 MSIX 标识已更新但未生成 MSIX。

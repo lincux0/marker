@@ -186,6 +186,8 @@
 
 ## D019 保留新图标完整画布
 
+此图标素材和圆角遮罩方案由 D032 替代；以下保留历史决策依据。
+
 - 状态：已采纳；新图标 PNG/ICO 资源已生成并包含于 Release EXE；构建与资源一致性证据见项目历程。
 - 对当前 1254×1254 的 `asserts/icon.png` 使用完整方形裁框 `(0,0,1254,1254)`，保留蓝色圆角背景及 M+向下箭头周围的原始留白；继续生成应用、设置、Web 与 MSIX 图标资源。
 - PNG 与 ICO 帧使用 25% 边长半径的抗锯齿透明圆角遮罩，使透明边界贴合素材自带的圆角背景。脚本仍允许调用方指定其他方形裁框，以适配未来素材。
@@ -299,3 +301,10 @@
 - 仅写 HKCU：`Marker.Markdown` ProgID 的图标/带引号打开命令、扩展名 `OpenWithProgids` 值、`Applications/Marker.App.exe` 名称与 SupportedTypes。安装/卸载通过 ChangesAssociations 通知 Explorer 刷新。用户在 Windows“打开方式”选择始终使用 Marker 后，双击文件使用所选默认应用；安装器不覆盖扩展名默认值或 UserChoice。
 - 此项补充 D022 的候选关联注册；D022 不抢占默认关联的约定继续有效。卸载清理 Marker 专用键及共享键中的 Marker 值，不删除其他程序候选项，用户设置/草稿/文件仍保留。
 - 依据：Context7 核实 Inno 注册/卸载处理；具体配置参考 [Microsoft OpenWithProgids 文档](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-include-an-application-on-the-open-with-dialog-box)、[Inno Registry](https://jrsoftware.org/ishelp/topic_registrysection.htm) 与 [ChangesAssociations](https://jrsoftware.org/ishelp/topic_setup_changesassociations.htm)。
+
+
+## D032 用户 SVG 图标原样替换
+
+- 用户指定透明背景的蓝色渐变 M 字母 SVG，保存为 `asserts/icon.svg`；以浏览器原样栅格化的 512×512 `asserts/icon.png` 作为既有图标脚本输入。保留完整画布、留白、轮廓及内部模糊渐变，不增加背景或修改图形。
+- 此项替代 D019 的 1254×1254 素材及 25% 圆角遮罩。现有 PNG 尺寸、七尺寸 ICO、宽图居中、Web 同源副本和原生窗口加载路径不变；D030 的顶栏无应用图标继续有效。
+- 透明角及非全透明检查继续保留；M 的中心可以透明，不再将中心不透明作为有效图标条件。代价是 SVG 修改后需先重新栅格化 PNG，再运行图标脚本；不增加运行时 SVG 依赖。

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512" height="512"
+     viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- M 字母轮廓 -->
+    <path id="letter-m" d="
+      M 80 418 V 103
+      Q 80 88 95 88 H 131
+      Q 141 88 148 98
+      L 256 260 L 364 98
+      Q 371 88 381 88 H 417
+      Q 432 88 432 103 V 418
+      Q 432 432 418 432 H 381
+      Q 367 432 367 418
+      V 206 L 277 344
+      Q 256 374 235 344
+      L 145 206 V 418
+      Q 145 432 131 432 H 94
+      Q 80 432 80 418 Z"/>
+    <clipPath id="m-clip">
+      <use href="#letter-m"/>
+    </clipPath>
+    <!-- 基础蓝色渐变 -->
+    <linearGradient id="base"
+      x1="90" y1="70" x2="422" y2="458"
+      gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#39CAFF"/>
+      <stop offset=".42" stop-color="#168AFF"/>
+      <stop offset="1" stop-color="#2543D9"/>
+    </linearGradient>
+    <!-- 柔和青蓝色光晕 -->
+    <radialGradient id="cyan"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(128 132) rotate(32) scale(268 214)">
+      <stop stop-color="#8AEFFF" stop-opacity=".94"/>
+      <stop offset="1" stop-color="#8AEFFF" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 中部蓝色过渡 -->
+    <radialGradient id="mid-blue"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(263 281) rotate(-19) scale(216 177)">
+      <stop stop-color="#39B5FF" stop-opacity=".88"/>
+      <stop offset="1" stop-color="#39B5FF" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 右侧深蓝色 -->
+    <radialGradient id="royal"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(414 334) rotate(120) scale(245 178)">
+      <stop stop-color="#1A48EB" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#1A48EB" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 左下方靛蓝色 -->
+    <radialGradient id="violet"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(120 437) rotate(-73) scale(182 146)">
+      <stop stop-color="#3437CE" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#3437CE" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 仅模糊内部颜色 -->
+    <filter id="soft-color"
+      x="-50%" y="-50%"
+      width="200%" height="200%"
+      color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="23"/>
+    </filter>
+  </defs>
+  <!-- 清晰的字母基础形状 -->
+  <use href="#letter-m" fill="url(#base)"/>
+  <!-- 裁剪内部模糊渐变 -->
+  <g clip-path="url(#m-clip)">
+    <g filter="url(#soft-color)">
+      <rect x="15" y="35" width="480" height="420" fill="url(#cyan)"/>
+      <rect x="35" y="75" width="445" height="390" fill="url(#mid-blue)"/>
+      <rect x="120" y="95" width="380" height="385" fill="url(#royal)"/>
+      <rect x="40" y="255" width="295" height="240" fill="url(#violet)"/>
+    </g>
+  </g>
+</svg>

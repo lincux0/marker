@@ -1,9 +1,9 @@
-﻿param(
+param(
     [string]$SourcePath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'asserts/icon.png'),
     [string]$AssetsPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'src/Marker.App/Assets'),
     # Keep the replacement icon's full square canvas and its generous margins.
     # Rectangle is x, y, width, height in source pixels.
-    [int[]]$CropRectangle = @(0, 0, 1254, 1254)
+    [int[]]$CropRectangle = @(0, 0, 512, 512)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,45 +31,6 @@ try {
         [System.Drawing.Rectangle]::new($cropX, $cropY, $cropWidth, $cropHeight),
         [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     try {
-        # Apply one antialiased alpha mask before resizing so every PNG and ICO
-        # frame has real transparent corners rather than CSS-only rounding.
-        $mask = [System.Drawing.Bitmap]::new($cropWidth, $cropHeight, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-        $roundedCrop = [System.Drawing.Bitmap]::new($cropWidth, $cropHeight, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-        try {
-            $radius = [Math]::Round($cropWidth * 0.25)
-            $diameter = $radius * 2
-            $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
-            try {
-                $path.AddArc(0.5, 0.5, $diameter, $diameter, 180, 90)
-                $path.AddArc($cropWidth - $diameter - 0.5, 0.5, $diameter, $diameter, 270, 90)
-                $path.AddArc($cropWidth - $diameter - 0.5, $cropHeight - $diameter - 0.5, $diameter, $diameter, 0, 90)
-                $path.AddArc(0.5, $cropHeight - $diameter - 0.5, $diameter, $diameter, 90, 90)
-                $path.CloseFigure()
-
-                $maskGraphics = [System.Drawing.Graphics]::FromImage($mask)
-                try {
-                    $maskGraphics.Clear([System.Drawing.Color]::Transparent)
-                    $maskGraphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-                    $maskGraphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-                    $maskGraphics.FillPath([System.Drawing.Brushes]::White, $path)
-                }
-                finally { $maskGraphics.Dispose() }
-
-                for ($y = 0; $y -lt $cropHeight; $y++) {
-                    for ($x = 0; $x -lt $cropWidth; $x++) {
-                        $sourcePixel = $crop.GetPixel($x, $y)
-                        $maskAlpha = $mask.GetPixel($x, $y).A
-                        $alpha = [int][Math]::Round($sourcePixel.A * $maskAlpha / 255.0)
-                        $roundedCrop.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($alpha, $sourcePixel.R, $sourcePixel.G, $sourcePixel.B))
-                    }
-                }
-            }
-            finally { $path.Dispose() }
-        }
-        finally {
-            $mask.Dispose()
-        }
-
         function Save-PngSize([System.Drawing.Bitmap]$Image, [string]$Path, [int]$Width, [int]$Height) {
             $output = [System.Drawing.Bitmap]::new($Width, $Height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
             try {
@@ -83,26 +44,20 @@ try {
                     $graphics.DrawImage($Image, [System.Drawing.Rectangle]::new(0, 0, $Width, $Height))
                 }
                 finally { $graphics.Dispose() }
-                Set-TransparentCorners $output
-                Assert-RoundedCorners $output
+                Assert-IconTransparency $output
                 $output.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
             }
             finally { $output.Dispose() }
         }
 
-        function Set-TransparentCorners([System.Drawing.Bitmap]$Image) {
-            $transparent = [System.Drawing.Color]::Transparent
-            $Image.SetPixel(0, 0, $transparent)
-            $Image.SetPixel($Image.Width - 1, 0, $transparent)
-            $Image.SetPixel(0, $Image.Height - 1, $transparent)
-            $Image.SetPixel($Image.Width - 1, $Image.Height - 1, $transparent)
-        }
-
-        function Assert-RoundedCorners([System.Drawing.Bitmap]$Image) {
-            if ($Image.GetPixel([int]($Image.Width / 2), [int]($Image.Height / 2)).A -ne 255 -or
-                ($Image.Width -ge 32 -and $Image.GetPixel(1, 1).A -gt 64)) {
-                throw "Rounded-corner mask is missing or the icon center is transparent."
+        function Assert-IconTransparency([System.Drawing.Bitmap]$Image) {
+            $hasVisiblePixel = $false
+            for ($y = 0; $y -lt $Image.Height -and -not $hasVisiblePixel; $y++) {
+                for ($x = 0; $x -lt $Image.Width; $x++) {
+                    if ($Image.GetPixel($x, $y).A -gt 0) { $hasVisiblePixel = $true; break }
+                }
             }
+            if (-not $hasVisiblePixel) { throw 'The icon image is entirely transparent.' }
             $cornerPoints = @(
                 [System.Drawing.Point]::new(0, 0),
                 [System.Drawing.Point]::new($Image.Width - 1, 0),
@@ -112,15 +67,15 @@ try {
             foreach ($point in $cornerPoints) {
                 $alpha = $Image.GetPixel($point.X, $point.Y).A
                 if ($alpha -ne 0) {
-                    throw "Rounded-corner check failed for $($Image.Width)x$($Image.Height) image at ($($point.X),$($point.Y)): alpha=$alpha."
+                    throw "Transparent-corner check failed for $($Image.Width)x$($Image.Height) image at ($($point.X),$($point.Y)): alpha=$alpha."
                 }
             }
         }
 
-        Save-PngSize $roundedCrop (Join-Path $assetsPath 'AppLogo.png') 256 256
-        Save-PngSize $roundedCrop (Join-Path $assetsPath 'Square44x44Logo.png') 44 44
-        Save-PngSize $roundedCrop (Join-Path $assetsPath 'Square150x150Logo.png') 150 150
-        Save-PngSize $roundedCrop (Join-Path $assetsPath 'StoreLogo.png') 50 50
+        Save-PngSize $crop (Join-Path $assetsPath 'AppLogo.png') 256 256
+        Save-PngSize $crop (Join-Path $assetsPath 'Square44x44Logo.png') 44 44
+        Save-PngSize $crop (Join-Path $assetsPath 'Square150x150Logo.png') 150 150
+        Save-PngSize $crop (Join-Path $assetsPath 'StoreLogo.png') 50 50
 
         $wide = [System.Drawing.Bitmap]::new(310, 150, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
         try {
@@ -131,7 +86,7 @@ try {
                 $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
                 $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
                 $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-                $graphics.DrawImage($roundedCrop, [System.Drawing.Rectangle]::new(80, 0, 150, 150))
+                $graphics.DrawImage($crop, [System.Drawing.Rectangle]::new(80, 0, 150, 150))
             }
             finally { $graphics.Dispose() }
             $wide.Save((Join-Path $assetsPath 'Wide310x150Logo.png'), [System.Drawing.Imaging.ImageFormat]::Png)
@@ -149,11 +104,10 @@ try {
                     $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
                     $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
                     $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-                    $graphics.DrawImage($roundedCrop, [System.Drawing.Rectangle]::new(0, 0, $size, $size))
+                    $graphics.DrawImage($crop, [System.Drawing.Rectangle]::new(0, 0, $size, $size))
                 }
                 finally { $graphics.Dispose() }
-                Set-TransparentCorners $frame
-                Assert-RoundedCorners $frame
+                Assert-IconTransparency $frame
                 $stream = [System.IO.MemoryStream]::new()
                 try {
                     $frame.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -189,7 +143,7 @@ try {
         }
         finally { $icoStream.Dispose() }
     }
-    finally { $roundedCrop.Dispose(); $crop.Dispose() }
+    finally { $crop.Dispose() }
 
     $webPublicPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'src/Marker.Web/public'
     New-Item -ItemType Directory -Path $webPublicPath -Force | Out-Null
@@ -197,8 +151,7 @@ try {
 
     Write-Output "Source: $sourcePath ($($source.Width)x$($source.Height))"
     Write-Output "CropRectangle: x=$cropX..$($cropX + $cropWidth - 1), y=$cropY..$($cropY + $cropHeight - 1), $cropWidth x $cropHeight"
-    Write-Output 'The full square source canvas and its original background margins are preserved.'
-    Write-Output "Rounded-corner alpha mask: radius=$([Math]::Round($cropWidth * 0.25)) source px (25% of crop edge)."
+    Write-Output 'The full square source canvas, original margins and alpha transparency are preserved.'
     Write-Output "Generated AppLogo.png, Store/Square/Wide MSIX PNGs and Marker.ico (16, 24, 32, 48, 64, 128, 256 px)."
 }
 finally { $source.Dispose() }
