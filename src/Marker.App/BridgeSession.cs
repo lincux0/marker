@@ -11,6 +11,31 @@ internal sealed class BridgeSession(string sessionId)
     public const int ProtocolVersion = 1;
     public const int MaxTextLength = 1_048_576;
     public const int MaxMessageBytes = 2_097_152;
+    private static readonly int SnapshotEnvelopeBytes = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(new
+    {
+        protocolVersion = ProtocolVersion,
+        type = "snapshot",
+        sessionId = new string('s', 32),
+        version = long.MaxValue,
+        text = "",
+        requestId = new string('r', 32)
+    }));
+
+    internal static bool IsEditorTextWithinLimits(string text)
+    {
+        if (text.Length > MaxTextLength) return false;
+        // Match the editor's JSON.stringify UTF-8 bytes; .NET's default encoder escapes non-ASCII text.
+        long messageBytes = SnapshotEnvelopeBytes + Encoding.UTF8.GetByteCount(text);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var character = text[i];
+            if (character is '"' or '\\' || character is '\b' or '\t' or '\n' or '\f' or '\r') messageBytes++;
+            else if (character < ' ') messageBytes += 5;
+            else if (char.IsHighSurrogate(character) && (i + 1 == text.Length || !char.IsLowSurrogate(text[i + 1])) ||
+                char.IsLowSurrogate(character) && (i == 0 || !char.IsHighSurrogate(text[i - 1]))) messageBytes += 3;
+        }
+        return messageBytes <= MaxMessageBytes;
+    }
 
     public string SessionId { get; } = sessionId;
     public long Version { get; private set; } = -1;
@@ -44,8 +69,8 @@ internal sealed class BridgeSession(string sessionId)
             return Fail("编辑器快照缺少文本。", out error);
 
         var text = textElement.GetString()!;
-        if (text.Length > MaxTextLength)
-            return Fail("编辑器文本超过 1 Mi UTF-16 单元限制。", out error);
+        if (!IsEditorTextWithinLimits(text))
+            return Fail("编辑器文本超过当前快照容量限制。", out error);
         if (Version < 0 ? version != 0 : version < Version || version == Version && text != _text)
             return Fail("编辑器快照版本已过期或未递增。", out error);
         if (!TryReadOptionalRequestId(root, out var requestId, out error)) return false;
@@ -103,7 +128,11 @@ internal sealed class BridgeSession(string sessionId)
         }
         result.Append(_text, position, _text.Length - position);
 
-        _text = result.ToString();
+        var updatedText = result.ToString();
+        if (!IsEditorTextWithinLimits(updatedText))
+            return Fail("编辑器增量结果超过当前快照容量限制。", out error);
+
+        _text = updatedText;
         Version = version;
         snapshot = new MarkdownSnapshot(version, _text);
         error = string.Empty;

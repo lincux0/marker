@@ -160,8 +160,7 @@ public sealed partial class MainWindow
 
     private static void ValidateEditorText(string text)
     {
-        var envelope = JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "snapshot", sessionId = new string('s', 32), version = long.MaxValue, text, requestId = new string('r', 32) });
-        if (text.Length > BridgeSession.MaxTextLength || System.Text.Encoding.UTF8.GetByteCount(envelope) > BridgeSession.MaxMessageBytes)
+        if (!BridgeSession.IsEditorTextWithinLimits(text))
             throw new IOException("该文档超过当前编辑/保存快照容量，未替换当前文档。请使用其他编辑器处理。");
     }
 

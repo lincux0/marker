@@ -50,7 +50,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `DocumentFile.cs`：按严格 UTF-8（含/不含 BOM）或带 BOM 的 UTF-16 LE/BE 读取；解码失败由界面明确询问 GB18030。磁盘编码与换行保持为元数据，编辑快照统一 LF；混合换行须用户选择策略后保存。文件读取/保存限制 8 MiB，以 SHA-256 指纹检测变更，并通过同目录临时文件、flush-to-disk、原子替换和替换前后校验保存；并发替换的外部内容保留为 `.external` 副本。拒绝路径重解析点。
 - `RecoveryStore.cs`：在 LocalAppData 的 Marker/Recovery 目录按文档 ID 保存 schemaVersion 1 JSON 草稿，附可选 `applicationVersion`；读取旧 schemaVersion 1 时允许该字段缺省。通过同目录临时文件及覆盖式移动保存。未知版本、损坏或超限草稿保留原文件并返回可提示错误。
 - `LocalImageResources.cs`：仅允许当前文档目录内 PNG/JPEG/GIF/WebP/BMP 图片，单张不超过 16 MiB；拒绝绝对/越界/重解析路径，并从最终打开的文件句柄核验真实路径。通过会话绑定随机不透明 URL 提供资源，不将磁盘路径交给 Web 内容。
-- `BridgeSession.cs`：校验页面来源、消息类型与字段白名单、会话标识、版本、JSON 深度和消息/文本大小；支持快照 requestId、文档命令和 snapshotError，并允许相同版本且相同文本的完整重同步。原生文档命令白名单含 `recover` 与 `settings`；命令 envelope 的来源、protocolVersion、sessionId 和字段精确校验维持原规则。文本最多 1 Mi UTF-16 单元，JSON 消息最多 2 MiB。
+- `BridgeSession.cs`：校验页面来源、消息类型与字段白名单、会话标识、版本、JSON 深度和消息/文本大小；支持快照 requestId、文档命令和 snapshotError，并允许相同版本且相同文本的完整重同步。原生文档命令白名单含 `recover` 与 `settings`；命令 envelope 的来源、protocolVersion、sessionId 和字段精确校验维持原规则。文本最多 1 Mi UTF-16 单元，JSON 消息最多 2 MiB。打开、重载、草稿恢复、快照和增量结果共用完整保存快照容量校验，按 Web `JSON.stringify` 的 UTF-8 与字符转义规则计数，预留宿主快照请求字段；收到的原始消息仍另行检查 2 MiB 限额，拒绝时不改变会话内容和版本。
 - `MarkdownRenderer.cs`：使用显式 Markdig 管线，启用表格、任务列表、自动链接、强调、脚注、数学和提示框所需扩展，禁用原始 HTML；同一 AST 提供 HTML、大纲与 `richContent` 富语法节点的 UTF-16 精确范围。脚注和五类已知提示框保留源位置/标识；图片链接必须通过本地受控资源解析器转换，否则以保留 alt 的安全文本占位，不输出被拒绝的源路径。
 - `installer/Marker.iss`：当前用户 Setup 将 `.md`/`.markdown` 注册为 Marker 的打开方式候选，配置专用 ProgID 和带引号打开命令，安装/卸载刷新 Explorer；不设置默认应用或 UserChoice。`Package.appxmanifest`：MSIX 身份为 Marker、发布者 `CN=Marker.Dev`、x64，最低 build 26100，并注册 `.md`/`.markdown` 文件关联。
 - `app.manifest`：桌面进程清单；声明 Per-Monitor V2 DPI 感知及 `asInvoker` 权限。

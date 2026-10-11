@@ -539,3 +539,9 @@
 - `build-setup.ps1` 完成锁定 npm/NuGet、TypeScript、生产 Web、Release 与 MSTest：70 通过、2 权限跳过、0 失败；本轮 Release 0 警告/0 错误，Vite 大 chunk 提示保留。EXE 内嵌 32 px 图标与新 ICO 逐像素一致；六项图标资源与输出逐项哈希一致、Web 同源图标一致，163 项 Web 文件全匹配。证据 `svg-icon-resource-check.json`、`svg-icon-web-check.json`、构建日志 `svg-icon-build-setup.log`。
 - EXE SHA-256 `A10878A378B49A3F4D5F6701E86BD7CB6F74A314BD508FC9F08E4B8DA397E46F`；新版 Setup `6305990DE14F264E3C5057E91D24DA94BD900557825DC9B9EB003AC6E14364D1`，仍 NotSigned。Graphify code-only/no-cluster 1487 节点/2693 边，无语义提取。
 - 本次未启动 Marker、未重新安装/卸载或复验 Windows Explorer 图标缓存/各 DPI 显示；没有更改用户设置、草稿、默认应用、证书或 push。素材改动不改变阅读/文件工作流，既有 MSIX 标识已更新但未生成 MSIX。
+
+## 2026-10-11 中文文档快照容量修复
+
+- 修复原生按默认 JSON ASCII 转义估算容量、导致 Web 可保存的中文文档无法重新打开或恢复的问题。打开、重载、恢复、快照和增量结果共用 `BridgeSession.IsEditorTextWithinLimits`，按 Web `JSON.stringify` 的 UTF-8、控制字符、引号/反斜杠和代理项规则计算完整快照预算；仍保留 1 Mi UTF-16 文本、2 MiB 原始消息和完整快照限制。拒绝超限增量时保留原会话文本与版本。
+- 新增三项回归，覆盖 40 万中文、20 万 emoji、特殊 Unicode/转义字符、双限额，以及新建文件保存→读取、草稿保存→恢复。局部 3/3 通过，完整 `scripts/build.ps1` 73 通过、2 重解析点权限跳过、0 失败；Release 0 警告/0 错误，已重新生成 EXE。首轮沙箱阻止临时文件移动，保持原测试场景提权重跑后通过，没有为权限问题修改产品行为。
+- 证据：`artifacts/tests-capacity/marker-capacity.trx`、`artifacts/audit-capacity-build.log`。Graphify code-only/no-cluster 更新为 1492 节点、2713 边；图谱提示 `global.json` 未产生节点，不替代配置核验。本次未启动桌面应用或浏览器，未做完整原生 UI 往返、输入法或性能验收；Setup/MSIX 附件修复独立记录。

@@ -177,6 +177,39 @@ public sealed class BridgeSessionTests
         Assert.IsFalse(session.TryReadReady("https://editor.marker.example/other.html", EditorUrl, "{\"type\":\"ready\",\"protocolVersion\":1}"));
     }
 
+    [TestMethod]
+    public void EditorTextCapacityMatchesUtf8JsonStringEscapingAndBothLimits()
+    {
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits(new string('中', 400_000)));
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits(string.Concat(Enumerable.Repeat("😀", 200_000))));
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits("\u2028\uE000"));
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits("quote\" slash\\ tab\t newline\n control\u0001"));
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits(new string('a', BridgeSession.MaxTextLength)));
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits(new string('\u0001', 349_000)));
+        Assert.IsFalse(BridgeSession.IsEditorTextWithinLimits(new string('\u0001', 349_500)));
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits(new string('\uD800', 200_000)));
+        Assert.IsFalse(BridgeSession.IsEditorTextWithinLimits(new string('\uD800', 349_500)));
+        Assert.IsFalse(BridgeSession.IsEditorTextWithinLimits(new string('a', BridgeSession.MaxTextLength + 1)));
+        Assert.IsFalse(BridgeSession.IsEditorTextWithinLimits(string.Concat(Enumerable.Repeat("😀", BridgeSession.MaxTextLength / 2))));
+        Assert.IsFalse(BridgeSession.IsEditorTextWithinLimits(new string('"', BridgeSession.MaxTextLength)));
+    }
+
+    [TestMethod]
+    public void RejectsIncrementalChangesThatWouldMakeASaveSnapshotTooLarge()
+    {
+        var session = new BridgeSession("session-1");
+        Assert.IsTrue(session.TryAcceptSnapshot(EditorUrl, EditorUrl, Snapshot("session-1", 0, new string('a', 700_000)), out _, out _));
+        var small = Changes(0, 1, "[{\"from\":700000,\"to\":700000,\"insert\":\"b\"}]");
+        Assert.IsTrue(session.TryAcceptChanges(EditorUrl, EditorUrl, small, out _, out _));
+        var inserted = System.Text.Json.JsonSerializer.Serialize(new string('\u0001', 300_000));
+        var changes = Changes(1, 2, "[{\"from\":700001,\"to\":700001,\"insert\":" + inserted + "}]");
+        Assert.IsTrue(System.Text.Encoding.UTF8.GetByteCount(changes) < BridgeSession.MaxMessageBytes);
+        Assert.IsFalse(session.TryAcceptChanges(EditorUrl, EditorUrl, changes, out _, out _));
+        Assert.AreEqual(1L, session.Version);
+        Assert.IsTrue(session.TryAcceptChanges(EditorUrl, EditorUrl, Changes(1, 2, "[{\"from\":700001,\"to\":700001,\"insert\":\"c\"}]"), out var current, out _));
+        Assert.AreEqual(new string('a', 700_000) + "bc", current.Text);
+    }
+
     private static string Snapshot(string sessionId, long version, string text) =>
         System.Text.Json.JsonSerializer.Serialize(new { type = "snapshot", protocolVersion = 1, sessionId, version, text });
 

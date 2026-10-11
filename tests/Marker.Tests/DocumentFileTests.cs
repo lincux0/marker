@@ -141,6 +141,28 @@ public sealed class DocumentFileTests
         Assert.AreEqual(0, Directory.GetFiles(targetDirectory).Length);
     }
 
+    [TestMethod]
+    public void ReopensAndRecoversUnicodeTextWithinTheBridgeSnapshotLimit()
+    {
+        using var temp = new TempDirectory();
+        var text = new string('中', 400_000) + string.Concat(Enumerable.Repeat("😀", 200_000)) + "\u2028\uE000 quote\" slash\\ tab\t newline\n control\u0001";
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits(text));
+
+        var path = Path.Combine(temp.Path, "large.md");
+        var saved = DocumentFile.Save(path, text, DocumentFileFormat.Default, null);
+        var reopened = DocumentFile.Read(path);
+        Assert.AreEqual(text, reopened.Text);
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits(reopened.Text));
+
+        var store = new RecoveryStore(Path.Combine(temp.Path, "Recovery"));
+        var draft = new RecoveryDraft(Guid.NewGuid(), 1, DateTimeOffset.UtcNow, path, text, saved.Format, saved.Fingerprint);
+        store.Save(draft);
+        var restored = store.Load(draft.DocId);
+        Assert.IsNull(restored.Error);
+        Assert.AreEqual(text, restored.Draft?.Text);
+        Assert.IsTrue(BridgeSession.IsEditorTextWithinLimits(restored.Draft!.Text));
+    }
+
     private sealed class TempDirectory : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"marker-tests-{Guid.NewGuid():N}");
