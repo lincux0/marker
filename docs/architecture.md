@@ -55,7 +55,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `installer/Marker.iss`：当前用户 Setup 将 `.md`/`.markdown` 注册为 Marker 的打开方式候选，配置专用 ProgID 和带引号打开命令，安装/卸载刷新 Explorer；不设置默认应用或 UserChoice。`Package.appxmanifest`：MSIX 身份为 Marker、发布者 `CN=Marker.Dev`、x64，最低 build 26100，并注册 `.md`/`.markdown` 文件关联。
 - `app.manifest`：桌面进程清单；声明 Per-Monitor V2 DPI 感知及 `asInvoker` 权限。
 - `Assets/`：MSIX 使用的 PNG 磁贴/商店图标与窗口图标。
-- `Marker.App.csproj`：WinUI 3、Windows App SDK、Markdig、自包含打包及 Web dist 内容映射。
+- `Marker.App.csproj`：WinUI 3、Windows App SDK、Markdig、自包含打包及 Web dist 内容映射；将项目 LICENSE、第三方声明和 `installer/licenses/*.txt` 映射到输出、publish 和 MSIX 的 `LICENSE.txt`、`THIRD_PARTY_NOTICES.md`、`licenses/`。Setup 通配复制排除这些附件，再从明确的源文件纳入，避免重复打包并保留缺失时编译失败的检查。
 - `packages.lock.json`：桌面端 NuGet 锁文件；锁文件版本才是实际依赖基线。
 
 ### `src/Marker.Web/`

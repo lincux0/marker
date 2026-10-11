@@ -551,3 +551,10 @@
 - 从 Markdig 1.4.0 NuGet 元数据对应上游提交获取完整 BSD-2-Clause 版权、条件和免责声明，保存为 `installer/licenses/Markdig.txt`，SHA-256 与上游原文一致：`7423242B4AE72BCCDF19A06CD3C20790DF8519A164A08F37B31CB4A40034D827`。Setup 将它安装到 `licenses/Markdig.txt`；第三方声明记录固定来源，现有安装验收新增该文件的存在与哈希断言。
 - PowerShell 语法、相对链接和 diff 检查通过。复用容量修复已验证的 Release 输出，以 `build-setup.ps1 -SkipBuild` 重建 Setup；在工作区隔离目录实际安装，6 份许可/声明文件逐项 SHA-256 一致，默认文件关联及其他程序候选保持，测试包卸载及注册清理通过。没有启动应用或修改用户设置、草稿、证书。
 - 证据：`artifacts/audit-markdig-setup-build.log`、`artifacts/audit-markdig-install.log`；本次 Setup SHA-256 `252135BEC48D46FC58A6031F5BEF44827C48609E8E853ADF98073B3D903E0607`，仍未签名。本项补齐 Markdig 的已确认缺口，不宣称完整运行时依赖许可盘点已完成；MSIX 附件单独修复。
+
+## 2026-10-11 MSIX 与 Release 许可证附件交付
+
+- `Marker.App.csproj` 显式复制项目 LICENSE、第三方声明和 `installer/licenses/*.txt`，统一映射到 Release/publish 输出和 MSIX 的 `LICENSE.txt`、`THIRD_PARTY_NOTICES.md`、`licenses/`。Setup 保留明确源文件与缺失时的编译检查，递归通配排除同名附件以避免重复。
+- XML、文档相对链接与 diff 检查通过。使用同一锁定还原和 Web 输出重新构建 EXE/MSIX，0 错误、4 个 Web chunk 文件名 PRI249 qualifier 警告；包内六份附件各出现一次，与源码和 Release 输出逐项 SHA-256 相同，163 个 Web 文件与 Release 输出哈希相同。未重复执行源码未变的业务测试，容量修复的完整测试证据见上条记录。
+- 按最终 Release 输出重建 Setup，编译记录中六份许可附件各压缩一次；再次隔离安装，六份附件哈希一致、默认关联与其他候选保持、卸载及注册清理通过。没有启动桌面应用或浏览器，没有修改用户设置、草稿或证书；MSIX 本次只核验包内容，未签名、安装或做 UI 验收。
+- 证据：`artifacts/audit-msix-license-build.log`、`artifacts/audit-msix-license-check.json`、`artifacts/audit-final-setup-build.log`、`artifacts/audit-final-install.log`。最终 EXE SHA-256 `5B82F7B3EE9813866134D0B53F1B2FA9FE6315D7AD9BB97B18A524AB856B07E0`；MSIX `E0390F7C5EFF211B7B4C60CF23BDFB57DB86E732CD5366172A9308D21A7D0395`；Setup `130133E95E5B014F3B72895A3AD6644F42E00C7A3D1ECCCA7066B810446952B1`，产物仍未签名。Graphify code-only/no-cluster 更新为 1489 节点、2713 边；构建未更新依赖锁文件。

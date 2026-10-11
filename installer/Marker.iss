@@ -41,7 +41,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,AppxManifest.xml,*.appx,*.msix,*.appxbundle,*.msixbundle,*.appxrecipe"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,AppxManifest.xml,*.appx,*.msix,*.appxbundle,*.msixbundle,*.appxrecipe,\LICENSE.txt,\THIRD_PARTY_NOTICES.md,\licenses\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#ProjectRoot}\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "{#ProjectRoot}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#ProjectRoot}\installer\licenses\MIT.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion

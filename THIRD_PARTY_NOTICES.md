@@ -13,7 +13,7 @@
 
 `Microsoft.Web.WebView2` 当前由 Windows App SDK 依赖传递引入，准确版本见 `src/Marker.App/packages.lock.json`，不是应用项目中的直接 PackageReference。
 
-Markdig 1.4.0 的完整版权、条件与免责声明保留在 [Markdig.txt](installer/licenses/Markdig.txt)，来自 NuGet 元数据对应提交 `56e9c238584a44a169f174c881855c049768634c` 的[上游原文](https://github.com/xoofx/markdig/blob/56e9c238584a44a169f174c881855c049768634c/license.txt)。Setup 将该文本安装到 `licenses/Markdig.txt`；项目 MIT 不替代此许可证。
+Markdig 1.4.0 的完整版权、条件与免责声明保留在 [Markdig.txt](installer/licenses/Markdig.txt)，来自 NuGet 元数据对应提交 `56e9c238584a44a169f174c881855c049768634c` 的[上游原文](https://github.com/xoofx/markdig/blob/56e9c238584a44a169f174c881855c049768634c/license.txt)。Setup 与 MSIX 均将该文本分发到 `licenses/Markdig.txt`；项目 MIT 不替代此许可证。
 
 ## SQLite 运行时传递依赖
 
@@ -49,7 +49,7 @@ Markdig 1.4.0 的完整版权、条件与免责声明保留在 [Markdig.txt](ins
 
 `installer/licenses/WebThirdParty.txt` 汇总 Web 生产依赖闭包中实际安装包提供的 LICENSE/LICENCE/COPYING/NOTICE 文件，按包保留版权和完整文本；依据 `src/Marker.Web/package-lock.json` 生成，排除开发依赖、类型声明包、包安装辅助工具和 OS/CPU 专用绑定。当前 Mermaid 运行时树包含 Chevrotain（Apache-2.0）、`elkjs`（EPL-2.0）、D3 家族（主要 ISC，`d3-ease`/`d3-sankey` 为 BSD-3-Clause）、`rw`（BSD-3-Clause）及 `robust-predicates`（Unlicense）；其余核实的依赖主要为 MIT。DOMPurify 的 MPL 文本也保留在聚合文件中。
 
-依赖更新并完成 `npm ci` 后，可运行 `node scripts/update-web-licenses.mjs` 重新生成聚合文件。脚本对无包目录、无许可证文本或未解析锁文件依赖会在输出中明确标记并返回失败，需在发布前补齐来源或处理结论。`installer/Marker.iss` 将聚合文件作为单个附件随 Setup 分发；MSIX/其他分发形式仍须确认其是否包含此文件。
+依赖更新并完成 `npm ci` 后，可运行 `node scripts/update-web-licenses.mjs` 重新生成聚合文件。脚本对无包目录、无许可证文本或未解析锁文件依赖会在输出中明确标记并返回失败，需在发布前补齐来源或处理结论。`installer/Marker.iss` 将聚合文件作为单个附件随 Setup 分发；`Marker.App.csproj` 将项目许可证、本文和 `installer/licenses/*.txt` 映射到 Release/publish 输出及 MSIX 的 `LICENSE.txt`、`THIRD_PARTY_NOTICES.md` 和 `licenses/`。其他分发形式仍须逐项确认实际附件。
 
 ## 测试工程直接依赖
 
