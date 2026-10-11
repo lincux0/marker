@@ -488,7 +488,7 @@ function toggleTask(view: EditorView, checkbox: Element, keepCheckboxFocus = fal
       return pos >= markerPosition - 1 && pos <= markerPosition + 3;
     });
     next?.focus({ preventScroll: true });
-  } else view.focus();
+  } else view.contentDOM.focus({ preventScroll: true });
   return true;
 }
 
