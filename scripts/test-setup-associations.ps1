@@ -72,6 +72,12 @@ try {
     $process = Start-Process -FilePath $SetupPath -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru
     $installed = Test-Path -LiteralPath (Join-Path $InstallDir 'unins000.exe')
     if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+    $licenseSource = Join-Path (Split-Path $PSScriptRoot -Parent) 'installer\licenses\Markdig.txt'
+    $licenseInstalled = Join-Path $InstallDir 'licenses\Markdig.txt'
+    if (-not (Test-Path -LiteralPath $licenseInstalled) -or
+        (Get-FileHash -LiteralPath $licenseSource).Hash -cne (Get-FileHash -LiteralPath $licenseInstalled).Hash) {
+        throw 'The installed Markdig license is missing or differs from the upstream text.'
+    }
     $command = '"' + (Join-Path $InstallDir 'Marker.App.exe') + '" "%1"'
     Assert-String $progIdKey '' 'Marker Markdown 文档'
     Assert-String "$progIdKey\DefaultIcon" '' ('"' + (Join-Path $InstallDir 'Marker.App.exe') + '",0')

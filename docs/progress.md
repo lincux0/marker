@@ -545,3 +545,9 @@
 - 修复原生按默认 JSON ASCII 转义估算容量、导致 Web 可保存的中文文档无法重新打开或恢复的问题。打开、重载、恢复、快照和增量结果共用 `BridgeSession.IsEditorTextWithinLimits`，按 Web `JSON.stringify` 的 UTF-8、控制字符、引号/反斜杠和代理项规则计算完整快照预算；仍保留 1 Mi UTF-16 文本、2 MiB 原始消息和完整快照限制。拒绝超限增量时保留原会话文本与版本。
 - 新增三项回归，覆盖 40 万中文、20 万 emoji、特殊 Unicode/转义字符、双限额，以及新建文件保存→读取、草稿保存→恢复。局部 3/3 通过，完整 `scripts/build.ps1` 73 通过、2 重解析点权限跳过、0 失败；Release 0 警告/0 错误，已重新生成 EXE。首轮沙箱阻止临时文件移动，保持原测试场景提权重跑后通过，没有为权限问题修改产品行为。
 - 证据：`artifacts/tests-capacity/marker-capacity.trx`、`artifacts/audit-capacity-build.log`。Graphify code-only/no-cluster 更新为 1492 节点、2713 边；图谱提示 `global.json` 未产生节点，不替代配置核验。本次未启动桌面应用或浏览器，未做完整原生 UI 往返、输入法或性能验收；Setup/MSIX 附件修复独立记录。
+
+## 2026-10-11 Setup 补齐 Markdig 许可证
+
+- 从 Markdig 1.4.0 NuGet 元数据对应上游提交获取完整 BSD-2-Clause 版权、条件和免责声明，保存为 `installer/licenses/Markdig.txt`，SHA-256 与上游原文一致：`7423242B4AE72BCCDF19A06CD3C20790DF8519A164A08F37B31CB4A40034D827`。Setup 将它安装到 `licenses/Markdig.txt`；第三方声明记录固定来源，现有安装验收新增该文件的存在与哈希断言。
+- PowerShell 语法、相对链接和 diff 检查通过。复用容量修复已验证的 Release 输出，以 `build-setup.ps1 -SkipBuild` 重建 Setup；在工作区隔离目录实际安装，6 份许可/声明文件逐项 SHA-256 一致，默认文件关联及其他程序候选保持，测试包卸载及注册清理通过。没有启动应用或修改用户设置、草稿、证书。
+- 证据：`artifacts/audit-markdig-setup-build.log`、`artifacts/audit-markdig-install.log`；本次 Setup SHA-256 `252135BEC48D46FC58A6031F5BEF44827C48609E8E853ADF98073B3D903E0607`，仍未签名。本项补齐 Markdig 的已确认缺口，不宣称完整运行时依赖许可盘点已完成；MSIX 附件单独修复。

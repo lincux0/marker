@@ -13,6 +13,8 @@
 
 `Microsoft.Web.WebView2` 当前由 Windows App SDK 依赖传递引入，准确版本见 `src/Marker.App/packages.lock.json`，不是应用项目中的直接 PackageReference。
 
+Markdig 1.4.0 的完整版权、条件与免责声明保留在 [Markdig.txt](installer/licenses/Markdig.txt)，来自 NuGet 元数据对应提交 `56e9c238584a44a169f174c881855c049768634c` 的[上游原文](https://github.com/xoofx/markdig/blob/56e9c238584a44a169f174c881855c049768634c/license.txt)。Setup 将该文本安装到 `licenses/Markdig.txt`；项目 MIT 不替代此许可证。
+
 ## SQLite 运行时传递依赖
 
 本地 NuGet nuspec 核实 `SQLitePCLRaw.bundle_e_sqlite3`、`SQLitePCLRaw.core`、`SQLitePCLRaw.lib.e_sqlite3`、`SQLitePCLRaw.provider.e_sqlite3` 2.1.12 均声明 `Apache-2.0`，作者 Eric Sink；来源：[SQLitePCL.raw](https://github.com/ericsink/SQLitePCL.raw)。安装包包含解析后的 .NET 库及 Windows x64 原生 SQLite 库。SQLite 自身采用公有领域授权，包装库仍按各自许可证交付。
