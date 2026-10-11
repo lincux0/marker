@@ -602,3 +602,12 @@
 - 数据库局部测试 11/11；完整测试 78 通过、2 项重解析点权限跳过、0 失败（`tests/settings-diagnostic.trx`）。Release 构建成功、0 错误，NU1900 表示本次无法获取 NuGet 漏洞数据，不等于漏洞扫描通过；沙箱 WinUI 编译取消后提权重跑成功。Web 源码未变，复用既有生产输出。Graphify code-only/no-cluster 更新为 1525 节点/2808 边，无语义提取；global.json 零节点提示仍保留。
 - 新 EXE SHA-256 `6BC6A16762ED910F37D54F9E942637F066A3DE4744B8A5AD75BD8E992CF233C2`；本轮未替换用户安装目录、复验最低系统或混合 DPI，未检查远端 CI。用户 `docs/测试文档.md` 原修改保留。
 - 按已验证 Release 输出重建 `artifacts/setup/Marker-Setup-0.1.0.0-x64.exe`，SHA-256 `2C8A6BBBD7901AC357CED633D0672BC5FC07AB111ACEFD92C93ABF6172CFD646`，仍未签名。首轮沙箱资源更新失败，提权重新打包成功；构建、测试与打包日志保存在 `artifacts/settings-invalid-data/`。此包用于捕获再次发生时的精确诊断，尚未在用户安装目录复验。
+
+## 2026-10-11 设置数据库版本查询修正
+
+- 新截图明确显示版本 0；正在运行的安装版重新打开设置仍复现相同提示。但同一时段对同一路径执行 Python、安装程序集和用户桌面 STA 只读探针，均得到版本 1、完整性正常、有效设置记录及相同原库哈希。实际安装 EXE、托管程序集和原生 SQLite 库均匹配，进程无 MSIX 包身份。原来的 `Convert.ToInt32` 会把空结果转为 0，旧进程究竟得到空结果还是整数 0 未捕获；不据截图修改用户数据库版本。
+- 将版本读取改为 SQLite 表值函数 `SELECT user_version FROM pragma_user_version()`，严格要求整数返回值，保留只接受版本 1 的边界。新增真实 0、未来版本 2 和同名表内伪造版本 1 的保护回归：拒写且数据库字节保持。首轮表值查询带了该函数不支持的参数，测试发现后改为无参数，最终完整测试 81 通过、2 项重解析点权限跳过、0 失败。NU1900 表示本次无法获取 NuGet 漏洞数据，不宣称漏洞扫描完成。
+- Release 构建成功、0 错误；Web 未变，复用生产输出。用户桌面 Shell 启动的新 EXE 设置无数据库警告，真实开关持久化成功；测试后恢复原库，7 个既有草稿哈希保持。Graphify code-only/no-cluster 更新 1526 节点/2815 边，无语义提取；global.json 零节点提示保留。
+- 已备份 `D:\markersetup` 应用目录，以新 Setup 在该实际路径升级；安装 EXE、App DLL、SQLite 库逐项哈希匹配，默认 `.md`/`.markdown` UserChoice 保持。真正安装实例从桌面启动，设置无错误，自动隐藏偏好实际写入版本 1 数据库；证据 `artifacts/settings-version-zero/installed-before.json`、`installed-toggle.json`、`installed-persisted.json`。管理员文件追踪的系统授权被取消，未获取追踪文件，相关工具进程退出，不再启动追踪。
+- EXE SHA-256 `D706D0BEC7F51D66C83229D00697F4FD040DA0E121787DCF3E9D0463B63DF898`；Setup SHA-256 `70146C234D69ABDFDB814B277013DAA20D18579E8162A521A7B3B958B407187D`，仍未签名。构建、完整测试、Graphify、打包和安装日志保存在 `artifacts/settings-version-zero/`。未复验最低系统、混合 DPI 或远端 CI；用户 `docs/测试文档.md` 原修改保留。
+- 实际安装版再次从桌面重启，设置仍无数据库警告且自动隐藏开关为已保存的开启状态（`installed-reload.json`）。测试进程正常关闭，原数据库及 7 个草稿全部哈希保持，追踪工具无残留进程（`installed-cleanup.json`）；安装目录保留修复版，用户原有偏好保持。

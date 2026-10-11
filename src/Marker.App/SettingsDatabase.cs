@@ -118,8 +118,9 @@ internal static class SettingsDatabase
     private static void ValidateSchema(SqliteConnection connection)
     {
         using var version = connection.CreateCommand();
-        version.CommandText = "PRAGMA user_version";
-        var actualVersion = Convert.ToInt32(version.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+        version.CommandText = "SELECT user_version FROM pragma_user_version()";
+        if (version.ExecuteScalar() is not long actualVersion)
+            throw new InvalidDataException("设置数据库版本查询没有返回有效整数，已保留原文件。");
         if (actualVersion != DatabaseSchemaVersion)
             throw new InvalidDataException($"设置数据库版本 {actualVersion} 不兼容，已保留原文件。");
 

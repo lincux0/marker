@@ -88,8 +88,10 @@ public sealed class SettingsDatabaseTests
         CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
     }
 
-    [TestMethod]
-    public void FutureDatabaseSchemaIsPreservedAndDisablesWrites()
+    [DataTestMethod]
+    [DataRow(0)]
+    [DataRow(2)]
+    public void UnsupportedDatabaseSchemaIsPreservedAndDisablesWrites(int version)
     {
         using var temp = new TempDirectory();
         _ = SettingsDatabase.Load(temp.Path);
@@ -97,7 +99,7 @@ public sealed class SettingsDatabaseTests
         using (var connection = Open(path))
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "PRAGMA user_version = 2";
+            command.CommandText = $"PRAGMA user_version = {version}";
             command.ExecuteNonQuery();
         }
         var original = File.ReadAllBytes(path);
@@ -107,7 +109,7 @@ public sealed class SettingsDatabaseTests
         Assert.IsFalse(loaded.CanSave);
         Assert.AreEqual(AppSettings.Default.Theme, loaded.Settings.Theme);
         Assert.IsTrue(loaded.Warning!.Contains(path, StringComparison.Ordinal));
-        Assert.IsTrue(loaded.Warning.Contains("设置数据库版本 2 不兼容", StringComparison.Ordinal));
+        Assert.IsTrue(loaded.Warning.Contains($"设置数据库版本 {version} 不兼容", StringComparison.Ordinal));
         Assert.ThrowsException<InvalidDataException>(() => SettingsDatabase.Save(temp.Path, AppSettings.Default));
         CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
     }
@@ -135,6 +137,27 @@ public sealed class SettingsDatabaseTests
         Assert.IsTrue(loaded.Warning!.Contains(path, StringComparison.Ordinal));
         Assert.IsTrue(loaded.Warning.Contains("设置内容无法解析", StringComparison.Ordinal));
         Assert.IsFalse(loaded.Warning.Contains("PAYLOAD_SENTINEL", StringComparison.Ordinal));
+        CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
+    }
+
+    [DataTestMethod]
+    [DataRow(0)]
+    [DataRow(2)]
+    public void SameNamedTableCannotMasqueradeAsSupportedDatabaseVersion(int version)
+    {
+        using var temp = new TempDirectory();
+        _ = SettingsDatabase.Load(temp.Path);
+        var path = Path.Combine(temp.Path, "settings.db");
+        using (var connection = Open(path))
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"PRAGMA user_version = {version}; CREATE TABLE pragma_user_version (user_version INTEGER); INSERT INTO pragma_user_version VALUES (1)";
+            command.ExecuteNonQuery();
+        }
+        var original = File.ReadAllBytes(path);
+
+        Assert.IsFalse(SettingsDatabase.Load(temp.Path).CanSave);
+        Assert.ThrowsException<SqliteException>(() => SettingsDatabase.Save(temp.Path, AppSettings.Default));
         CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
     }
 
