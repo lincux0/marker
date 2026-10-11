@@ -223,9 +223,11 @@ function sendCommand(command: NativeCommand): boolean {
 }
 
 function toggleSource(editor: EditorView): boolean {
+  const scroll = editor.scrollSnapshot();
   if (!toggleSourceMode(editor)) return false;
   // Removing line styles leaves stale heights; rebuild the view with the same document, selection and history.
   editor.setState(editor.state);
+  editor.dispatch({ effects: scroll });
   toolbar?.setSourceMode(editor.dom.dataset.sourceMode === "true");
   post({ type: "sourceMode", sessionId, version, sourceMode: editor.dom.dataset.sourceMode === "true" });
   return true;
@@ -243,7 +245,7 @@ function runEditorCommand(command: EditorCommand, trigger?: HTMLElement): void {
     case "redo": redo(view); view.focus(); break;
     case "find": openSearchPanel(view); break;
     case "replace": openReplacePanel(view); break;
-    case "toggleSource": toggleSource(view); view.focus(); break;
+    case "toggleSource": toggleSource(view); view.contentDOM.focus({ preventScroll: true }); break;
     case "toggleOutline": outline.toggle(trigger); break;
     case "toggleFocus": toggleFocusMode(); break;
   }
