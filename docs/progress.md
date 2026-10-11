@@ -594,3 +594,11 @@
 - 最终构建证据 artifacts/five-fixes-delivery-build.log、five-fixes-delivery-check.json；EXE SHA-256 `6C82DC828862D5B84FBA28343C5DEB6938054D9746CD64942A07EC3C573A6A96`。已用最终 Release 输出重建 `artifacts/setup/Marker-Setup-0.1.0.0-x64.exe`，SHA-256 `28D1D0A491F73085DF1791F475F83A08A70686D5D82A98942E2C25FD5FB1BEB1`，仍 NotSigned；打包日志 five-fixes-delivery-setup.log。
 - 测试浏览器、Vite 和真实主实例均关闭；设置备份已恢复且哈希一致，7 个既有草稿全部哈希保持，无夹具残留草稿（cleanup-results.json）。最终 EXE 原生自动隐藏开关补验通过且再次恢复设置/7个草稿（auto-cleanup-results.json）；未复验最低系统、混合 DPI 或新 Setup 安装；没有签名、MSIX、证书变更或安装目录更新。用户 docs/测试文档.md 原修改保持。
 - 按此前推送授权，五项功能分别提交后推送到 origin/master；远端 ls-remote 核对功能提交 `c86fba257541592d4cafe7b3cede45e0733f78b3` 一致。此条为纯文档交付补记，diff 检查通过，未再次构建或检查远端 CI。
+
+## 2026-10-11 安装版设置错误精确诊断
+
+- 用户确认新包安装后仍从 `D:\markersetup` 启动。安装 EXE、App DLL 和 SQLite 依赖与前次交付匹配；当前用户库完整性检查正常、数据库与记录版本均为 1，安装程序集只读加载成功。本轮真实安装 EXE 的设置窗口无错误，自动隐藏偏好成功持久化；测试后正常退出，恢复原数据库，7 个既有草稿哈希全部保持。证据 `artifacts/settings-invalid-data/installed-native-before.json`、`installed-native-after.json`、`cleanup.json`。
+- 截图那次的 `InvalidDataException` 未复现，不能据当前正常结果断定历史原因。加载提示补充实际数据库路径、内部校验原因及不兼容数据库版本号；保留原有禁写和安全重试，不自动修复或删除用户数据库。回归覆盖未来版本和非法 JSON，验证异常库字节不变且不泄露 payload。
+- 数据库局部测试 11/11；完整测试 78 通过、2 项重解析点权限跳过、0 失败（`tests/settings-diagnostic.trx`）。Release 构建成功、0 错误，NU1900 表示本次无法获取 NuGet 漏洞数据，不等于漏洞扫描通过；沙箱 WinUI 编译取消后提权重跑成功。Web 源码未变，复用既有生产输出。Graphify code-only/no-cluster 更新为 1525 节点/2808 边，无语义提取；global.json 零节点提示仍保留。
+- 新 EXE SHA-256 `6BC6A16762ED910F37D54F9E942637F066A3DE4744B8A5AD75BD8E992CF233C2`；本轮未替换用户安装目录、复验最低系统或混合 DPI，未检查远端 CI。用户 `docs/测试文档.md` 原修改保留。
+- 按已验证 Release 输出重建 `artifacts/setup/Marker-Setup-0.1.0.0-x64.exe`，SHA-256 `2C8A6BBBD7901AC357CED633D0672BC5FC07AB111ACEFD92C93ABF6172CFD646`，仍未签名。首轮沙箱资源更新失败，提权重新打包成功；构建、测试与打包日志保存在 `artifacts/settings-invalid-data/`。此包用于捕获再次发生时的精确诊断，尚未在用户安装目录复验。

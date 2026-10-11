@@ -106,7 +106,35 @@ public sealed class SettingsDatabaseTests
             AppSettings.Default with { Theme = "dark" });
         Assert.IsFalse(loaded.CanSave);
         Assert.AreEqual(AppSettings.Default.Theme, loaded.Settings.Theme);
+        Assert.IsTrue(loaded.Warning!.Contains(path, StringComparison.Ordinal));
+        Assert.IsTrue(loaded.Warning.Contains("设置数据库版本 2 不兼容", StringComparison.Ordinal));
         Assert.ThrowsException<InvalidDataException>(() => SettingsDatabase.Save(temp.Path, AppSettings.Default));
+        CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
+    }
+
+    [TestMethod]
+    public void InvalidDatabasePayloadReportsSafeReasonAndPathWithoutLeakingPayload()
+    {
+        using var temp = new TempDirectory();
+        _ = SettingsDatabase.Load(temp.Path);
+        var path = Path.Combine(temp.Path, "settings.db");
+        const string payload = "{\"schemaVersion\":1,\"secret\":\"PAYLOAD_SENTINEL\",";
+        using (var connection = Open(path))
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "UPDATE settings SET payload = $payload WHERE id = 1";
+            command.Parameters.AddWithValue("$payload", payload);
+            command.ExecuteNonQuery();
+        }
+        var original = File.ReadAllBytes(path);
+
+        var loaded = SettingsDatabase.LoadWithPendingChanges(temp.Path, AppSettings.Default,
+            AppSettings.Default with { Theme = "dark" });
+
+        Assert.IsFalse(loaded.CanSave);
+        Assert.IsTrue(loaded.Warning!.Contains(path, StringComparison.Ordinal));
+        Assert.IsTrue(loaded.Warning.Contains("设置内容无法解析", StringComparison.Ordinal));
+        Assert.IsFalse(loaded.Warning.Contains("PAYLOAD_SENTINEL", StringComparison.Ordinal));
         CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
     }
 

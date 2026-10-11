@@ -31,7 +31,7 @@ internal static class SettingsDatabase
         catch (Exception error) when (IsStorageError(error))
         {
             return new(AppSettings.Default,
-                $"设置数据库无法安全读取或写入，当前修改仅在本次运行中生效（诊断：{DescribeStorageError(error)}）。", false);
+                $"设置数据库“{databasePath}”无法安全读取或写入，当前修改仅在本次运行中生效（诊断：{DescribeStorageError(error)}）。", false);
         }
     }
 
@@ -111,7 +111,7 @@ internal static class SettingsDatabase
             throw new InvalidDataException("设置数据库记录无效或超过 64 KiB。");
 
         var parsed = AppSettings.ParseSerialized(Encoding.UTF8.GetBytes(payload));
-        if (!parsed.CanSave) throw new InvalidDataException("设置数据库中的内容无法读取。");
+        if (!parsed.CanSave) throw new InvalidDataException(parsed.Warning ?? "设置数据库中的内容无法读取。");
         return parsed;
     }
 
@@ -119,8 +119,9 @@ internal static class SettingsDatabase
     {
         using var version = connection.CreateCommand();
         version.CommandText = "PRAGMA user_version";
-        if (Convert.ToInt32(version.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) != DatabaseSchemaVersion)
-            throw new InvalidDataException("设置数据库版本不兼容，已保留原文件。");
+        var actualVersion = Convert.ToInt32(version.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+        if (actualVersion != DatabaseSchemaVersion)
+            throw new InvalidDataException($"设置数据库版本 {actualVersion} 不兼容，已保留原文件。");
 
         using var row = connection.CreateCommand();
         row.CommandText = "SELECT COUNT(*), MAX(CASE WHEN id = 1 AND schema_version = $schema AND typeof(schema_version) = 'integer' THEN 1 ELSE 0 END) FROM settings";
@@ -192,7 +193,10 @@ internal static class SettingsDatabase
     private static bool IsStorageError(Exception error) => error is IOException or InvalidDataException or UnauthorizedAccessException
         or ArgumentException or InvalidOperationException or SqliteException;
 
-    private static string DescribeStorageError(Exception error) => error is SqliteException sqlite
-        ? $"SQLite {sqlite.SqliteErrorCode}/{sqlite.SqliteExtendedErrorCode}"
-        : error.GetType().Name;
+    private static string DescribeStorageError(Exception error) => error switch
+    {
+        SqliteException sqlite => $"SQLite {sqlite.SqliteErrorCode}/{sqlite.SqliteExtendedErrorCode}",
+        InvalidDataException invalidData => invalidData.Message,
+        _ => error.GetType().Name
+    };
 }
