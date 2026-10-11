@@ -592,4 +592,5 @@
 - 生产 Web 模拟宿主生成 3 页 PDF，中文、公式、流程图、表格、尾页内容及浅色布局已检查；真实系统对话框→WebView2 打印流→三页 PDF 端到端通过，未保存标记、中文和图表齐全，源文件未写入；取消导出原 PDF 哈希不变，首页图像已审查。证据 artifacts/five-fixes-native/pdf-results.json、pdf-page1.png。
 - 最终 scripts/build.ps1 完成锁定依赖还原、Web 类型检查/生产构建、Release EXE 和完整业务测试：77 通过、2 权限跳过、0 失败；0 构建错误、4 条既有 PRI249 及 Vite 大 chunk 提示保留。安全 PDF 写入局部回归通过，163 项 Web 与最终 EXE 输出逐项哈希一致。Graphify code-only/no-cluster 更新为 1523 节点/2803 边，无语义提取；global.json 零节点提示不替代配置核验。
 - 最终构建证据 artifacts/five-fixes-delivery-build.log、five-fixes-delivery-check.json；EXE SHA-256 `6C82DC828862D5B84FBA28343C5DEB6938054D9746CD64942A07EC3C573A6A96`。已用最终 Release 输出重建 `artifacts/setup/Marker-Setup-0.1.0.0-x64.exe`，SHA-256 `28D1D0A491F73085DF1791F475F83A08A70686D5D82A98942E2C25FD5FB1BEB1`，仍 NotSigned；打包日志 five-fixes-delivery-setup.log。
-- 测试浏览器、Vite 和真实主实例均关闭；设置备份已恢复且哈希一致，7 个既有草稿全部哈希保持，无夹具残留草稿（cleanup-results.json）。最终 EXE 原生自动隐藏开关补验通过且再次恢复设置/7个草稿（auto-cleanup-results.json）；未复验最低系统、混合 DPI 或新 Setup 安装；没有签名、MSIX、证书变更、安装目录更新或 push。用户 docs/测试文档.md 原修改保持。
+- 测试浏览器、Vite 和真实主实例均关闭；设置备份已恢复且哈希一致，7 个既有草稿全部哈希保持，无夹具残留草稿（cleanup-results.json）。最终 EXE 原生自动隐藏开关补验通过且再次恢复设置/7个草稿（auto-cleanup-results.json）；未复验最低系统、混合 DPI 或新 Setup 安装；没有签名、MSIX、证书变更或安装目录更新。用户 docs/测试文档.md 原修改保持。
+- 按此前推送授权，五项功能分别提交后推送到 origin/master；远端 ls-remote 核对功能提交 `c86fba257541592d4cafe7b3cede45e0733f78b3` 一致。此条为纯文档交付补记，diff 检查通过，未再次构建或检查远端 CI。
