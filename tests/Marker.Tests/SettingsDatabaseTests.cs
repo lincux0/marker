@@ -75,10 +75,15 @@ public sealed class SettingsDatabaseTests
         File.WriteAllText(path, contents);
         var original = File.ReadAllBytes(path);
 
-        var loaded = SettingsDatabase.Load(temp.Path);
+        var loaded = SettingsDatabase.LoadWithPendingChanges(temp.Path, AppSettings.Default,
+            AppSettings.Default with { Theme = "dark" });
 
         Assert.IsFalse(loaded.CanSave);
         Assert.IsNotNull(loaded.Warning);
+        Assert.AreEqual(AppSettings.Default.Theme, loaded.Settings.Theme);
+        Assert.IsTrue(loaded.Warning.Contains("诊断：", StringComparison.Ordinal));
+        if (contents.Length > 0)
+            Assert.IsTrue(loaded.Warning.Contains("SQLite ", StringComparison.Ordinal));
         AssertStorageException(() => SettingsDatabase.Save(temp.Path, AppSettings.Default));
         CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
     }
@@ -97,9 +102,41 @@ public sealed class SettingsDatabaseTests
         }
         var original = File.ReadAllBytes(path);
 
-        Assert.IsFalse(SettingsDatabase.Load(temp.Path).CanSave);
+        var loaded = SettingsDatabase.LoadWithPendingChanges(temp.Path, AppSettings.Default,
+            AppSettings.Default with { Theme = "dark" });
+        Assert.IsFalse(loaded.CanSave);
+        Assert.AreEqual(AppSettings.Default.Theme, loaded.Settings.Theme);
         Assert.ThrowsException<InvalidDataException>(() => SettingsDatabase.Save(temp.Path, AppSettings.Default));
         CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
+    }
+
+    [TestMethod]
+    public void RecoversAfterDatabaseLockAndMergesOnlyPendingChanges()
+    {
+        using var temp = new TempDirectory();
+        var stored = AppSettings.Default with { Theme = "dark", FontSize = 21, LineWrapping = false };
+        SettingsDatabase.Save(temp.Path, stored);
+        var baseline = AppSettings.Default;
+        var pending = baseline with { Theme = "light", AutoHideToolbar = true };
+        var path = Path.Combine(temp.Path, "settings.db");
+
+        using (var connection = Open(path))
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "BEGIN EXCLUSIVE; UPDATE settings SET payload = payload WHERE id = 1";
+            command.ExecuteNonQuery();
+            Assert.IsFalse(SettingsDatabase.Load(temp.Path).CanSave);
+            command.CommandText = "ROLLBACK";
+            command.ExecuteNonQuery();
+        }
+
+        var loaded = SettingsDatabase.LoadWithPendingChanges(temp.Path, baseline, pending);
+
+        Assert.IsTrue(loaded.CanSave, loaded.Warning);
+        Assert.AreEqual("light", loaded.Settings.Theme);
+        Assert.IsTrue(loaded.Settings.AutoHideToolbar);
+        Assert.AreEqual(21, loaded.Settings.FontSize);
+        Assert.IsFalse(loaded.Settings.LineWrapping);
     }
 
     [TestMethod]

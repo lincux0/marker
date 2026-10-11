@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 
 namespace Marker.App;
@@ -28,8 +30,30 @@ internal static class SettingsDatabase
         }
         catch (Exception error) when (IsStorageError(error))
         {
-            return new(AppSettings.Default, "设置数据库无法安全读取或写入，当前修改仅在本次运行中生效。", false);
+            return new(AppSettings.Default,
+                $"设置数据库无法安全读取或写入，当前修改仅在本次运行中生效（诊断：{DescribeStorageError(error)}）。", false);
         }
+    }
+
+    internal static AppSettingsLoadResult LoadWithPendingChanges(string directory, AppSettings baseline, AppSettings pending)
+    {
+        ArgumentNullException.ThrowIfNull(baseline);
+        ArgumentNullException.ThrowIfNull(pending);
+
+        var loaded = Load(directory);
+        if (!loaded.CanSave) return loaded;
+
+        var baselineJson = JsonNode.Parse(baseline.Serialize())!.AsObject();
+        var pendingJson = JsonNode.Parse(pending.Serialize())!.AsObject();
+        var mergedJson = JsonNode.Parse(loaded.Settings.Serialize())!.AsObject();
+        foreach (var (name, value) in pendingJson)
+        {
+            if (!JsonNode.DeepEquals(baselineJson[name], value))
+                mergedJson[name] = value?.DeepClone();
+        }
+
+        var merged = AppSettings.ParseSerialized(JsonSerializer.SerializeToUtf8Bytes(mergedJson));
+        return merged.CanSave ? merged with { Warning = loaded.Warning ?? merged.Warning } : loaded;
     }
 
     internal static void Save(string directory, AppSettings settings)
@@ -167,4 +191,8 @@ internal static class SettingsDatabase
 
     private static bool IsStorageError(Exception error) => error is IOException or InvalidDataException or UnauthorizedAccessException
         or ArgumentException or InvalidOperationException or SqliteException;
+
+    private static string DescribeStorageError(Exception error) => error is SqliteException sqlite
+        ? $"SQLite {sqlite.SqliteErrorCode}/{sqlite.SqliteExtendedErrorCode}"
+        : error.GetType().Name;
 }

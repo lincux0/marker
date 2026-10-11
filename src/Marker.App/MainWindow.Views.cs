@@ -8,6 +8,7 @@ public sealed partial class MainWindow
 {
     internal string _viewMode = "split";
     internal AppSettings _settings = AppSettings.Default;
+    private AppSettings _settingsLoadBaseline = AppSettings.Default;
     private readonly string _settingsDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Marker");
     private bool _viewsInitializing = true;
@@ -19,6 +20,7 @@ public sealed partial class MainWindow
     {
         var loaded = SettingsDatabase.Load(_settingsDirectory);
         _settings = loaded.Settings with { ViewMode = "split" };
+        _settingsLoadBaseline = _settings;
         _settingsCanSave = loaded.CanSave;
         _settingsNotice = loaded.Warning;
         RequestedTheme = _settings.Theme switch { "light" => ElementTheme.Light, "dark" => ElementTheme.Dark, _ => ElementTheme.Default };
@@ -95,6 +97,19 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (!_settingsCanSave)
+        {
+            var recovered = SettingsDatabase.LoadWithPendingChanges(_settingsDirectory, _settingsLoadBaseline, _settings);
+            _settingsCanSave = recovered.CanSave;
+            _settingsNotice = recovered.Warning;
+            if (recovered.CanSave)
+            {
+                _settings = recovered.Settings with { ViewMode = "split" };
+                _settingsLoadBaseline = _settings;
+                RequestedTheme = _settings.Theme switch { "light" => ElementTheme.Light, "dark" => ElementTheme.Dark, _ => ElementTheme.Default };
+                ApplySystemAppearance();
+            }
+        }
         var window = new SettingsWindow(_settings, _settingsNotice, SettingsChanged);
         _settingsWindow = window;
         window.Closed += (_, _) =>
@@ -127,7 +142,10 @@ public sealed partial class MainWindow
     {
         if (!_settingsCanSave)
         {
-            SetSettingsNotice("设置数据库无法安全写入；当前修改仅在本次运行中生效。修复或移走数据库后可恢复保存。");
+            var notice = _settingsNotice ?? "设置数据库暂时无法安全读取或写入。";
+            if (!notice.Contains("重新打开设置", StringComparison.Ordinal))
+                notice += " 关闭并重新打开设置可重试；原数据库保留，勿直接删除。";
+            SetSettingsNotice(notice);
             return;
         }
         try
