@@ -146,11 +146,23 @@ internal sealed class BridgeSession(string sessionId)
             return false;
         if (!HasMatchingSession(root, out error)) return false;
         if (!root.TryGetProperty("command", out var commandElement) || commandElement.ValueKind != JsonValueKind.String ||
-            commandElement.GetString() is not ("new" or "open" or "save" or "saveAs" or "recover" or "settings"))
+            commandElement.GetString() is not ("new" or "open" or "save" or "saveAs" or "recover" or "settings" or "exportPdf"))
             return Fail("原生命令不受支持。", out error);
 
         command = commandElement.GetString()!;
         error = string.Empty;
+        return true;
+    }
+
+    public bool TryReadPdfReady(string source, string expectedSource, string json, out string requestId, out bool success)
+    {
+        requestId = string.Empty;
+        success = false;
+        if (!TryRead(source, expectedSource, json, "pdfReady", ["type", "protocolVersion", "sessionId", "version", "requestId", "success"], out var root, out _)
+            || !HasMatchingSession(root, out _) || !TryReadRequiredRequestId(root, out requestId, out _)
+            || _text is null || !TryReadInt64(root, "version", out var version) || version != Version
+            || !root.TryGetProperty("success", out var value) || value.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return false;
+        success = value.GetBoolean();
         return true;
     }
 

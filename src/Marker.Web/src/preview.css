@@ -448,3 +448,41 @@ html[data-high-contrast="true"][data-file-drag="true"]::after {
   color: CanvasText;
   background: Canvas;
 }
+
+@media print {
+  html, html[data-theme], html[data-color-palette], html[data-high-contrast] {
+    --foreground: #222 !important;
+    --muted: #555 !important;
+    --background: #fff !important;
+    --paper: #fff !important;
+    --surface: #f4f4f4 !important;
+    --surface-strong: #eee !important;
+    --border: #ccc !important;
+    --link: #234f80 !important;
+    --accent: #444 !important;
+    --tok-keyword: #79549c !important;
+    --tok-string: #386e53 !important;
+    --tok-comment: #72757d !important;
+    --tok-number: #a75b3f !important;
+    --tok-name: #3d638a !important;
+    color-scheme: light !important;
+  }
+  html, body { min-height: 0; scroll-behavior: auto; }
+  .outline, body::after, .marker-math-copy { display: none !important; }
+  #preview { width: auto; max-width: none; min-height: 0; margin: 0; padding: 0; border: 0; box-shadow: none; }
+  #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 { break-after: avoid; }
+  #preview pre { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; }
+  #preview table { width: 100%; min-width: 0; table-layout: fixed; }
+  #preview td, #preview th { overflow-wrap: anywhere; }
+  #preview img, .marker-print-mermaid svg { max-width: 100%; height: auto; }
+  .marker-print-mermaid { break-inside: avoid; }
+  .marker-print-mermaid svg rect, .marker-print-mermaid svg .node polygon,
+  .marker-print-mermaid svg .node path, .marker-print-mermaid svg .node circle,
+  .marker-print-mermaid svg .node ellipse {
+    fill: #edf1f8; stroke: #55627a; stroke-width: 1px;
+  }
+  .marker-print-mermaid svg text { fill: #222; font: 16px "Segoe UI", "Microsoft YaHei UI", sans-serif; }
+  .marker-print-mermaid svg .flowchart-link, .marker-print-mermaid svg .actor-line,
+  .marker-print-mermaid svg .messageLine0, .marker-print-mermaid svg .messageLine1 { fill: none; stroke: #55627a; stroke-width: 1.5px; }
+  .marker-print-mermaid svg .edgeLabel rect { fill: #fff; stroke: none; }
+}

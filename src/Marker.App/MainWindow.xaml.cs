@@ -317,6 +317,11 @@ public sealed partial class MainWindow : UserControl
 
     private void HandlePreviewMessage(string source, string json)
     {
+        if (_session.TryReadPdfReady(source, PreviewUrl, json, out var pdfRequestId, out var pdfSuccess))
+        {
+            if (pdfRequestId == _pdfRequestId) _pdfCompletion?.TrySetResult(pdfSuccess);
+            return;
+        }
         if (!_previewReady && _session.TryReadReady(source, PreviewUrl, json))
         {
             _previewReady = true;

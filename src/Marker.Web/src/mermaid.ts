@@ -70,10 +70,10 @@ function safeSvg(svg: string): SVGSVGElement {
   return root;
 }
 
-function enqueueRender(element: HTMLElement, source: string, theme: MermaidTheme): void {
+function enqueueRender(element: HTMLElement, source: string, theme: MermaidTheme): Promise<void> {
   const rejection = unsupportedReason(source);
-  if (rejection) return showFallback(element, source, rejection);
-  if (queuedRenders >= maxQueuedRenders) return showFallback(element, source, "图表队列已满，已保留源码。请稍后重试。");
+  if (rejection) { showFallback(element, source, rejection); return Promise.resolve(); }
+  if (queuedRenders >= maxQueuedRenders) { showFallback(element, source, "图表队列已满，已保留源码。请稍后重试。"); return Promise.resolve(); }
   queuedRenders++;
   const render = async (): Promise<void> => {
     if (!element.isConnected) return;
@@ -108,6 +108,20 @@ function enqueueRender(element: HTMLElement, source: string, theme: MermaidTheme
     }
   };
   renderTail = renderTail.then(render, render).finally(() => { queuedRenders--; });
+  return renderTail;
+}
+
+export async function renderMermaidForPrint(root: HTMLElement): Promise<void> {
+  for (const code of root.querySelectorAll<HTMLElement>("pre > code.language-mermaid")) {
+    const wrapper = document.createElement("section");
+    wrapper.className = "marker-print-mermaid";
+    const panel = document.createElement("div");
+    panel.className = "marker-mermaid-preview";
+    wrapper.append(panel);
+    const source = code.textContent ?? "";
+    code.parentElement!.replaceWith(wrapper);
+    await enqueueRender(wrapper, source, "light");
+  }
 }
 
 function showFallback(element: HTMLElement, source: string, message: string): void {

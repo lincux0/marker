@@ -104,6 +104,7 @@ public sealed partial class MainWindow
             {
                 case "save": await SaveDocumentAsync(false); break;
                 case "saveAs": await SaveDocumentAsync(true); break;
+                case "exportPdf": await ExportPdfAsync(); break;
                 case "new":
                     if (await ConfirmLeaveDocumentAsync()) await SwitchDocumentAsync(DocumentFile.New());
                     break;

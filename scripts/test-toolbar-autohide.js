@@ -38,6 +38,8 @@ async (page) => {
     check(await editor.locator('.marker-toolbar').evaluate(element => !element.dataset.collapsed), 'switch off keeps toolbar visible');
     await receive({ type: 'settings', ...settings, autoHideToolbar: 'invalid' });
     check(await editor.locator('.marker-toolbar').evaluate(element => !element.dataset.collapsed), 'invalid setting ignored');
+    await editor.locator('.marker-toolbar-actions > [data-action="exportPdf"]').click();
+    check(await editor.evaluate(() => window.markerTest.sent.some(message => message.type === 'command' && message.command === 'exportPdf')), 'PDF button sends native command');
     return { passed: true, checks };
   } finally { await context.close(); }
 }

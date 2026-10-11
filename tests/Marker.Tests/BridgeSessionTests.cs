@@ -7,6 +7,7 @@ namespace Marker.Tests;
 public sealed class BridgeSessionTests
 {
     private const string EditorUrl = "https://editor.marker.example/index.html";
+    private const string PreviewUrl = "https://preview.marker.example/preview.html";
 
     [TestMethod]
     public void DiskChangeActionsRequireTrustedSessionExactFieldsAndNotificationId()
@@ -76,7 +77,7 @@ public sealed class BridgeSessionTests
     public void CommandsAndSnapshotErrorsRejectWrongProtocolOrUnknownFields()
     {
         var session = new BridgeSession("session-1");
-        foreach (var command in new[] { "new", "open", "save", "saveAs", "recover", "settings" })
+        foreach (var command in new[] { "new", "open", "save", "saveAs", "recover", "settings", "exportPdf" })
         {
             var message = System.Text.Json.JsonSerializer.Serialize(new { type = "command", protocolVersion = 1, sessionId = "session-1", command });
             Assert.IsTrue(session.TryReadCommand(EditorUrl, EditorUrl, message, out var accepted, out _));
@@ -95,6 +96,21 @@ public sealed class BridgeSessionTests
         Assert.AreEqual("request-1", requestId);
         Assert.AreEqual("compositionInProgress", reason);
         Assert.IsFalse(session.TryReadSnapshotError(EditorUrl, EditorUrl, snapshotError.Replace("compositionInProgress", "unknown", StringComparison.Ordinal), out _, out _, out _));
+    }
+
+    [TestMethod]
+    public void PdfReadyRejectsStaleVersionsForeignSourcesAndExtraFields()
+    {
+        var session = new BridgeSession("session-1");
+        Assert.IsTrue(session.TryAcceptSnapshot(EditorUrl, EditorUrl, Snapshot("session-1", 0, "PDF"), out _, out _));
+        const string ready = "{\"type\":\"pdfReady\",\"protocolVersion\":1,\"sessionId\":\"session-1\",\"version\":0,\"requestId\":\"pdf-1\",\"success\":true}";
+        Assert.IsTrue(session.TryReadPdfReady(PreviewUrl, PreviewUrl, ready, out var request, out var success));
+        Assert.AreEqual("pdf-1", request);
+        Assert.IsTrue(success);
+        Assert.IsFalse(session.TryReadPdfReady(EditorUrl, PreviewUrl, ready, out _, out _));
+        Assert.IsFalse(session.TryReadPdfReady(PreviewUrl, PreviewUrl, ready.Replace("\"version\":0", "\"version\":1"), out _, out _));
+        Assert.IsFalse(session.TryReadPdfReady(PreviewUrl, PreviewUrl, ready.Replace("session-1", "stale"), out _, out _));
+        Assert.IsFalse(session.TryReadPdfReady(PreviewUrl, PreviewUrl, ready.Replace("true}", "true,\"path\":\"x\"}"), out _, out _));
     }
 
     [TestMethod]

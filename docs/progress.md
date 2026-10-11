@@ -570,15 +570,26 @@
 
 - 切换源码/呈现标记前保存 CodeMirror 视口快照，重建视图后恢复；工具栏聚焦使用 preventScroll，保留选区和编辑历史。针对选择位于文尾而视口在顶部的场景，浏览器模拟宿主与真实 Release WebView2 回归通过。
 - 该项与下述四项使用同一完整工作区验证和生成最终 EXE/Setup，再按范围独立提交；没有逐一安装中间提交的二进制。未复验最低系统或混合 DPI。
+
 ## 2026-10-11 任务复选框位置保持
 
 - 呈现模式鼠标点击任务复选框沿用原有修改事务，聚焦阻止自动滚动，消除先下滑再返回的闪跳。与源码模式共用 scripts/test-scroll-regressions.js；模拟宿主和真实 WebView2 的滚动采样检查通过。
 - 不更改任务语法、撤销或文件保存流程；本轮产物与共享验证见 PDF 导出交付记录。
+
 ## 2026-10-11 顶部栏自动隐藏
 
 - 设置新增默认关闭的自动隐藏开关，兼容旧 schema 1。开启后闲置 3 秒收起，指针进入顶部 8 CSS 像素展开；悬停、键盘焦点和更多菜单保持展开，减少动画偏好停用过渡。
-- 生产 Web 模拟宿主的闲置、顶端展开、键盘焦点、菜单、关闭及非法字段回归通过；AppSettings 兼容/类型校验测试通过。完整工作区测试共 77 通过、2 项重解析点权限跳过、0 失败；原生 WinUI 开关人工交互未验。
+- 生产 Web 模拟宿主的闲置、顶端展开、键盘焦点、菜单、关闭及非法字段回归通过；AppSettings 兼容/类型校验测试通过。完整工作区测试共 77 通过、2 项重解析点权限跳过、0 失败；最终 EXE 的真实 WinUI ToggleSwitch→设置桥接→闲置收起/顶部展开自动化通过，证据 artifacts/five-fixes-native/auto-native-results.json；没有将自动化写成人工验收。
+
 ## 2026-10-11 设置数据库安全重试
 
 - 修复启动暂时加载失败后永久禁止本次保存的状态锁存：关闭并重新打开设置安全重试，仅合并失败期间变化的顶层字段。坏库或未知版本保持原样，提示保留异常类型及 SQLite 错误码，不要求删除数据库。
 - exclusive SQLite lock 回归覆盖失败后恢复和待保存字段合并，损坏/未来库字节不变检查通过。D:\markersetup 程序与依赖匹配，当前用户库读取成功；截图历史触发原因无法回溯，不能断言当时就是锁导致。共享完整测试证据为 artifacts/tests-five-fixes/five-fixes.trx。
+
+## 2026-10-11 PDF 导出与五项交付
+
+- 顶部栏新增 PDF 导出，系统选择独立目标，打印当前未保存快照；复用受控预览与数学/Mermaid 渲染，等待字体及图片，A4/四边约 15 mm。准备失败不写目标；写入前冲突拒绝，替换时竞态保留 .external 外部版本并报告路径。
+- 生产 Web 模拟宿主生成 3 页 PDF，中文、公式、流程图、表格、尾页内容及浅色布局已检查；真实系统对话框→WebView2 打印流→三页 PDF 端到端通过，未保存标记、中文和图表齐全，源文件未写入；取消导出原 PDF 哈希不变，首页图像已审查。证据 artifacts/five-fixes-native/pdf-results.json、pdf-page1.png。
+- 最终 scripts/build.ps1 完成锁定依赖还原、Web 类型检查/生产构建、Release EXE 和完整业务测试：77 通过、2 权限跳过、0 失败；0 构建错误、4 条既有 PRI249 及 Vite 大 chunk 提示保留。安全 PDF 写入局部回归通过，163 项 Web 与最终 EXE 输出逐项哈希一致。Graphify code-only/no-cluster 更新为 1523 节点/2803 边，无语义提取；global.json 零节点提示不替代配置核验。
+- 最终构建证据 artifacts/five-fixes-delivery-build.log、five-fixes-delivery-check.json；EXE SHA-256 `6C82DC828862D5B84FBA28343C5DEB6938054D9746CD64942A07EC3C573A6A96`。已用最终 Release 输出重建 `artifacts/setup/Marker-Setup-0.1.0.0-x64.exe`，SHA-256 `28D1D0A491F73085DF1791F475F83A08A70686D5D82A98942E2C25FD5FB1BEB1`，仍 NotSigned；打包日志 five-fixes-delivery-setup.log。
+- 测试浏览器、Vite 和真实主实例均关闭；设置备份已恢复且哈希一致，7 个既有草稿全部哈希保持，无夹具残留草稿（cleanup-results.json）。最终 EXE 原生自动隐藏开关补验通过且再次恢复设置/7个草稿（auto-cleanup-results.json）；未复验最低系统、混合 DPI 或新 Setup 安装；没有签名、MSIX、证书变更、安装目录更新或 push。用户 docs/测试文档.md 原修改保持。

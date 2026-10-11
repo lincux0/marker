@@ -4,6 +4,7 @@ import { classHighlighter, highlightTree } from "@lezer/highlight";
 import { enableFileDrop } from "./file-drop";
 import "./preview.css";
 import { renderMath } from "./math";
+import { renderMermaidForPrint } from "./mermaid";
 
 declare global {
   interface Window {
@@ -134,6 +135,7 @@ function renderOutline(entries: OutlineEntry[]): void {
 
 function highlightCodeBlocks(root: ParentNode): void {
   for (const code of root.querySelectorAll<HTMLElement>("pre > code")) {
+    if (code.classList.contains("language-mermaid")) continue;
     const languageClass = [...code.classList].find((name) => name.startsWith("language-"));
     code.removeAttribute("class");
     const language = languageClass?.slice("language-".length).toLowerCase();
@@ -221,6 +223,43 @@ bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {
   }
   if (message.type === "settings" && message.sessionId === sessionId) {
     applySettings(message);
+    return;
+  }
+  if (message.type === "finishPdf" && message.sessionId === sessionId) {
+    delete document.documentElement.dataset.pdf;
+    return;
+  }
+  if (message.type === "preparePdf" && message.sessionId === sessionId && message.version === version
+      && typeof message.requestId === "string" && /^[0-9a-f]{32}$/.test(message.requestId)) {
+    const requestSession = sessionId;
+    const requestVersion = version;
+    document.documentElement.dataset.pdf = "true";
+    void (async () => {
+      let success = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          (async () => {
+            await renderMermaidForPrint(preview);
+            // These declarations come only from sanitized KaTeX output, never from document HTML.
+            for (const element of preview.querySelectorAll<HTMLElement>(".marker-math-output [style]")) {
+              const styles = element.getAttribute("style") ?? "";
+              element.removeAttribute("style");
+              element.style.cssText = styles;
+            }
+            await document.fonts.ready;
+            await Promise.all([...preview.querySelectorAll("img")].map(image => image.complete ? Promise.resolve() : new Promise<void>(resolve => {
+              image.addEventListener("load", () => resolve(), { once: true });
+              image.addEventListener("error", () => resolve(), { once: true });
+            })));
+          })(),
+          new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("PDF preparation timed out")), 20000); })
+        ]);
+        success = sessionId === requestSession && version === requestVersion;
+      } catch { /* The host preserves the destination when print preparation fails. */ }
+      finally { clearTimeout(timer); }
+      bridge?.postMessage({ type: "pdfReady", protocolVersion, sessionId: requestSession, version: requestVersion, requestId: message.requestId, success });
+    })();
     return;
   }
   if (

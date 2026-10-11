@@ -1,4 +1,4 @@
-export type NativeCommand = "new" | "open" | "save" | "saveAs" | "recover" | "settings";
+export type NativeCommand = "new" | "open" | "save" | "saveAs" | "recover" | "settings" | "exportPdf";
 export type EditorCommand = "undo" | "redo" | "find" | "replace" | "toggleSource" | "toggleOutline" | "toggleFocus";
 export const configurableToolbarActions = ["new", "open", "save", "saveAs", "recover", "undo", "redo", "find", "replace", "toggleSource", "statistics"] as const;
 export type ConfigurableToolbarAction = (typeof configurableToolbarActions)[number];
@@ -18,6 +18,7 @@ const iconPaths: Record<Action | "more", string[]> = {
   save: ["M4 3h14l3 3v15H3V3z", "M7 3v6h10V3", "M7 21v-8h10v8"],
   saveAs: ["M4 3h14l3 3v7", "M7 3v6h10V3", "M7 21v-6h5", "m14 18 5-5 2 2-5 5-3 1z"],
   recover: ["M3 12a9 9 0 1 1 2.6 6.4", "M3 5v7h7", "M12 8v5l3 2"],
+  exportPdf: ["M5 3h10l4 4v5", "M15 3v5h4", "M5 3v18h7", "M17 12v9", "m13 17 4 4 4-4"],
   undo: ["M9 13 4 8l5-5", "M4 8h10a6.5 6.5 0 0 1 0 13h-2"],
   redo: ["m15 13 5-5-5-5", "M20 8H10a6.5 6.5 0 0 0 0 13h2"],
   find: ["M10.8 18.2a7.4 7.4 0 1 0 0-14.8 7.4 7.4 0 0 0 0 14.8z", "m16.2 16.2 4.3 4.3"],
@@ -54,6 +55,7 @@ const actions: Array<{ id: Action; label: string; shortcut?: string; overflow?: 
   { id: "save", label: "保存", shortcut: "Ctrl+S" },
   { id: "saveAs", label: "另存为", overflow: true },
   { id: "recover", label: "恢复草稿", overflow: true },
+  { id: "exportPdf", label: "导出 PDF", compactOverflow: true },
   { id: "undo", label: "撤销", shortcut: "Ctrl+Z", compactOverflow: true },
   { id: "redo", label: "重做", shortcut: "Ctrl+Y", compactOverflow: true },
   { id: "find", label: "查找", shortcut: "Ctrl+F", compactOverflow: true },
