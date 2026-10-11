@@ -85,6 +85,17 @@ body {
   box-shadow: 0 10px 32px rgb(35 29 47 / 9%);
   font: 13px/1.35 var(--editor-body-font, "Segoe UI Variable Text"), "Segoe UI", "Microsoft YaHei UI", sans-serif;
   transform: translateX(-50%);
+  transition: transform 180ms ease;
+}
+
+.marker-toolbar[data-collapsed="true"] {
+  transform: translate(-50%, calc(-100% - var(--marker-toolbar-top) - 8px));
+}
+
+html[data-reduced-motion="true"] .marker-toolbar { transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .marker-toolbar { transition: none; }
 }
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

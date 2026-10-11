@@ -17,7 +17,8 @@ public sealed record AppSettings(
     string H1Font = "song",
     string H2Font = "song",
     string ColorPalette = "lavender",
-    string[]? HiddenToolbarActions = null)
+    string[]? HiddenToolbarActions = null,
+    bool AutoHideToolbar = false)
 {
     public const int CurrentSchemaVersion = 1;
     internal const int MaxSerializedBytes = 64 * 1024;
@@ -81,8 +82,9 @@ public sealed record AppSettings(
             var h2Font = ReadOptionalEnum(root, "h2Font", ["system", "song", "yahei", "dengxian", "serif"], defaults.H2Font, warnings);
             var colorPalette = ReadOptionalEnum(root, "colorPalette", ["lavender", "forest", "ocean", "paper", "graphite"], defaults.ColorPalette, warnings);
             var hiddenToolbarActions = ReadHiddenToolbarActions(root, defaults.HiddenToolbarActions!, warnings);
+            var autoHideToolbar = ReadOptionalBool(root, "autoHideToolbar", defaults.AutoHideToolbar, warnings);
             return new(new AppSettings(CurrentSchemaVersion, appVersion, theme, fontSize, lineHeight, wrapping, viewMode,
-                    reducedMotion, windowPlacement, paragraphSpacing, bodyFont, h1Font, h2Font, colorPalette, hiddenToolbarActions),
+                    reducedMotion, windowPlacement, paragraphSpacing, bodyFont, h1Font, h2Font, colorPalette, hiddenToolbarActions, autoHideToolbar),
                 warnings.Count == 0 ? null : "部分设置无效，已使用默认值。", true);
         }
         catch (Exception error) when (error is JsonException or ArgumentException)
@@ -194,6 +196,9 @@ public sealed record AppSettings(
         warnings.Add(name);
         return fallback;
     }
+
+    private static bool ReadOptionalBool(JsonElement root, string name, bool fallback, List<string> warnings) =>
+        root.TryGetProperty(name, out _) ? ReadBool(root, name, fallback, warnings) : fallback;
 
     private static string[]? ReadHiddenToolbarActions(JsonElement root, string[] fallback, List<string> warnings)
     {

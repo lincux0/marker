@@ -45,6 +45,7 @@ type Settings = {
   reducedMotion?: boolean;
   highContrast?: boolean;
   hiddenToolbarActions?: ConfigurableToolbarAction[];
+  autoHideToolbar?: boolean;
 };
 
 const protocolVersion = 1 as const;
@@ -351,13 +352,14 @@ const fontStacks: Record<FontChoice, string> = {
 function normalizedSettings(value: Record<string, unknown>): Settings | null {
   const base = { theme: value.theme, fontSize: value.fontSize, lineHeight: value.lineHeight, lineWrapping: value.lineWrapping };
   if (!isSettings(base)) return null;
-  const optional = ["paragraphSpacing", "bodyFont", "h1Font", "h2Font", "colorPalette", "reducedMotion", "highContrast", "hiddenToolbarActions"];
+  const optional = ["paragraphSpacing", "bodyFont", "h1Font", "h2Font", "colorPalette", "reducedMotion", "highContrast", "hiddenToolbarActions", "autoHideToolbar"];
   if (Object.keys(value).some(key => !["theme", "fontSize", "lineHeight", "lineWrapping", ...optional].includes(key))) return null;
   if ("paragraphSpacing" in value && (typeof value.paragraphSpacing !== "number" || !Number.isFinite(value.paragraphSpacing) || value.paragraphSpacing < 0 || value.paragraphSpacing > 2)) return null;
   if (["bodyFont", "h1Font", "h2Font"].some(key => key in value && !isFontChoice(value[key]))) return null;
   if ("colorPalette" in value && !isColorPalette(value.colorPalette)) return null;
   if ("reducedMotion" in value && typeof value.reducedMotion !== "boolean") return null;
   if ("hiddenToolbarActions" in value && !isHiddenToolbarActions(value.hiddenToolbarActions)) return null;
+  if ("autoHideToolbar" in value && typeof value.autoHideToolbar !== "boolean") return null;
   if ("highContrast" in value && typeof value.highContrast !== "boolean") return null;
   return {
     ...base as Pick<Settings, "theme" | "fontSize" | "lineHeight" | "lineWrapping">,
@@ -367,6 +369,7 @@ function normalizedSettings(value: Record<string, unknown>): Settings | null {
     h2Font: (value.h2Font as FontChoice | undefined) ?? "song",
     colorPalette: (value.colorPalette as ColorPalette | undefined) ?? "lavender",
     hiddenToolbarActions: (value.hiddenToolbarActions as ConfigurableToolbarAction[] | undefined) ?? [],
+    autoHideToolbar: (value.autoHideToolbar as boolean | undefined) ?? false,
     ...(typeof value.reducedMotion === "boolean" ? { reducedMotion: value.reducedMotion } : {}),
     ...(typeof value.highContrast === "boolean" ? { highContrast: value.highContrast } : {}),
   };
@@ -383,6 +386,7 @@ function isColorPalette(value: unknown): value is ColorPalette {
 function styleSettings(next: Settings): void {
   settings = next;
   toolbar?.setHiddenActions(next.hiddenToolbarActions ?? []);
+  toolbar?.setAutoHide(next.autoHideToolbar ?? false);
   if (!view) return;
   document.documentElement.dataset.theme = next.theme;
   if (next.reducedMotion === undefined) delete document.documentElement.dataset.reducedMotion;

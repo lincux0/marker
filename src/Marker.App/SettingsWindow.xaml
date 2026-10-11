@@ -176,6 +176,11 @@
                                     <TextBlock Text="顶部栏" FontSize="17" FontWeight="SemiBold" />
                                     <TextBlock Text="选择要直接显示的功能；隐藏的功能仍可从“更多”菜单使用。设置入口始终保留。" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
+                                <Grid ColumnSpacing="14">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="244"/></Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Spacing="2"><TextBlock Text="顶部栏自动隐藏"/><TextBlock Text="闲置约 3 秒后收起；移到窗口顶部可展开" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
+                                    <ToggleSwitch x:Name="AutoHideToolbarToggle" AutomationProperties.Name="顶部栏自动隐藏" Grid.Column="1" Width="120" Height="40" HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="开" OffContent="关" AutomationProperties.AutomationId="AutoHideToolbar" Toggled="AutoHideToolbar_Toggled" />
+                                </Grid>
                                 <Grid x:Name="ToolbarActionsPanel" ColumnSpacing="12" RowSpacing="2">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

@@ -150,6 +150,25 @@ public sealed class AppSettingsTests
         CollectionAssert.AreEqual(Array.Empty<string>(), AppSettings.Load(temp.Path).Settings.HiddenToolbarActions);
     }
 
+    [TestMethod]
+    public void AutoHideToolbarDefaultsOffAndRoundTrips()
+    {
+        using var temp = new TempDirectory();
+
+        Assert.IsFalse(AppSettings.Default.AutoHideToolbar);
+        AppSettings.Default.Save(temp.Path);
+        Assert.IsFalse(AppSettings.Load(temp.Path).Settings.AutoHideToolbar);
+
+        var settings = AppSettings.Default with { AutoHideToolbar = true };
+        settings.Save(temp.Path);
+        Assert.IsTrue(AppSettings.Load(temp.Path).Settings.AutoHideToolbar);
+
+        File.WriteAllText(Path.Combine(temp.Path, "settings.json"), "{\"schemaVersion\":1,\"autoHideToolbar\":\"true\"}");
+        var invalid = AppSettings.Load(temp.Path);
+        Assert.IsNotNull(invalid.Warning);
+        Assert.IsFalse(invalid.Settings.AutoHideToolbar);
+    }
+
     [DataTestMethod]
     [DataRow("[\"save\",\"save\"]")]
     [DataRow("[\"unknown\"]")]

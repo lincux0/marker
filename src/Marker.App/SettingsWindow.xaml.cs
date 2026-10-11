@@ -38,6 +38,7 @@ public sealed partial class SettingsWindow : Window
         ParagraphSpacingBox.Value = settings.ParagraphSpacing;
         LineWrappingToggle.IsOn = settings.LineWrapping;
         ReducedMotionToggle.IsOn = settings.ReducedMotion;
+        AutoHideToolbarToggle.IsOn = settings.AutoHideToolbar;
         SetNotice(notice);
         _initializing = false;
     }
@@ -131,6 +132,9 @@ public sealed partial class SettingsWindow : Window
 
     private void ReducedMotion_Toggled(object sender, RoutedEventArgs e) =>
         Update(settings => settings with { ReducedMotion = ReducedMotionToggle.IsOn });
+
+    private void AutoHideToolbar_Toggled(object sender, RoutedEventArgs e) =>
+        Update(settings => settings with { AutoHideToolbar = AutoHideToolbarToggle.IsOn });
 
     private void ToolbarAction_Toggled(object sender, RoutedEventArgs e)
     {

@@ -77,6 +77,11 @@ export class FloatingToolbar {
   private ready = false;
   private busy = false;
   private focusMode = false;
+  private autoHide = false;
+  private pointerOver = false;
+  private focusWithin = false;
+  private nearTop = false;
+  private hideTimer: number | undefined;
 
   constructor(private readonly options: ToolbarOptions) {
     const root = document.createElement("div");
@@ -123,6 +128,16 @@ export class FloatingToolbar {
 
     root.append(documentGroup, buttonGroup);
     this.element = root;
+    root.addEventListener("pointerenter", () => { this.pointerOver = true; this.reveal(); });
+    root.addEventListener("pointerleave", () => { this.pointerOver = false; this.scheduleHide(); });
+    root.addEventListener("focusin", () => { this.focusWithin = true; this.reveal(); });
+    root.addEventListener("focusout", event => {
+      if (!(event.relatedTarget instanceof Node) || !root.contains(event.relatedTarget)) {
+        this.focusWithin = false;
+        this.scheduleHide();
+      }
+    });
+    more.addEventListener("toggle", () => this.more.open ? this.reveal() : this.scheduleHide());
     this.narrow.addEventListener("change", () => this.syncVisibility());
     this.compact.addEventListener("change", () => this.syncVisibility());
     this.syncVisibility();
@@ -133,7 +148,37 @@ export class FloatingToolbar {
     parent.insertBefore(this.element, before);
     const notification = this.notification;
     parent.append(notification);
+    document.addEventListener("pointermove", event => {
+      this.nearTop = event.clientY <= 8;
+      if (this.nearTop) this.reveal();
+      else if (!this.pointerOver && !this.focusWithin) this.scheduleHide();
+    });
     this.syncDisabled();
+  }
+
+  setAutoHide(enabled: boolean): void {
+    this.autoHide = enabled;
+    if (!enabled) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = undefined;
+      delete this.element.dataset.collapsed;
+    } else this.scheduleHide();
+  }
+
+  private reveal(): void {
+    window.clearTimeout(this.hideTimer);
+    this.hideTimer = undefined;
+    delete this.element.dataset.collapsed;
+  }
+
+  private scheduleHide(): void {
+    if (!this.autoHide || this.pointerOver || this.focusWithin || this.nearTop || this.more.open) return;
+    if (this.hideTimer !== undefined || this.element.dataset.collapsed === "true") return;
+    this.hideTimer = window.setTimeout(() => {
+      this.hideTimer = undefined;
+      if (this.autoHide && !this.pointerOver && !this.focusWithin && !this.nearTop && !this.more.open && !this.element.contains(document.activeElement))
+        this.element.dataset.collapsed = "true";
+    }, 3000);
   }
 
   updateState(title: string, notification: string, busy: boolean): void {
