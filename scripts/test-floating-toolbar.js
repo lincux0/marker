@@ -87,12 +87,12 @@ async (page) => {
           .map(element => ({ element, rect: element.getBoundingClientRect() }))
           .filter(({ element, rect }) => getComputedStyle(element).display !== 'none' && element.getClientRects().length > 0 && rect.width > 0)
           .map(({ rect }) => ({ left: rect.left, right: rect.right }));
-        return { viewport: innerWidth, bar: { left: bar.left, right: bar.right, width: bar.width },
+        return { viewport: innerWidth, gutter: parseFloat(getComputedStyle(document.querySelector("#editor")).paddingLeft), bar: { left: bar.left, right: bar.right, width: bar.width },
           paper: { left: paper.left, right: paper.right, width: paper.width }, title: { scroll: title.scrollWidth, client: title.clientWidth }, actions };
       });
       const extraWidth = layout.bar.width - layout.paper.width;
       check(Math.abs((layout.bar.left + layout.bar.right) / 2 - width / 2) < 1, `Toolbar was not centered at ${width}px: ${JSON.stringify(layout)}`);
-      check(extraWidth > 0 && (width > 800 ? extraWidth >= 127 && extraWidth <= 129 : extraWidth >= 20 && extraWidth <= 64),
+      check(extraWidth > 0 && (width > 800 ? extraWidth >= 127 && extraWidth <= 129 : extraWidth - layout.gutter >= 20 && extraWidth - layout.gutter <= 64),
         `Toolbar should be slightly wider than the paper at ${width}px: ${JSON.stringify(layout)}`);
       check(layout.actions.every(button => button.left >= layout.bar.left && button.right <= layout.bar.right),
         `Visible toolbar actions overflowed at ${width}px: ${JSON.stringify(layout)}`);

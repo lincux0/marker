@@ -233,6 +233,7 @@ public sealed partial class MainWindow : UserControl
                 type = "initialize",
                 protocolVersion = BridgeSession.ProtocolVersion,
                 sessionId = _session.SessionId,
+                documentId = _documentId.ToString("N"),
                 text = _document.Text
             }));
             ApplyWebSettings();
@@ -246,6 +247,11 @@ public sealed partial class MainWindow : UserControl
         if (_session.TryReadDiskChangeAction(source, EditorUrl, json, out var notificationId, out var diskAction, out _))
         {
             _ = HandleDiskChangeActionAsync(notificationId, diskAction);
+            return;
+        }
+        if (_session.TryReadTabCommand(source, EditorUrl, json, out var documentId, out var tabAction, out _))
+        {
+            _ = HandleTabCommandAsync(documentId, tabAction);
             return;
         }
         if (_session.TryReadCommand(source, EditorUrl, json, out var command, out _))

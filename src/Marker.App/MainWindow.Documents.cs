@@ -9,6 +9,17 @@ namespace Marker.App;
 
 public sealed partial class MainWindow
 {
+    private sealed class DocumentTab(Guid id, DocumentFileData document, string savedText, bool forceDirty = false, string? recoveryOriginalPath = null)
+    {
+        public Guid Id { get; } = id;
+        public DocumentFileData Document { get; set; } = document;
+        public string Text { get; set; } = document.Text;
+        public string SavedText { get; set; } = savedText;
+        public bool ForceDirty { get; set; } = forceDirty;
+        public string? RecoveryOriginalPath { get; set; } = recoveryOriginalPath;
+        public bool DiskChanged { get; set; }
+    }
+
     private DocumentFileData _document = DocumentFile.New();
     private Guid _documentId = Guid.NewGuid();
     private string _savedText = "";
@@ -27,12 +38,14 @@ public sealed partial class MainWindow
     private readonly HashSet<string> _queuedFileOpenPaths = new(StringComparer.OrdinalIgnoreCase);
     private int _fileActivationReceived;
     private bool _fileOpenDrainActive;
+    private readonly List<DocumentTab> _documentTabs = [];
     private string? _snapshotRequestId;
     private TaskCompletionSource<MarkdownSnapshot>? _snapshotCompletion;
     private bool IsDirty => _forceDirty || (_latestSnapshot?.Text ?? _document.Text) != _savedText;
 
     private void InitializeDocuments()
     {
+        _documentTabs.Add(new DocumentTab(_documentId, _document, _savedText));
         _images.SetRoot(null, _session.SessionId);
         _recoveryTimer = DispatcherQueue.CreateTimer();
         _recoveryTimer.Interval = TimeSpan.FromSeconds(1);
@@ -56,6 +69,7 @@ public sealed partial class MainWindow
     {
         if (snapshot.RequestId == _snapshotRequestId && _snapshotRequestId is not null)
             _snapshotCompletion?.TrySetResult(snapshot);
+        CaptureActiveDocumentTab();
         UpdateDocumentStatus();
         _recoveryTimer?.Stop();
         if (IsDirty) _recoveryTimer?.Start();
@@ -106,38 +120,49 @@ public sealed partial class MainWindow
                 case "saveAs": await SaveDocumentAsync(true); break;
                 case "exportPdf": await ExportPdfAsync(); break;
                 case "new":
-                    if (await ConfirmLeaveDocumentAsync()) await SwitchDocumentAsync(DocumentFile.New());
+                    await SwitchDocumentAsync(DocumentFile.New());
                     break;
                 case "open":
-                    // Choose the file before asking to discard the current document.
+                    // Pick all files before changing the active editor session.
                     var picker = new FileOpenPicker(Win32Interop.GetWindowIdFromWindow(_window));
                     picker.FileTypeFilter.Add(".md");
                     picker.FileTypeFilter.Add(".markdown");
                     picker.FileTypeFilter.Add(".txt");
                     picker.FileTypeFilter.Add("*");
-                    var selected = await picker.PickSingleFileAsync();
-                    if (selected is not null)
+                    var selected = await picker.PickMultipleFilesAsync();
+                    if (selected.Count > 64) throw new IOException("一次最多打开 64 个 Markdown 文件；本次未打开文件。");
+                    foreach (var file in selected)
                     {
-                        var data = await ReadDocumentAsync(selected.Path);
+                        if (_documentTabs.FirstOrDefault(tab => SamePath(tab.Document.Path, file.Path)) is { } selectedTab)
+                        {
+                            await ActivateDocumentTabAsync(selectedTab);
+                            continue;
+                        }
+                        var data = await ReadDocumentAsync(file.Path);
                         ValidateEditorText(data.Text);
-                        if (await ConfirmLeaveDocumentAsync()) await SwitchDocumentAsync(data);
+                        await SwitchDocumentAsync(data);
                     }
                     break;
                 case "openPath":
                     if (requestedPath is null) throw new IOException("文件激活未提供有效路径。");
-                    var opened = await ReadDocumentAsync(requestedPath);
-                    ValidateEditorText(opened.Text);
-                    if (await ConfirmLeaveDocumentAsync()) await SwitchDocumentAsync(opened);
+                    if (_documentTabs.FirstOrDefault(tab => SamePath(tab.Document.Path, requestedPath)) is { } existing)
+                        await ActivateDocumentTabAsync(existing);
+                    else
+                    {
+                        var opened = await ReadDocumentAsync(requestedPath);
+                        ValidateEditorText(opened.Text);
+                        await SwitchDocumentAsync(opened);
+                    }
                     break;
                 case "recover":
-                    if (await ConfirmLeaveDocumentAsync()) await OfferRecoveryAsync();
+                    await OfferRecoveryAsync();
                     break;
                 case "recoverStartup":
                     if (!IsDirty && Volatile.Read(ref _fileActivationReceived) == 0)
                         await OfferRecoveryAsync(startup: true);
                     break;
                 case "close":
-                    if (await ConfirmLeaveDocumentAsync())
+                    if (await ConfirmCloseWindowAsync())
                     {
                         _allowClose = true;
                         PostMessageW(_window, WmClose, 0, 0);
@@ -154,6 +179,7 @@ public sealed partial class MainWindow
         {
             _operationBusy = false;
             SendToolbarState();
+            SendDocumentTabs();
             if (!_closed && !_allowClose) EnableWindow(_editorWindow, true);
             ConsumePendingFileActivations();
         }
@@ -175,29 +201,55 @@ public sealed partial class MainWindow
         }
     }
 
-    private async Task SwitchDocumentAsync(DocumentFileData data, Guid? recoveredId = null, string? originalPath = null)
+    private async Task SwitchDocumentAsync(DocumentFileData data, Guid? recoveredId = null, string? originalPath = null,
+        bool replaceActive = false, DocumentTab? targetTab = null, bool preserveCurrentDraft = true)
     {
         ValidateEditorText(data.Text);
+        if (preserveCurrentDraft && _editorReady)
+        {
+            await RequestCurrentSnapshotAsync();
+            EnableWindow(_editorWindow, false);
+            await RequestCurrentSnapshotAsync();
+            CaptureActiveDocumentTab();
+            if (IsDirty)
+            {
+                QueueRecovery();
+                try { await _draftWrite; }
+                catch { /* The failed write was already reported; the live tab still retains the snapshot. */ }
+            }
+        }
+        CaptureActiveDocumentTab();
         _recoveryTimer?.Stop();
         try { await _draftWrite; } catch { /* The old document's recovery error was already reported. */ }
         _watcher?.Dispose(); _watcher = null;
         _diskCheckTimer?.Stop();
         _diskNotice.Reset();
         _snapshotCompletion?.TrySetException(new IOException("文档已切换。"));
-        _document = data;
-        _documentId = recoveredId ?? Guid.NewGuid();
-        _recoveryOriginalPath = originalPath;
-        _forceDirty = recoveredId.HasValue;
-        _savedText = recoveredId.HasValue ? "" : data.Text;
+        if (targetTab is not null)
+            LoadDocumentTabState(targetTab);
+        else if (replaceActive)
+        {
+            var activeIndex = _documentTabs.FindIndex(tab => tab.Id == _documentId);
+            var replacement = new DocumentTab(_documentId, data, recoveredId.HasValue ? "" : data.Text, recoveredId.HasValue, originalPath);
+            if (activeIndex < 0) _documentTabs.Add(replacement);
+            else _documentTabs[activeIndex] = replacement;
+            LoadDocumentTabState(replacement);
+        }
+        else
+        {
+            var created = new DocumentTab(recoveredId ?? Guid.NewGuid(), data, recoveredId.HasValue ? "" : data.Text, recoveredId.HasValue, originalPath);
+            _documentTabs.Add(created);
+            LoadDocumentTabState(created);
+        }
         _latestSnapshot = null;
         _latestPreviewSentVersion = -1;
-        _diskChanged = false;
         _session = new BridgeSession(Guid.NewGuid().ToString("N"));
-        _images.SetRoot(Path.GetDirectoryName(data.Path ?? originalPath), _session.SessionId);
+        _images.SetRoot(Path.GetDirectoryName(_document.Path ?? _recoveryOriginalPath), _session.SessionId);
         if (_previewReady) _preview?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "initialize", sessionId = _session.SessionId }));
-        _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "initialize", sessionId = _session.SessionId, text = data.Text }));
+        _editor?.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new { protocolVersion = BridgeSession.ProtocolVersion, type = "initialize", sessionId = _session.SessionId, documentId = _documentId.ToString("N"), text = _document.Text }));
         ApplyWebSettings();
         StartFileWatcher();
+        if (_document.Path is not null) _diskCheckTimer?.Start();
         UpdateDocumentStatus();
         SendDiskChangeNotice();
     }
@@ -215,6 +267,8 @@ public sealed partial class MainWindow
             var selected = await picker.PickSaveFileAsync();
             if (selected is null) return false;
             path = selected.Path;
+            if (_documentTabs.Any(tab => tab.Id != _documentId && SamePath(tab.Document.Path, path)))
+                throw new IOException("目标文件已在另一个标签页打开。请切换到该标签页保存。");
             if (string.Equals(path, _document.Path, StringComparison.OrdinalIgnoreCase))
                 expectedFingerprint = _document.Fingerprint;
             else
@@ -252,6 +306,7 @@ public sealed partial class MainWindow
             SendDiskChangeNotice();
             _recoveryOriginalPath = null;
             _images.SetRoot(Path.GetDirectoryName(saved.Path), _session.SessionId);
+            CaptureActiveDocumentTab();
             StartFileWatcher();
             if (_latestSnapshot is { } latest) _ = RenderSnapshotAsync(latest);
             if (!IsDirty) await DeleteCurrentRecoveryAsync();
@@ -274,14 +329,14 @@ public sealed partial class MainWindow
                 var reload = await ReadDocumentAsync(original);
                 ValidateEditorText(reload.Text);
                 await DeleteCurrentRecoveryAsync();
-                await SwitchDocumentAsync(reload);
+                await SwitchDocumentAsync(reload, replaceActive: true, preserveCurrentDraft: false);
             }
             else if (answer == 7) return await SaveDocumentAsync(true);
             return false;
         }
     }
 
-    private async Task<bool> ConfirmLeaveDocumentAsync()
+    private async Task<bool> ConfirmLeaveDocumentAsync(bool deleteRecovery = true)
     {
         if (!_editorReady && _latestSnapshot is null) return true;
         await RequestCurrentSnapshotAsync();
@@ -289,7 +344,7 @@ public sealed partial class MainWindow
         // saving alone keeps editing available while the write is in progress.
         EnableWindow(_editorWindow, false);
         await RequestCurrentSnapshotAsync(); // Capture input queued between the first response and disabling the native child.
-        if (!IsDirty) { await DeleteCurrentRecoveryAsync(); return true; }
+        if (!IsDirty) { if (deleteRecovery) await DeleteCurrentRecoveryAsync(); return true; }
         QueueRecovery();
         var recoveryWarning = "";
         try { await _draftWrite; }
@@ -300,8 +355,73 @@ public sealed partial class MainWindow
         {
             if (!await SaveDocumentAsync(false) || IsDirty) return false;
         }
-        await DeleteCurrentRecoveryAsync();
+        if (deleteRecovery) await DeleteCurrentRecoveryAsync();
         return true;
+    }
+
+    private async Task<bool> ConfirmCloseWindowAsync()
+    {
+        var activeId = _documentId;
+        foreach (var tab in _documentTabs.ToArray())
+        {
+            if (tab.Id != _documentId) await ActivateDocumentTabAsync(tab);
+            if (!await ConfirmLeaveDocumentAsync(deleteRecovery: false))
+            {
+                if (_documentTabs.FirstOrDefault(item => item.Id == activeId) is { } restore && restore.Id != _documentId)
+                    await ActivateDocumentTabAsync(restore);
+                return false;
+            }
+        }
+        foreach (var tab in _documentTabs)
+        {
+            try { await Task.Run(() => _recovery.Delete(tab.Id)); }
+            catch (Exception error) { SetStatus($"恢复草稿未能清理，文件已保留：{error.Message}"); }
+        }
+        return true;
+    }
+
+    private async Task HandleTabCommandAsync(Guid documentId, string action)
+    {
+        if (_closed || _operationBusy) return;
+        _operationBusy = true;
+        SendToolbarState();
+        try
+        {
+            var tab = _documentTabs.FirstOrDefault(item => item.Id == documentId);
+            if (tab is null) return;
+            if (action == "select")
+            {
+                await ActivateDocumentTabAsync(tab);
+                return;
+            }
+
+            var previousId = _documentId;
+            if (tab.Id != _documentId) await ActivateDocumentTabAsync(tab);
+            if (!await ConfirmLeaveDocumentAsync())
+            {
+                if (_documentTabs.FirstOrDefault(item => item.Id == previousId) is { } previous && previous.Id != _documentId)
+                    await ActivateDocumentTabAsync(previous);
+                return;
+            }
+
+            var index = _documentTabs.IndexOf(tab);
+            _documentTabs.Remove(tab);
+            var nextTab = _documentTabs.FirstOrDefault(item => item.Id == previousId)
+                ?? (_documentTabs.Count == 0 ? null : _documentTabs[Math.Min(index, _documentTabs.Count - 1)]);
+            if (_documentTabs.Count == 0)
+                await SwitchDocumentAsync(DocumentFile.New(), preserveCurrentDraft: false);
+            else
+                await SwitchDocumentAsync(nextTab!.Document, targetTab: nextTab, preserveCurrentDraft: false);
+        }
+        catch (Exception error) { SetStatus($"标签页操作未完成：{error.Message}"); }
+        finally
+        {
+            _operationBusy = false;
+            if (!_closed) EnableWindow(_editorWindow, true);
+            SendToolbarState();
+            SendDocumentTabs();
+            ConsumePendingFileActivations();
+        }
     }
 
     private void QueueRecovery()
@@ -366,6 +486,39 @@ public sealed partial class MainWindow
         _diskChanged = _diskNotice.IsChanged;
         UpdateDocumentStatus();
         SendDiskChangeNotice();
+        SendDocumentTabs();
+    }
+
+    private static bool SamePath(string? left, string? right) => left is not null && right is not null
+        && string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+    private void CaptureActiveDocumentTab()
+    {
+        var tab = _documentTabs.FirstOrDefault(tab => tab.Id == _documentId);
+        if (tab is null) return;
+        tab.Document = _document;
+        tab.Text = _latestSnapshot?.Text ?? _document.Text;
+        tab.SavedText = _savedText;
+        tab.ForceDirty = _forceDirty;
+        tab.RecoveryOriginalPath = _recoveryOriginalPath;
+        tab.DiskChanged = _diskChanged;
+    }
+
+    private void LoadDocumentTabState(DocumentTab tab)
+    {
+        _documentId = tab.Id;
+        _document = tab.Document with { Text = tab.Text };
+        _savedText = tab.SavedText;
+        _forceDirty = tab.ForceDirty;
+        _recoveryOriginalPath = tab.RecoveryOriginalPath;
+        _diskChanged = tab.DiskChanged;
+    }
+
+    private async Task ActivateDocumentTabAsync(DocumentTab tab)
+    {
+        if (tab.Id == _documentId) return;
+        await SwitchDocumentAsync(tab.Document with { Text = tab.Text }, targetTab: tab);
+        EnableWindow(_editorWindow, true);
     }
 
     private void SendDiskChangeNotice()
@@ -408,7 +561,7 @@ public sealed partial class MainWindow
             data = await ReadDocumentAsync(path);
             ValidateEditorText(data.Text);
             await DeleteCurrentRecoveryAsync();
-            await SwitchDocumentAsync(data);
+            await SwitchDocumentAsync(data, replaceActive: true, preserveCurrentDraft: false);
         }
         catch (Exception error)
         {
@@ -445,6 +598,7 @@ public sealed partial class MainWindow
                 MessageBoxW(_window, $"{entry.Error}\n损坏或未知版本草稿保留在 Recovery 目录，不会自动删除。", "Marker · 恢复草稿", 0x30);
                 continue;
             }
+            if (_documentTabs.Any(tab => tab.Id == draft.DocId)) continue;
             var answer = MessageBoxW(_window, $"发现 {draft.UpdatedUtc.LocalDateTime:g} 的恢复草稿。\n来源：{draft.OriginalPath ?? "未命名"}\n选择“是”恢复为未命名副本；选择“否”查看差异；选择“取消”保留草稿并继续。", "Marker · 恢复草稿", 0x23);
             if (_closed || startup && Volatile.Read(ref _fileActivationReceived) != 0) return;
             if (answer == 2) return;

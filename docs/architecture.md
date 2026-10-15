@@ -2,8 +2,8 @@
 
 本文描述仓库当前真实结构。生产应用由 Win32 主窗口承载两个原生子窗口式 WebView2 和隐藏的 WinUI 3 XAML Island 兼容宿主。主编辑器 WebView 同时承载可见 HTML/CSS 浮动工具栏和 Markdown 编辑器；M3 曾实现源码、分栏和阅读模式，后续 D016 将交互改为单一正文编辑视图，CodeMirror 6 装饰在编辑时隐藏常用 Markdown 标记。Markdig 解析和受控资源桥接继续运行于隐藏的预览 WebView2。设置由独立 WinUI owned 窗口承载。各次构建与检查结果以[项目历程](progress.md)为准。
 
-- 当前状态：Win32 + 双原生 windowed WebView2 + 隐藏为 1×1 的 XAML Island 兼容宿主；主编辑器 WebView 从客户区 `(0,0)` 铺满并承载正文及浮动工具栏，Markdig 预览 WebView 隐藏为 1×1 并继续承担解析/资源安全桥接。单文档文件流程、独立设置窗口、窗口位置和文件激活能力保留。
-- SQLite 已用于本地设置持久化；多标签与文件树尚未实现。
+- 当前状态：Win32 + 双原生 windowed WebView2 + 隐藏为 1×1 的 XAML Island 兼容宿主；主编辑器 WebView 从客户区 `(0,0)` 铺满并承载正文及浮动工具栏，Markdig 预览 WebView 隐藏为 1×1 并继续承担解析/资源安全桥接。多文档文件流程、独立设置窗口、窗口位置和文件激活能力保留。
+- SQLite 已用于本地设置持久化；多标签已实现，文件树尚未实现。
 - 阶段计划见[开发方案](开发方案.md)；版本与构建操作见[工程开发指南](工程开发指南.md)。
 - 稳定技术取舍见[技术决策](decision.md)，阶段记录见[项目历程](progress.md)。
 
@@ -46,7 +46,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - `WritingPalette.cs`：根据配置的颜色组合与明暗主题统一提供背景/强调色；宿主客户区、系统标题栏 caption、设置窗口复用该配色，并与 Web 正文、预览及浮动工具栏 CSS 变量保持精确一致。高对比模式改用 Windows 系统色。
 - `MainWindow.Activation.cs`、`MarkdownActivation.cs`：串行打开受支持的文件激活；校验完整路径及 `.md`/`.markdown` 扩展名；XAML Island 接收 `StorageItems` 拖放，根窗口与两个 WebView2 子窗口提供 `WM_DROPFILES` 兼容路径。
 - `MainWindow.xaml.cs`：`MainWindow` 创建并管理 Win32 根 HWND、编辑器/隐藏预览子 HWND 和工具栏 XAML Island；负责客户区布局、焦点、DPI/窗口消息、WebView2 安全配置、桥接路由、异步 Markdig 解析及关闭流程，并拥有设置子窗口。编辑器图片只接收受控 `document.marker.example` URL，通过现有 `LocalImageResources.TryRead` 校验后响应；JSON 只传相对 Markdown 引用到随机会话 URL 的映射，不传磁盘绝对路径。启动前检测 Evergreen Runtime，缺失时显示安装提示但不运行安装器。文件拖放通过 `AdditionalObjects` 接收原生 File 对象，宿主不从 JSON 收取路径。
-- `MainWindow.Documents.cs`：管理当前单文档会话、脏状态、原生文件选择器、命令/快照 requestId 往返、原生消息框确认、打开/保存/另存为/关闭/恢复流程、外部文件监控和每秒节流的草稿写入。外部修改事件经 300 ms 合并后读取受限原始字节指纹；`DiskChangeNotice` 对相同磁盘版本去重，通知与动作绑定会话和随机编号，重新加载先验证文件并确认未保存内容的丢弃。保存前向 CodeMirror 请求最新完整快照；输入法组合尚未提交时拒绝保存。恢复草稿成为未命名副本，不自动覆盖来源文件。
+- `MainWindow.Documents.cs`：管理多个打开文档及当前活动会话、独立脏状态、原生文件选择器、命令/快照 requestId 往返、原生消息框确认、多选打开/保存/另存为/逐标签关闭/恢复流程、活动文档外部文件监控和每秒节流的草稿写入。外部修改事件经 300 ms 合并后读取受限原始字节指纹；`DiskChangeNotice` 对相同磁盘版本去重，通知与动作绑定会话和随机编号，重新加载先验证文件并确认未保存内容的丢弃。保存前向 CodeMirror 请求最新完整快照；输入法组合尚未提交时拒绝保存。恢复草稿成为未命名副本，不自动覆盖来源文件。
 - `MainWindow.Export.cs`、`PdfExportFile.cs`：在主窗口安全处理 PDF 文件选择、当前编辑快照和 WebView2 打印流；采用 A4、约 15 mm 边距。准备失败时不写入目标，写入前的指纹冲突会拒绝覆盖；若替换时发生竞态，外部版本保存为 `.external` 并报告其路径。PDF 输出不改变 Markdown 源文件或其未保存状态。
 - `DocumentFile.cs`：按严格 UTF-8（含/不含 BOM）或带 BOM 的 UTF-16 LE/BE 读取；解码失败由界面明确询问 GB18030。磁盘编码与换行保持为元数据，编辑快照统一 LF；混合换行须用户选择策略后保存。文件读取/保存限制 8 MiB，以 SHA-256 指纹检测变更，并通过同目录临时文件、flush-to-disk、原子替换和替换前后校验保存；并发替换的外部内容保留为 `.external` 副本。拒绝路径重解析点。
 - `RecoveryStore.cs`：在 LocalAppData 的 Marker/Recovery 目录按文档 ID 保存 schemaVersion 1 JSON 草稿，附可选 `applicationVersion`；读取旧 schemaVersion 1 时允许该字段缺省。通过同目录临时文件及覆盖式移动保存。未知版本、损坏或超限草稿保留原文件并返回可提示错误。
@@ -63,6 +63,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 
 - `package.json`、`package-lock.json`：Web 工程脚本、CodeMirror 6、DOMPurify 及锁定版本。
 - `index.html`、`preview.html`：编辑器与预览独立页面入口，分别声明内容安全策略 CSP。
+- `src/document-tabs.ts`：左侧圆形悬浮文档按钮，按文档 ID 复用节点、显示首字/未保存标记及关闭入口；仅发送受当前桥接会话约束的标签命令。`main.ts` 校验宿主标签列表，并按文档 ID 缓存 CodeMirror 状态以保留撤销、选区和滚动位置，切换清空旧会话的图片与富语法资源。
 - `src/toolbar.ts`：在编辑 WebView 内创建固定定位的浮动工具栏、文档标题、常用命令和窄窗溢出菜单。原生操作发送既有文档命令；撤销、重做、查找、替换、PDF 导出和代码模式由当前编辑器/宿主处理。接收经协议版本及 session 校验的 `toolbarState`，包含标题、通知和 busy 状态。支持按设置将常用功能移入“更多”菜单（设置入口常驻），实时显示本地字数/段数；自动隐藏开启后空闲 3 秒收起、指针进入顶部 8 px 区域时展开，悬停/焦点/菜单保持可用；宽度在普通宽窗为 1108 px，正文为 980 px。
 - `src/disk-change.ts`：展示可关闭的磁盘修改通知，提供重新加载与关闭按钮；不自动改写文档或抢走编辑焦点。专用 `diskChange`/`diskChangeAction` 桥只传通知编号与动作，不接收页面指定路径；旧会话、旧通知及非白名单字段均被拒绝。
 - `src/statistics.ts`：使用现有 CodeMirror Markdown 完整语法树剔除标记、链接目标及图片，中文逐字、其余文本按词统计；非空 Paragraph/Task 节点作为正文段落。编辑短暂停顿 180 ms 后更新，不经原生桥接或上传文档。
@@ -119,7 +120,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 10. 窗口尺寸/位置变化时按客户区和当前 DPI更新隐藏 Island 与两个子窗口；编辑器 WebView 从 `(0,0)` 调整为完整客户区边界。关闭前进行未保存确认，之后保存普通位置、释放主题监听和资源，再关闭 controller、释放 XAML Island 并销毁根窗口。
 11. PDF 导出由系统保存对话框选路径，编辑器提供当前快照，隐藏预览按会话/版本准备打印内容并回报就绪；宿主使用 WebView2 打印流写入同目录临时文件，核对目标文件指纹后替换。
 
-当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；`richContent` 超限时整包清空而不截断；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。编辑页单次图片资源映射亦受 2 MiB 桥接消息上限约束，超过部分退化为 alt 占位。即时呈现与 Markdig 最终 HTML 不保证一致：编辑器已支持 Markdig range 驱动的行内/块公式、脚注引用/定义、五类已知提示框与受限 Mermaid；预览当前只有数学和代码高亮，脚注语义/跳转和 Mermaid widget 尚未适配。编辑器代码语言范围为 JS/TS/C#/Python/JSON/Shell 及 D027 新增的 20 类常用语言，超 100,000 字符文档会停用语言装饰；预览单块代码超过 100,000 字符降为纯文本。恢复写入的秒级节流及草稿写入节流意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览仅支持受控 HTTP(S) 链接；不支持用户任意 SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。WebView2 Evergreen Runtime 由目标机器提供，应用只提示缺失，不自动安装；多标签与文件树尚未实现。
+当前限制：文档读写与保存文本上限 8 MiB；恢复 JSON 草稿上限 8 MiB；桥接 JSON 最多 2 MiB（UTF-8），文本最多 1,048,576 个 UTF-16 单元，实际快照同时受两者约束；`richContent` 超限时整包清空而不截断；预览 HTML 最多 4,194,304 个 UTF-16 单元；单张本地图片最多 16 MiB。编辑页单次图片资源映射亦受 2 MiB 桥接消息上限约束，超过部分退化为 alt 占位。即时呈现与 Markdig 最终 HTML 不保证一致：编辑器已支持 Markdig range 驱动的行内/块公式、脚注引用/定义、五类已知提示框与受限 Mermaid；预览当前只有数学和代码高亮，脚注语义/跳转和 Mermaid widget 尚未适配。编辑器代码语言范围为 JS/TS/C#/Python/JSON/Shell 及 D027 新增的 20 类常用语言，超 100,000 字符文档会停用语言装饰；预览单块代码超过 100,000 字符降为纯文本。恢复写入的秒级节流及草稿写入节流意味着突发断电或进程崩溃可能丢失尚未落盘的最新尾部输入。仅支持常见 UTF 编码 BOM 识别及明确的 GB18030 选择，不保证其他编码。预览仅支持受控 HTTP(S) 链接；不支持用户任意 SVG、表单和内联样式；图片只支持 PNG/JPEG/GIF/WebP/BMP。WebView2 Evergreen Runtime 由目标机器提供，应用只提示缺失，不自动安装；多标签已实现，文件树尚未实现。
 
 ## 构建与打包管线
 
@@ -142,7 +143,7 @@ M4 历史检查入口为 `scripts/test-web-m4.js`、`scripts/test-webview-m4.js`
 - 用户已确认生产 EXE 中微信输入法正常；M1 输入法与 Web 安全核心门槛已通过。M2 核心功能与本机闭环验证完成；生产 MSIX 安装仍未执行，作为独立包验收待办。
 - M3 单元、Web、桌面和性能检查结果及未覆盖边界见[项目历程](progress.md)；文档中的阶段结果不替代最新一次构建记录。
 - 独立原型仅使用内置样例，没有打开、保存、恢复、文件树、多标签或真实图片工作流。
-- 当前生产宿主具备 Win32/XAML Islands/双 WebView2 边界、单页即时呈现和独立设置窗口。旧 M3 视图脚本不覆盖此单页 UI。多标签、文件树和跨 HWND 内容动画仍未实现；SQLite 设置持久化已实现。
+- 当前生产宿主具备 Win32/XAML Islands/双 WebView2 边界、单页即时呈现和独立设置窗口。旧 M3 视图脚本不覆盖此单页 UI。多标签已实现；文件树和跨 HWND 内容动画仍未实现；SQLite 设置持久化已实现。
 - 运行、测试与打包证据及其限制见[项目历程](progress.md)。
 
 ## 文档维护

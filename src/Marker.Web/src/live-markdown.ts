@@ -387,6 +387,8 @@ export function toggleSourceMode(view: EditorView): boolean {
   return true;
 }
 
+export function isSourceMode(view: EditorView): boolean { return view.state.field(presentation).source; }
+
 type TextReplacement = { from: number; to: number; insert: string };
 
 function editRanges(view: EditorView, transform: (range: SelectionRange, state: EditorState) => { changes?: TextReplacement | TextReplacement[]; range: SelectionRange }): boolean {

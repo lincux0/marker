@@ -7,7 +7,7 @@ import { closeSearchPanel, findNext, findPrevious, getSearchQuery, openSearchPan
 import { EditorView, keymap, placeholder, type Panel } from "@codemirror/view";
 import { enableFileDrop } from "./file-drop";
 import { markdownLinkActions } from "./links";
-import { imageResources, liveMarkdown, markdownFormattingKeymap, toggleSourceMode } from "./live-markdown";
+import { imageResources, isSourceMode, liveMarkdown, markdownFormattingKeymap, toggleSourceMode } from "./live-markdown";
 import { FloatingToolbar, isHiddenToolbarActions, type ConfigurableToolbarAction, type EditorCommand, type NativeCommand } from "./toolbar";
 import { countMarkdown } from "./statistics";
 import { DocumentOutline, type Heading } from "./outline";
@@ -16,6 +16,7 @@ import { DiskChangePrompt } from "./disk-change";
 import "./style.css";
 import { codeLanguage } from "./code-languages";
 import { richContent, validateRichContent, type RichNode } from "./rich-content";
+import { DocumentTabs, type DocumentTab } from "./document-tabs";
 
 declare global {
   interface Window {
@@ -65,6 +66,8 @@ function markdownSupport(length: number) {
 }
 let view: EditorView | undefined;
 let sessionId: string | undefined;
+let documentId: string | undefined;
+const documentStates = new Map<string, { state: EditorState; scrollTo: ReturnType<EditorView["scrollSnapshot"]> }>();
 let version = 0;
 let fullSnapshotPending = false;
 let toolbar: FloatingToolbar | undefined;
@@ -83,6 +86,9 @@ let settings: Settings = {
   h2Font: "song",
   colorPalette: "lavender",
 };
+const documentTabs = new DocumentTabs(app, (targetDocumentId, action) => {
+  if (sessionId) post({ type: "tabCommand", sessionId, documentId: targetDocumentId, action });
+});
 enableFileDrop(bridge, () => sessionId);
 const status = document.createElement("div");
 status.id = "status";
@@ -425,9 +431,30 @@ function applyHostMessage(value: unknown): void {
     return;
   }
 
-  if (message.type === "initialize" && exact("type", "protocolVersion", "sessionId", "text") &&
-      typeof message.sessionId === "string" && /^[0-9a-f]{32}$/.test(message.sessionId) && typeof message.text === "string") {
-    if (message.text.length <= maxMessageChars) initialize(message.sessionId, message.text);
+  if (message.type === "documentTabs" && exact("type", "protocolVersion", "sessionId", "activeDocumentId", "tabs", "busy") &&
+      message.sessionId === sessionId && typeof message.activeDocumentId === "string" && /^[0-9a-f]{32}$/.test(message.activeDocumentId) &&
+      Array.isArray(message.tabs) && typeof message.busy === "boolean") {
+    const tabs: DocumentTab[] = [];
+    const ids = new Set<string>();
+    for (const value of message.tabs) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      const item = value as Record<string, unknown>;
+      if (Object.keys(item).length !== 3 || typeof item.id !== "string" || !/^[0-9a-f]{32}$/.test(item.id) || ids.has(item.id) ||
+          typeof item.title !== "string" || item.title.length > 4096 || typeof item.dirty !== "boolean") return;
+      ids.add(item.id);
+      tabs.push(item as DocumentTab);
+    }
+    if (!ids.has(message.activeDocumentId)) return;
+    for (const cachedId of documentStates.keys()) if (!ids.has(cachedId)) documentStates.delete(cachedId);
+    documentTabs.update(tabs, message.activeDocumentId, message.busy);
+    return;
+  }
+
+  if (message.type === "initialize" &&
+      (exact("type", "protocolVersion", "sessionId", "text") || exact("type", "protocolVersion", "sessionId", "documentId", "text")) &&
+      typeof message.sessionId === "string" && /^[0-9a-f]{32}$/.test(message.sessionId) &&
+      (message.documentId === undefined || typeof message.documentId === "string" && /^[0-9a-f]{32}$/.test(message.documentId)) && typeof message.text === "string") {
+    if (message.text.length <= maxMessageChars) initialize(message.sessionId, message.text, message.documentId as string | undefined);
     else setStatus("文档超过 1,048,576 个 UTF-16 单元，无法加载到编辑器。");
     return;
   }
@@ -480,12 +507,14 @@ function applyHostMessage(value: unknown): void {
       typeof message.notification === "string" && message.notification.length <= 4096 && typeof message.busy === "boolean") {
     toolbar?.updateState(message.title, message.notification, message.busy);
     diskChangePrompt.setBusy(message.busy);
+    documentTabs.setBusy(message.busy);
     return;
   }
   if (message.type === "diskChange" && exact("type", "protocolVersion", "sessionId", "notificationId", "busy") &&
       message.sessionId === sessionId && typeof message.busy === "boolean" &&
       (message.notificationId === null || typeof message.notificationId === "string" && /^[0-9a-f]{32}$/.test(message.notificationId))) {
     diskChangePrompt.update(message.notificationId as string | null, message.busy);
+    documentTabs.setBusy(message.busy);
     return;
   }
   if (message.type === "editorCommand" && exact("type", "protocolVersion", "sessionId", "command") && message.sessionId === sessionId && view) {
@@ -516,15 +545,28 @@ function isSettings(value: unknown): value is Settings {
     typeof item.lineHeight === "number" && Number.isFinite(item.lineHeight) && item.lineHeight >= 1.2 && item.lineHeight <= 2 && typeof item.lineWrapping === "boolean";
 }
 
-function initialize(nextSessionId: string, text: string): void {
-  if (nextSessionId === sessionId) return;
+function initialize(nextSessionId: string, text: string, nextDocumentId?: string): void {
+  if (nextSessionId === sessionId && nextDocumentId === documentId && (nextDocumentId === undefined || view?.state.doc.toString() === text)) return;
   diskChangePrompt.update(null, false);
   currentRichNodes = [];
   footnoteReturn = undefined;
-  if (view) view.destroy();
+  if (statisticsTimer) clearTimeout(statisticsTimer);
+  const sameDocumentChanged = documentId === nextDocumentId && !!documentId && !!view && view.state.doc.toString() !== text;
+  if (sameDocumentChanged) documentStates.delete(documentId!);
+  if (view) {
+    if (documentId && !sameDocumentChanged) {
+      const scrollTo = view.scrollSnapshot();
+      view.dispatch({ effects: [richContent.of([]), imageResources.of(new Map())] });
+      documentStates.set(documentId, { state: view.state, scrollTo });
+    }
+    view.destroy();
+  }
+  if (nextDocumentId && documentStates.get(nextDocumentId)?.state.doc.toString() !== text) documentStates.delete(nextDocumentId);
+  const cached = nextDocumentId ? documentStates.get(nextDocumentId) : undefined;
   outline.reset();
   lightbox.setResources([]);
   sessionId = nextSessionId;
+  documentId = nextDocumentId;
   version = 0;
   fullSnapshotPending = false;
   toolbar?.updateState("", "", false);
@@ -532,7 +574,8 @@ function initialize(nextSessionId: string, text: string): void {
   toolbar?.setSourceMode(false);
   view = new EditorView({
     parent: editorParent!,
-    state: EditorState.create({
+    ...(cached ? { scrollTo: cached.scrollTo } : {}),
+    state: cached?.state ?? EditorState.create({
       doc: text,
       extensions: [
         codeCompartment.of(markdownSupport(text.length)),
@@ -552,6 +595,7 @@ function initialize(nextSessionId: string, text: string): void {
         settingsCompartment.of([]),
         keymap.of([
           { key: "Ctrl-Alt-m", run: toggleSource, preventDefault: true },
+          { key: "Ctrl-w", run: () => documentTabs.closeActive(), preventDefault: true },
           { key: "Ctrl-Enter", run: insertParagraph },
           { key: "Ctrl-n", run: () => sendCommand("new") },
           { key: "Ctrl-o", run: () => sendCommand("open") },
@@ -600,11 +644,15 @@ function initialize(nextSessionId: string, text: string): void {
   });
   view.scrollDOM.addEventListener("scroll", () => outline.onScroll(), { passive: true });
   styleSettings(settings);
+  const sourceMode = isSourceMode(view);
+  view.dom.dataset.sourceMode = String(sourceMode);
+  toolbar?.setSourceMode(sourceMode);
   toolbar?.updateStatistics(0, 0);
   scheduleStatistics();
   sendSnapshot();
   sendStatus(view);
-  post({ type: "sourceMode", sessionId, version, sourceMode: false });
+  post({ type: "sourceMode", sessionId, version, sourceMode });
+  if (nextDocumentId) view.focus();
 }
 
 bridge?.addEventListener("message", (event: MessageEvent<unknown>) => {

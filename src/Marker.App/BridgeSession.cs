@@ -166,6 +166,22 @@ internal sealed class BridgeSession(string sessionId)
         return true;
     }
 
+    public bool TryReadTabCommand(string source, string expectedSource, string json, out Guid documentId, out string action, out string error)
+    {
+        documentId = default;
+        action = string.Empty;
+        if (!TryRead(source, expectedSource, json, "tabCommand", ["type", "protocolVersion", "sessionId", "documentId", "action"], out var root, out error)
+            || !HasMatchingSession(root, out error)) return false;
+        if (!root.TryGetProperty("documentId", out var id) || id.ValueKind != JsonValueKind.String
+            || !Guid.TryParseExact(id.GetString(), "N", out documentId)
+            || !root.TryGetProperty("action", out var kind) || kind.ValueKind != JsonValueKind.String
+            || kind.GetString() is not ("select" or "close"))
+            return Fail("标签页操作无效。", out error);
+        action = kind.GetString()!;
+        error = string.Empty;
+        return true;
+    }
+
     public bool TryReadSnapshotError(string source, string expectedSource, string json, out string requestId, out string reason, out string error)
     {
         requestId = string.Empty;

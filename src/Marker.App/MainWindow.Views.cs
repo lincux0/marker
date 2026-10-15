@@ -66,6 +66,26 @@ public sealed partial class MainWindow
             notification = notification[..Math.Min(notification.Length, 4096)],
             busy = _operationBusy
         }));
+        SendDocumentTabs();
+    }
+
+    private void SendDocumentTabs()
+    {
+        if (_closed || !_editorReady || _editor is null) return;
+        _editor.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        {
+            type = "documentTabs",
+            protocolVersion = BridgeSession.ProtocolVersion,
+            sessionId = _session.SessionId,
+            activeDocumentId = _documentId.ToString("N"),
+            tabs = _documentTabs.Select(tab => new
+            {
+                id = tab.Id.ToString("N"),
+                title = Path.GetFileName(tab.Document.Path) is { Length: > 0 } name ? name : "未命名",
+                dirty = tab.Id == _documentId ? IsDirty : tab.ForceDirty || tab.Text != tab.SavedText
+            }),
+            busy = _operationBusy
+        }));
     }
 
     internal void SendEditorCommand(string command)

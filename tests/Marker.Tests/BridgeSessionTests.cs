@@ -99,6 +99,24 @@ public sealed class BridgeSessionTests
     }
 
     [TestMethod]
+    public void TabCommandsRequireTrustedSessionExactFieldsDocumentIdAndAllowedAction()
+    {
+        var session = new BridgeSession("session-1");
+        const string id = "0123456789abcdef0123456789abcdef";
+        const string select = "{\"type\":\"tabCommand\",\"protocolVersion\":1,\"sessionId\":\"session-1\",\"documentId\":\"" + id + "\",\"action\":\"select\"}";
+        Assert.IsTrue(session.TryReadTabCommand(EditorUrl, EditorUrl, select, out var documentId, out var action, out _));
+        Assert.AreEqual(Guid.ParseExact(id, "N"), documentId);
+        Assert.AreEqual("select", action);
+        Assert.IsTrue(session.TryReadTabCommand(EditorUrl, EditorUrl, select.Replace("select", "close", StringComparison.Ordinal), out _, out action, out _));
+        Assert.AreEqual("close", action);
+        Assert.IsFalse(session.TryReadTabCommand("https://untrusted.invalid", EditorUrl, select, out _, out _, out _));
+        Assert.IsFalse(session.TryReadTabCommand(EditorUrl, EditorUrl, select.Replace("session-1", "stale", StringComparison.Ordinal), out _, out _, out _));
+        Assert.IsFalse(session.TryReadTabCommand(EditorUrl, EditorUrl, select.Replace(id, "bad", StringComparison.Ordinal), out _, out _, out _));
+        Assert.IsFalse(session.TryReadTabCommand(EditorUrl, EditorUrl, select.Replace("select", "save", StringComparison.Ordinal), out _, out _, out _));
+        Assert.IsFalse(session.TryReadTabCommand(EditorUrl, EditorUrl, select.Replace("\"action\":", "\"extra\":true,\"action\":"), out _, out _, out _));
+    }
+
+    [TestMethod]
     public void PdfReadyRejectsStaleVersionsForeignSourcesAndExtraFields()
     {
         var session = new BridgeSession("session-1");
