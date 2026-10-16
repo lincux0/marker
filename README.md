@@ -4,6 +4,32 @@ Marker 是面向 Windows 的本地 Markdown 编辑与阅读器，在同一正文
 
 目前处于早期开发阶段，支持 **Windows 11 24H2（build 26100）及以上、x64**。源码采用 [MIT 许可证](LICENSE)，第三方组件遵循[各自许可证](THIRD_PARTY_NOTICES.md)。
 
+## 界面预览
+
+### 多文档编辑与阅读
+
+在同一正文页面编辑并即时呈现 Markdown，通过左侧圆形标签切换已打开的文档。
+
+![Marker 主界面：顶部工具栏、正文阅读区域与左侧多文档圆形标签](docs/images/marker-overview.png)
+
+### 代码高亮
+
+支持多种语言的代码高亮，并可直接复制代码块。
+
+![JavaScript、TypeScript、C# 和 Python 代码高亮与复制按钮](docs/images/marker-code-highlighting.png)
+
+### 数学公式
+
+使用 KaTeX 呈现行内公式与块级公式，支持积分、矩阵和多行对齐等排版。
+
+![行内数学、积分、矩阵乘法和多行对齐公式](docs/images/marker-math.png)
+
+### Mermaid 图表
+
+支持受限的 Mermaid 流程图与时序图，可放大查看、复制源码或编辑图表；不支持的图类型保留可读源码。
+
+![Mermaid 源码和时序图，以及放大查看、复制源码与编辑图表入口](docs/images/marker-mermaid.png)
+
 ## 功能
 
 - 多文档编辑、查找替换、撤销重做、同页源码标记切换；左侧圆形标签可在已打开文档间切换。
