@@ -640,3 +640,11 @@
 - Release EXE 已重新生成，0 错误；存在四项 Vite 依赖资源文件名引起的 PRI249 qualifier 警告。宿主 C# 与保存/未保存确认协议未修改，本轮未重复执行宿主测试或真实 EXE 文件流程，不将上一轮验收记为本次结果。测试页面和 Vite 预览已关闭，没有启动或修改用户实际安装实例。
 - Graphify 使用 code-only/no-cluster 更新到 1556 节点/2901 边，无语义提取；设计检测只提示已有引用块左边线。文档本地链接与 Git diff 检查通过；构建、打包与图谱日志位于 `artifacts/tab-context-menu/`。未执行本轮安装升级、混合 DPI 或真实桌面键盘验收。
 - 已生成本轮 `artifacts/setup/Marker-Setup-0.1.0.0-x64.exe`，SHA-256 `318621d32ea32b4fb516e5b68507ebc9b557d8c0e07bacc1f09325587ba646e8`，未签名；Release 内 163 项 Web 资源逐项哈希与最终生产输出一致。
+
+
+## 2026-10-16 补齐运行时许可附件
+
+- 保留根目录标准 MIT 正文；新增 `installer/licenses/NuGetThirdParty.txt`，从当前锁定 NuGet/.NET runtime 包中收集 23 个 LICENSE/NOTICE 原文，按完全相同文本去重为 11 段并保留全部来源包/版本（878,846 字节）。补齐 .NET 自包含 runtime、Windows App SDK、WebView2、Windows AI MachineLearning、Tensors 的许可原文；构建工具及纯引用包单独说明，不将其当成随应用分发的组件。项目 MIT 不替代第三方条款。
+- Setup 显式纳入新增附件；Release/publish/MSIX 继续通过现有项目通配映射纳入，无需修改运行时代码。维护者确认图标源图及衍生图可按 MIT 发布，来源确认记录于第三方清单。NuGet 原文含三处尾部空白及结尾空行，针对该附件设置精确的 Git 文本/空白属性，保留上游内容，不放宽项目代码检查。
+- 验证：23 份本地源文本逐项匹配，未嵌入本机目录；`build.ps1 -Package` 的 Web 类型检查、生产/Release 构建、MSTest 与未签名 MSIX 构建完成，82 项通过、2 项重解析点权限跳过、0 失败。Release 有四项既有 PRI249 资源名警告；MSIX 最终构建 0 警告/0 错误。直接读取新 MSIX，对项目许可、第三方清单及五份附件共 7 项逐项与 Release 和源文件比较 SHA-256，一致。
+- 新 Setup 编译成功，构建日志确认读取 NuGet 附件；SHA-256 `07c4fcdcf5cf3f34ea305fc3936b5affdcfa18220fe7f42312b425680cc87053`。本轮未安装/升级，也未改变签名与支持平台；MSIX/Setup 均未签名。证据位于 `artifacts/open-source-prep/`，本次未启动应用，不改用户设置/草稿。

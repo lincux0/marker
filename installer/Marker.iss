@@ -47,6 +47,7 @@ Source: "{#ProjectRoot}\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignore
 Source: "{#ProjectRoot}\installer\licenses\MIT.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "{#ProjectRoot}\installer\licenses\Apache-2.0.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "{#ProjectRoot}\installer\licenses\WebThirdParty.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "{#ProjectRoot}\installer\licenses\NuGetThirdParty.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "{#ProjectRoot}\installer\licenses\Markdig.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 
 [Icons]

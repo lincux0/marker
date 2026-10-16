@@ -1,0 +1,2 @@
+# Preserve the original whitespace in bundled upstream notices.
+installer/licenses/NuGetThirdParty.txt -text whitespace=-blank-at-eol,-blank-at-eof
