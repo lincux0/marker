@@ -671,3 +671,9 @@
 - 现场工具视图的用户库为 8192 字节，`user_version=1`、`integrity_check=ok`，因此未改动该库；历史上工具视图与真实桌面进程的文件视图曾不同，本次仍需从用户桌面快捷方式确认实际读写结果。桌面快捷方式指向 `D:\markersetup\Marker.App.exe`，升级前安装目录与仓库 Release 字节不同。
 - 针对性 `SettingsDatabaseTests` 18 通过；完整 MSTest 86 通过、2 项重解析点权限条件跳过、0 失败。Web 类型检查与生产构建通过；锁定依赖还原通过，Release 解决方案构建 0 警告、0 错误。首次完整脚本在受限执行环境的 `dotnet restore` 阶段无错误文字地失败，改在允许的执行环境完成还原和构建；首次针对性测试在系统临时目录遇到重命名权限限制，改用仓库内临时目录后全部通过。Graphify 按 code-only/no-cluster 更新至 1562 节点、2922 边，未做语义提取。
 - 重新生成未签名 Setup：`artifacts/setup/Marker-Setup-0.1.0.0-x64.exe`，SHA-256 `264fa6eda0dfc2fe16e1384a7e0d3e731096041b32b9fdc5ffd0fc7cf8a1f074`。应用未运行时，Setup 静默升级 `D:\markersetup` 成功（退出码 0）；安装目录 `Marker.App.exe` 和 `Marker.App.dll` 均与本轮 Release 输出的 SHA-256 相同。用户随后从桌面快捷方式打开设置、修改一项偏好、退出并重开，明确反馈报错消失且偏好保留；这是用户入口的验收结果，零字节文件的原始形成原因仍未知。用户原有 `docs/测试文档.md` 修改保留且未纳入提交。
+
+## 2026-10-16 1.0.1.0 版本配置与发布构建
+
+- 用户指定 GitHub Release 使用标签 `1.0.1`，应用与 Setup 版本统一为 `1.0.1.0`，并选择正式发布。同步 `Package.appxmanifest`、项目程序集版本、Win32 manifest 和工程指南中的当前 Setup 路径；历史验收记录中的旧版本与哈希保留原样。现有 `1.0.0` Release 仅提供 Setup 与 SHA-256，1.0.1 延续该公开资产范围。
+- 从当前修复分支执行锁定还原、Web 类型检查/生产构建、Release 解决方案构建、MSTest 和未签名 MSIX 打包，均成功；MSTest 86 通过、2 项重解析点权限条件跳过、0 失败。Release 有 4 条既有 PRI249 资源限定符警告，MSIX 最终构建 0 警告、0 错误。163 份 Web 文件与 Release 输出逐项哈希一致，许可证与第三方通知附件均存在；Setup 和 MSIX 内部版本为 `1.0.1.0`，均未签名。Setup SHA-256 为 `4be26d4d638fcef8083ccd0a8f081efc70d4376bbcd87a2ec3016915ad52c23a`；该值对应本次分支构建，最终 GitHub 资产以发布时重新核验的哈希为准。
+- Graphify 按 code-only/no-cluster 更新为 1562 节点、2922 边，未做语义提取。用户原有 `docs/测试文档.md` 修改保留；最低系统、混合 DPI、正式签名及生产 MSIX 安装尚未在本轮复验，GitHub PR 检查、合并与最终 Release 另行核对，不将本地打包视为远端发布完成。
