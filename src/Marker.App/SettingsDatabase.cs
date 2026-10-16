@@ -19,7 +19,8 @@ internal static class SettingsDatabase
         try
         {
             CheckSafePaths(fullDirectory, databasePath);
-            if (File.Exists(databasePath)) return ReadExisting(databasePath);
+            if (File.Exists(databasePath) && !PreserveEmptyDatabase(fullDirectory, databasePath))
+                return ReadExisting(databasePath);
 
             var legacy = AppSettings.Load(fullDirectory);
             var settings = legacy.CanSave ? legacy.Settings : AppSettings.Default;
@@ -72,29 +73,20 @@ internal static class SettingsDatabase
         if (existed && new FileInfo(databasePath).Length == 0)
             throw new InvalidDataException("设置数据库为空，未覆盖原文件。");
 
-        using var connection = Open(databasePath);
         if (existed)
         {
+            using var connection = Open(databasePath);
             ValidateSchema(connection);
             EnsureDeleteJournal(connection);
+            using var transaction = connection.BeginTransaction();
+            WriteRow(connection, transaction, settings);
+            transaction.Commit();
         }
         else
         {
-            EnsureDeleteJournal(connection);
-            using var transaction = connection.BeginTransaction();
-            Execute(connection, transaction, "CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 1), schema_version INTEGER NOT NULL, payload TEXT NOT NULL)");
-            Execute(connection, transaction, $"PRAGMA user_version = {DatabaseSchemaVersion}");
-            WriteRow(connection, transaction, settings);
-            transaction.Commit();
+            CreateDatabase(fullDirectory, databasePath, settings);
         }
         CheckSafePaths(fullDirectory, databasePath);
-
-        if (existed)
-        {
-            using var transaction = connection.BeginTransaction();
-            WriteRow(connection, transaction, settings);
-            transaction.Commit();
-        }
     }
 
     private static AppSettingsLoadResult ReadExisting(string databasePath)
@@ -130,6 +122,49 @@ internal static class SettingsDatabase
         using var reader = row.ExecuteReader();
         if (!reader.Read() || reader.GetInt64(0) != 1 || reader.GetInt64(1) != 1)
             throw new InvalidDataException("设置数据库记录或版本无效，已保留原文件。");
+    }
+
+    private static bool PreserveEmptyDatabase(string directory, string databasePath)
+    {
+        using (var stream = new FileStream(databasePath, FileMode.Open, FileAccess.Read, FileShare.Delete))
+        {
+            if (stream.Length != 0) return false;
+            EnsureNoSqliteSidecars(databasePath);
+            var backupPath = Path.Combine(directory, $"{DatabaseFileName}.empty-{Guid.NewGuid():N}.bak");
+            File.Move(databasePath, backupPath);
+        }
+        return true;
+    }
+
+    private static void EnsureNoSqliteSidecars(string databasePath)
+    {
+        foreach (var suffix in new[] { JournalSuffix, "-wal", "-shm" })
+            if (File.Exists(databasePath + suffix))
+                throw new InvalidDataException("设置数据库存在 SQLite 旁路文件，未移动原文件。");
+    }
+
+    private static void CreateDatabase(string directory, string databasePath, AppSettings settings)
+    {
+        var temporaryPath = Path.Combine(directory, $"{DatabaseFileName}.new-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            CheckSafePaths(directory, temporaryPath);
+            using (var connection = Open(temporaryPath))
+            {
+                EnsureDeleteJournal(connection);
+                using var transaction = connection.BeginTransaction();
+                Execute(connection, transaction, "CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 1), schema_version INTEGER NOT NULL, payload TEXT NOT NULL)");
+                Execute(connection, transaction, $"PRAGMA user_version = {DatabaseSchemaVersion}");
+                WriteRow(connection, transaction, settings);
+                transaction.Commit();
+            }
+            CheckSafePaths(directory, temporaryPath);
+            File.Move(temporaryPath, databasePath);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
     }
 
     private static SqliteConnection Open(string databasePath, bool readOnly = false)

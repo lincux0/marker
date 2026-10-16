@@ -27,6 +27,7 @@ public sealed class SettingsDatabaseTests
         Assert.IsNull(reloaded.Warning);
         Assert.AreEqual(expected with { HiddenToolbarActions = reloaded.Settings.HiddenToolbarActions }, reloaded.Settings);
         CollectionAssert.AreEqual(expected.HiddenToolbarActions, reloaded.Settings.HiddenToolbarActions);
+        Assert.AreEqual(0, Directory.GetFiles(temp.Path, "settings.db.new-*.tmp").Length);
     }
 
     [TestMethod]
@@ -67,7 +68,6 @@ public sealed class SettingsDatabaseTests
 
     [DataTestMethod]
     [DataRow("not a database")]
-    [DataRow("")]
     public void DamagedDatabaseIsPreservedAndDisablesWrites(string contents)
     {
         using var temp = new TempDirectory();
@@ -86,6 +86,60 @@ public sealed class SettingsDatabaseTests
             Assert.IsTrue(loaded.Warning.Contains("SQLite ", StringComparison.Ordinal));
         AssertStorageException(() => SettingsDatabase.Save(temp.Path, AppSettings.Default));
         CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
+    }
+
+    [TestMethod]
+    public void RecoversZeroByteDatabaseToUniqueBackupAndCreatesDatabase()
+    {
+        using var temp = new TempDirectory();
+        var databasePath = Path.Combine(temp.Path, "settings.db");
+        File.WriteAllBytes(databasePath, []);
+        var legacy = AppSettings.Default with { Theme = "dark" };
+        legacy.Save(temp.Path);
+
+        var loaded = SettingsDatabase.Load(temp.Path);
+
+        Assert.IsTrue(loaded.CanSave, loaded.Warning);
+        Assert.AreEqual("dark", loaded.Settings.Theme);
+        var backups = Directory.GetFiles(temp.Path, "settings.db.empty-*.bak");
+        Assert.AreEqual(1, backups.Length);
+        Assert.AreEqual(0L, new FileInfo(backups[0]).Length);
+        Assert.IsTrue(SettingsDatabase.Load(temp.Path).CanSave);
+    }
+
+    [DataTestMethod]
+    [DataRow("-journal")]
+    [DataRow("-wal")]
+    [DataRow("-shm")]
+    public void DoesNotMoveZeroByteDatabaseWithSqliteSidecar(string suffix)
+    {
+        using var temp = new TempDirectory();
+        var databasePath = Path.Combine(temp.Path, "settings.db");
+        File.WriteAllBytes(databasePath, []);
+        File.WriteAllText(databasePath + suffix, "sidecar");
+
+        var loaded = SettingsDatabase.Load(temp.Path);
+
+        Assert.IsFalse(loaded.CanSave);
+        Assert.AreEqual(0L, new FileInfo(databasePath).Length);
+        Assert.AreEqual(0, Directory.GetFiles(temp.Path, "settings.db.empty-*.bak").Length);
+    }
+
+    [TestMethod]
+    public void DoesNotMoveZeroByteDatabaseWhileItIsOpenExclusively()
+    {
+        using var temp = new TempDirectory();
+        var databasePath = Path.Combine(temp.Path, "settings.db");
+        File.WriteAllBytes(databasePath, []);
+
+        using (new FileStream(databasePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var loaded = SettingsDatabase.Load(temp.Path);
+
+            Assert.IsFalse(loaded.CanSave);
+            Assert.AreEqual(0L, new FileInfo(databasePath).Length);
+            Assert.AreEqual(0, Directory.GetFiles(temp.Path, "settings.db.empty-*.bak").Length);
+        }
     }
 
     [DataTestMethod]
