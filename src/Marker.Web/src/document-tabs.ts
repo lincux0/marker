@@ -1,5 +1,5 @@
 export type DocumentTab = { id: string; title: string; dirty: boolean };
-type TabView = { item: HTMLElement; select: HTMLButtonElement; close: HTMLButtonElement; label: Text; dirty: HTMLSpanElement };
+type TabView = { item: HTMLElement; select: HTMLButtonElement; label: Text; dirty: HTMLSpanElement };
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 export class DocumentTabs {
@@ -9,6 +9,10 @@ export class DocumentTabs {
   private activeId = "";
   private busy = false;
   private readonly views = new Map<string, TabView>();
+  private readonly menu = document.createElement("div");
+  private readonly menuButton = document.createElement("button");
+  private menuTargetId: string | undefined;
+  private menuOpener: HTMLButtonElement | undefined;
 
   constructor(parent: HTMLElement, private readonly command: (documentId: string, action: "select" | "close") => void) {
     this.element.className = "marker-document-tabs";
@@ -17,13 +21,51 @@ export class DocumentTabs {
     this.list.setAttribute("role", "list");
     this.element.append(this.list);
     parent.append(this.element);
+    this.menu.className = "marker-document-tab-menu";
+    this.menu.id = "marker-document-tab-menu";
+    this.menu.setAttribute("popover", "auto");
+    this.menu.setAttribute("aria-label", "标签页操作");
+    this.menuButton.type = "button";
+    this.menuButton.className = "marker-document-tab-menu-item";
+    this.menuButton.textContent = "关闭";
+    this.menu.append(this.menuButton);
+    parent.append(this.menu);
+    this.menuButton.addEventListener("click", () => {
+      const targetId = this.menuTargetId;
+      this.menu.hidePopover();
+      this.menuTargetId = undefined;
+      if (targetId) this.requestClose(targetId);
+    });
+    this.menu.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      const opener = this.menuOpener;
+      this.dismissMenu();
+      if (opener?.isConnected && !opener.disabled) opener.focus({ preventScroll: true });
+    });
     this.element.addEventListener("click", event => {
       const target = event.target;
       if (!(target instanceof Element)) return;
       const button = target.closest<HTMLButtonElement>("button[data-document-id]");
       if (!button || button.disabled) return;
-      const action = button.dataset.action === "close" ? "close" : "select";
-      this.command(button.dataset.documentId!, action);
+      this.command(button.dataset.documentId!, "select");
+    });
+    this.list.addEventListener("contextmenu", event => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest<HTMLButtonElement>("button[data-document-id]");
+      if (!button) return;
+      event.preventDefault();
+      if (!button.disabled) this.openMenu(button.dataset.documentId!, event.clientX, event.clientY);
+    });
+    this.list.addEventListener("keydown", event => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest<HTMLButtonElement>("button[data-document-id]");
+      if (!button || button.disabled || !(event.key === "ContextMenu" || event.shiftKey && event.key === "F10")) return;
+      event.preventDefault();
+      const rect = button.getBoundingClientRect();
+      this.openMenu(button.dataset.documentId!, rect.right, rect.bottom);
     });
   }
 
@@ -32,6 +74,7 @@ export class DocumentTabs {
     this.activeId = activeId;
     this.busy = busy;
     const ids = new Set(tabs.map(tab => tab.id));
+    if (this.menuTargetId && (!ids.has(this.menuTargetId) || busy)) this.dismissMenu();
     for (const [id, view] of this.views) {
       if (ids.has(id)) continue;
       view.item.remove();
@@ -48,13 +91,12 @@ export class DocumentTabs {
 
   setBusy(busy: boolean): void {
     this.busy = busy;
-    for (const { select, close } of this.views.values()) select.disabled = close.disabled = busy;
+    if (busy) this.dismissMenu();
+    for (const { select } of this.views.values()) select.disabled = busy;
   }
 
   closeActive(): boolean {
-    if (this.busy || !this.activeId || this.tabs.length === 0) return false;
-    this.command(this.activeId, "close");
-    return true;
+    return this.requestClose(this.activeId);
   }
 
   private createTab(id: string): TabView {
@@ -70,20 +112,10 @@ export class DocumentTabs {
     dirty.className = "marker-document-tab-dirty";
     dirty.setAttribute("aria-hidden", "true");
     select.append(label, dirty);
-    const close = document.createElement("button");
-    close.type = "button";
-    close.className = "marker-document-tab-close";
-    close.dataset.documentId = id;
-    close.dataset.action = "close";
-    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon.setAttribute("viewBox", "0 0 16 16");
-    icon.setAttribute("aria-hidden", "true");
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", "m4 4 8 8M12 4l-8 8");
-    icon.append(path);
-    close.append(icon);
-    item.append(select, close);
-    const result = { item, select, close, label, dirty };
+    select.setAttribute("aria-controls", this.menu.id);
+    select.setAttribute("aria-keyshortcuts", "Shift+F10 ContextMenu");
+    item.append(select);
+    const result = { item, select, label, dirty };
     this.views.set(id, result);
     return result;
   }
@@ -96,9 +128,35 @@ export class DocumentTabs {
     view.select.setAttribute("aria-label", `切换到${tab.title}${tab.dirty ? "，有未保存修改" : ""}`);
     view.select.setAttribute("aria-current", selected ? "page" : "false");
     view.select.classList.toggle("is-active", selected);
-    view.select.disabled = view.close.disabled = this.busy;
+    view.select.disabled = this.busy;
     view.dirty.hidden = !tab.dirty;
-    view.close.setAttribute("aria-label", `关闭${tab.title}`);
-    view.close.title = `关闭${tab.title}`;
+  }
+
+  private openMenu(id: string, x: number, y: number): void {
+    const tab = this.tabs.find(item => item.id === id);
+    const opener = this.views.get(id)?.select;
+    if (!tab || !opener || this.busy) return;
+    if (this.menu.matches(":popover-open")) this.menu.hidePopover();
+    this.menuTargetId = id;
+    this.menuOpener = opener;
+    this.menuButton.setAttribute("aria-label", "关闭");
+    this.menuButton.title = `关闭${tab.title}`;
+    this.menu.showPopover();
+    const rect = this.menu.getBoundingClientRect();
+    const margin = 8;
+    this.menu.style.left = `${Math.max(margin, Math.min(x, innerWidth - rect.width - margin))}px`;
+    this.menu.style.top = `${Math.max(margin, Math.min(y, innerHeight - rect.height - margin))}px`;
+    this.menuButton.focus();
+  }
+
+  private dismissMenu(): void {
+    if (this.menu.matches(":popover-open")) this.menu.hidePopover();
+    this.menuTargetId = undefined;
+  }
+
+  private requestClose(id: string): boolean {
+    if (this.busy || !this.tabs.some(tab => tab.id === id)) return false;
+    this.command(id, "close");
+    return true;
   }
 }
