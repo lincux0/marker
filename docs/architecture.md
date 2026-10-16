@@ -16,9 +16,9 @@
 | `src/` | 应用源代码，包含桌面端与独立 Web 工程。 |
 | `tests/` | 自动化测试工程，覆盖桥接、Markdown、文件恢复和受控图片逻辑。 |
 | `scripts/` | 本地 SDK 准备、构建、开发签名、MSIX 烟雾测试、Islands 生产宿主、M4 文件激活/网页回归和截图脚本。 |
-| `installer/` | Inno Setup 当前用户安装配置及 SQLite 依赖的完整许可证文本；`scripts/build-setup.ps1` 包装现有自包含 x64 Release 输出。 |
+| `installer/` | Inno Setup 当前用户安装配置及 NuGet/.NET、Web、Markdig、SQLite 等依赖的许可原文；`scripts/build-setup.ps1` 包装现有自包含 x64 Release 输出。 |
 | `experiments/Marker.IslandsProbe/` | 独立 Win32 + WinUI 3 XAML Islands + windowed WebView2 宿主实验，不属于解决方案或 MSIX。 |
-| `.github/workflows/` | Windows CI 构建工作流定义；远端是否执行需看 Actions 记录。 |
+| `.github/` | Windows CI（构建、测试、未签名 Setup/MSIX 与哈希 artifact）、Issue/PR 模板及 Dependabot 月度更新配置；远端结果以对应提交的 Actions 记录为准。 |
 | `docs/` | 产品方案、工程指南、架构、决策和历程文档。 |
 | `AGENTS.md` | 仓库开发与文档持续维护要求。 |
 | `LICENSE` | 项目 MIT 许可证。 |

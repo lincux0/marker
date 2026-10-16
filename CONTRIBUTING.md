@@ -28,4 +28,4 @@
 
 贡献内容须有权按项目 MIT 分发，保留已有版权及第三方条款。来源不明的图标、字体、图片和代码不可提交；第三方内容记录来源与适用许可。
 
-CI 在 Windows 构建未签名 MSIX 并上传 artifact，不自动创建正式 Release。区分网页 mock、真实桌面、包安装与远端 CI；未执行写明未执行，不虚构验证结果。
+CI 在 Windows 构建未签名 Setup/MSIX，并上传安装包及 Setup SHA-256 artifact，不自动创建正式 Release。区分网页 mock、真实桌面、包安装与远端 CI；未执行写明未执行，不虚构验证结果。

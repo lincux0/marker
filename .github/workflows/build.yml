@@ -8,12 +8,15 @@ permissions:
 jobs:
   build:
     runs-on: windows-2025
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '10.0.401'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24.19.0'
           cache: npm
@@ -23,8 +26,16 @@ jobs:
       - name: Check and build unsigned MSIX
         shell: pwsh
         run: ./scripts/build.ps1 -Package
-      - uses: actions/upload-artifact@v4
+      - name: Build unsigned Setup from the verified Release output
+        shell: pwsh
+        run: ./scripts/build-setup.ps1 -SkipBuild
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: marker-x64-unsigned
-          path: artifacts/msix/**
+          name: marker-setup-x64-unsigned
+          path: artifacts/setup/**
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: marker-msix-x64-unsigned
+          path: artifacts/msix/**/*.msix
           if-no-files-found: error

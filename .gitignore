@@ -11,3 +11,16 @@ artifacts/
 *.p12
 *.binlog
 graphify-out/
+
+# Credentials and local user databases
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
